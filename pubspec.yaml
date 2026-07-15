@@ -1,0 +1,37 @@
+name: klipa_player_windows
+description: Klipa Player — a lightweight, local-first IPTV player for Windows.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.11.0 <4.0.0'
+
+dependencies:
+  crypto: ^3.0.7
+  ffi: ^2.1.4
+  filepicker_windows: ^3.0.2
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^3.3.2
+  media_kit: ^1.2.6
+  media_kit_libs_video: ^1.0.7
+  media_kit_video: ^2.0.1
+  path_provider: ^2.1.6
+  sqlite3: ^3.3.4
+  win32: ^6.3.0
+  xml: ^7.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/branding/logo_mark.png
+
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlite3mc
