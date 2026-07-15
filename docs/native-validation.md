@@ -42,6 +42,10 @@ no remote or publishing step.
   database, WAL and SHM files.
 - The bundled native media backend loads and disposes while scripts, URL
   extractors, and non-required protocols stay disabled.
+- Deterministic lifecycle tests cover first-media timeout and retry, a hung open
+  command, teardown-before-replacement, and rejection of stale completion and
+  error events during rapid channel changes. Native failures are mapped to a
+  generic retryable message rather than exposing provider or libmpv details.
 - The profile runner entered monitor-aware borderless full screen through the
   native window channel and `F`, then `Esc` restored the prior framed window
   placement. The same synthetic unreachable stream kept the visible overlay in

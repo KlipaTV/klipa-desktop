@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../app/app_theme.dart';
 import '../../core/security/network_policy.dart';
@@ -11,29 +9,46 @@ import '../../core/security/sensitive_data_redactor.dart';
 import '../../domain/channel.dart';
 import '../../platform/app_window_controller.dart';
 import 'playback_control_bar.dart';
+import 'playback_error_mapper.dart';
+import 'video_player_port.dart';
 
 class PlayerPane extends StatefulWidget {
   const PlayerPane({
     required this.channel,
     this.windowController = const MethodChannelAppWindowController(),
+    this.playerFactory = createMediaKitVideoPlayerPort,
+    this.channelStartTimeout = const Duration(seconds: 20),
+    this.openCommandTimeout = const Duration(seconds: 5),
+    this.readinessGrace = const Duration(milliseconds: 500),
     super.key,
   });
 
   final Channel? channel;
   final AppWindowController windowController;
+  final VideoPlayerPortFactory playerFactory;
+  final Duration channelStartTimeout;
+  final Duration openCommandTimeout;
+  final Duration readinessGrace;
 
   @override
   State<PlayerPane> createState() => _PlayerPaneState();
 }
 
 class _PlayerPaneState extends State<PlayerPane> {
-  Player? _player;
-  VideoController? _videoController;
+  static const _startTimeoutMessage =
+      'The channel did not start in time. You can try again.';
+
+  VideoPlayerPort? _player;
   StreamSubscription<String>? _errorSubscription;
   StreamSubscription<bool>? _playingSubscription;
   StreamSubscription<bool>? _bufferingSubscription;
   final _focusNode = FocusNode(debugLabel: 'Player');
   Timer? _hideControlsTimer;
+  Timer? _channelStartTimer;
+  Timer? _readinessTimer;
+  Future<void> _openQueue = Future.value();
+  Future<void> _playerDisposal = Future.value();
+  var _openGeneration = 0;
   var _opening = false;
   var _playing = false;
   var _buffering = false;
@@ -47,98 +62,244 @@ class _PlayerPaneState extends State<PlayerPane> {
   @override
   void initState() {
     super.initState();
-    if (widget.channel != null) unawaited(_open(widget.channel!));
+    if (widget.channel case final channel?) _requestOpen(channel);
   }
 
   @override
   void didUpdateWidget(PlayerPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.channel?.id != oldWidget.channel?.id && widget.channel != null) {
-      unawaited(_open(widget.channel!));
+    if (widget.channel?.id != oldWidget.channel?.id) {
+      if (widget.channel case final channel?) {
+        _requestOpen(channel);
+      } else {
+        _requestStop();
+      }
     }
   }
 
-  Future<void> _open(Channel channel) async {
+  void _requestOpen(Channel channel) {
+    final generation = ++_openGeneration;
+    _cancelStartTimers();
+    _hideControlsTimer?.cancel();
     setState(() {
       _opening = true;
       _buffering = true;
+      _playing = false;
       _error = null;
       _controlsVisible = true;
     });
+    _channelStartTimer = Timer(
+      widget.channelStartTimeout,
+      () => _failCurrent(generation, _startTimeoutMessage),
+    );
+    _openQueue = _openQueue.then((_) => _performOpen(channel, generation));
+  }
+
+  void _requestStop() {
+    _openGeneration++;
+    _cancelStartTimers();
     _hideControlsTimer?.cancel();
+    _openQueue = _openQueue.then((_) => _disposeCurrentPlayer());
+  }
+
+  Future<void> _performOpen(Channel channel, int generation) async {
     try {
       await const NetworkPolicy().validateHttpTarget(
         channel.streamUri,
         allowPrivateNetwork: channel.allowsPrivateNetwork,
       );
-      MediaKit.ensureInitialized();
-      final player = _player ??= Player(
-        configuration: const PlayerConfiguration(
-          title: 'Klipa Player',
-          bufferSize: 24 * 1024 * 1024,
-          protocolWhitelist: ['tcp', 'tls', 'http', 'https', 'crypto'],
-        ),
-      );
-      await _errorSubscription?.cancel();
-      _errorSubscription = player.stream.error.listen((message) {
-        if (!mounted) return;
-        _hideControlsTimer?.cancel();
-        setState(() {
-          _error = const SensitiveDataRedactor().text(message);
-          _opening = false;
-          _buffering = false;
-          _controlsVisible = true;
-        });
-      });
-      await _playingSubscription?.cancel();
-      _playingSubscription = player.stream.playing.listen(_handlePlaying);
-      await _bufferingSubscription?.cancel();
-      _bufferingSubscription = player.stream.buffering.listen(_handleBuffering);
+      if (!_isCurrent(channel, generation)) return;
 
-      // libmpv embeds with config loading off by default. These properties also
-      // keep URL extractors and script discovery disabled before any media opens.
-      final nativePlayer = player.platform;
-      if (nativePlayer is! NativePlayer) {
-        throw StateError('Klipa Player requires the native playback backend.');
-      }
-      await nativePlayer.setProperty('ytdl', 'no');
-      await nativePlayer.setProperty('load-scripts', 'no');
-      _videoController ??= VideoController(player);
-      await player.setVolume(_muted ? 0 : _volume);
-      await player.open(
-        Media(channel.streamUri.toString(), httpHeaders: channel.httpHeaders),
+      await _disposeCurrentPlayer();
+      if (!_isCurrent(channel, generation)) return;
+
+      final player = widget.playerFactory();
+      _player = player;
+      _errorSubscription = player.errors.listen(
+        (message) => _handlePlayerError(message, channel, generation, player),
       );
-      if (!mounted || widget.channel?.id != channel.id) return;
-      setState(() => _opening = false);
+      _playingSubscription = player.playingChanges.listen(
+        (playing) => _handlePlaying(playing, channel, generation, player),
+      );
+      _bufferingSubscription = player.bufferingChanges.listen(
+        (buffering) => _handleBuffering(buffering, channel, generation, player),
+      );
+
+      if (mounted) setState(() {});
+      await player
+          .setVolume(_muted ? 0 : _volume)
+          .timeout(widget.openCommandTimeout);
+      if (!_isOwnedAndCurrent(player, channel, generation)) {
+        await _disposePlayerIfOwned(player);
+        return;
+      }
+      await player.open(channel).timeout(widget.openCommandTimeout);
+      if (!_isOwnedAndCurrent(player, channel, generation)) {
+        await _disposePlayerIfOwned(player);
+        return;
+      }
+      _handlePlaying(player.playing, channel, generation, player);
+      _handleBuffering(player.buffering, channel, generation, player);
+    } on TimeoutException {
+      _failCurrent(generation, _startTimeoutMessage);
+    } on NetworkPolicyException catch (error) {
+      _failCurrent(
+        generation,
+        const SensitiveDataRedactor().text(error.toString()),
+      );
     } on Object catch (error) {
-      if (!mounted || widget.channel?.id != channel.id) return;
-      setState(() {
-        _opening = false;
-        _buffering = false;
-        _error = const SensitiveDataRedactor().text(error.toString());
-        _controlsVisible = true;
-      });
+      _failCurrent(generation, PlaybackErrorMapper.userMessage(error));
     }
   }
 
-  void _handlePlaying(bool playing) {
-    if (!mounted) return;
+  bool _isCurrent(Channel channel, int generation) =>
+      mounted &&
+      generation == _openGeneration &&
+      widget.channel?.id == channel.id;
+
+  bool _isOwnedAndCurrent(
+    VideoPlayerPort player,
+    Channel channel,
+    int generation,
+  ) => identical(_player, player) && _isCurrent(channel, generation);
+
+  void _handlePlayerError(
+    String message,
+    Channel channel,
+    int generation,
+    VideoPlayerPort player,
+  ) {
+    if (!_isOwnedAndCurrent(player, channel, generation)) return;
+    _failCurrent(generation, PlaybackErrorMapper.userMessage(message));
+  }
+
+  void _handlePlaying(
+    bool playing,
+    Channel channel,
+    int generation,
+    VideoPlayerPort player,
+  ) {
+    if (!_isOwnedAndCurrent(player, channel, generation)) return;
     _hideControlsTimer?.cancel();
     setState(() {
       _playing = playing;
       _controlsVisible = true;
     });
-    if (playing && !_buffering) _scheduleControlsHide();
+    if (playing) {
+      _considerReady(channel, generation, player);
+    } else {
+      _readinessTimer?.cancel();
+      _readinessTimer = null;
+    }
   }
 
-  void _handleBuffering(bool buffering) {
-    if (!mounted) return;
+  void _handleBuffering(
+    bool buffering,
+    Channel channel,
+    int generation,
+    VideoPlayerPort player,
+  ) {
+    if (!_isOwnedAndCurrent(player, channel, generation)) return;
     _hideControlsTimer?.cancel();
     setState(() {
       _buffering = buffering && _error == null;
       _controlsVisible = true;
     });
-    if (!_buffering && _playing) _scheduleControlsHide();
+    if (_buffering) {
+      _readinessTimer?.cancel();
+      _readinessTimer = null;
+    } else {
+      _considerReady(channel, generation, player);
+    }
+  }
+
+  void _considerReady(Channel channel, int generation, VideoPlayerPort player) {
+    if (!_isOwnedAndCurrent(player, channel, generation) ||
+        !_playing ||
+        _buffering ||
+        _error != null) {
+      return;
+    }
+    _readinessTimer ??= Timer(widget.readinessGrace, () {
+      _readinessTimer = null;
+      if (!_isOwnedAndCurrent(player, channel, generation) ||
+          !_playing ||
+          _buffering ||
+          _error != null) {
+        return;
+      }
+      _channelStartTimer?.cancel();
+      _channelStartTimer = null;
+      setState(() {
+        _opening = false;
+        _controlsVisible = true;
+      });
+      _scheduleControlsHide();
+    });
+  }
+
+  void _failCurrent(int generation, String message) {
+    if (!mounted || generation != _openGeneration) return;
+    _openGeneration++;
+    _cancelStartTimers();
+    _hideControlsTimer?.cancel();
+    final player = _player;
+    setState(() {
+      _opening = false;
+      _playing = false;
+      _buffering = false;
+      _error = message;
+      _controlsVisible = true;
+    });
+    if (player != null) unawaited(_disposePlayerIfOwned(player));
+  }
+
+  void _cancelStartTimers() {
+    _channelStartTimer?.cancel();
+    _channelStartTimer = null;
+    _readinessTimer?.cancel();
+    _readinessTimer = null;
+  }
+
+  List<Future<void>> _detachPlayerSubscriptions() {
+    final subscriptions = [
+      _errorSubscription,
+      _playingSubscription,
+      _bufferingSubscription,
+    ];
+    _errorSubscription = null;
+    _playingSubscription = null;
+    _bufferingSubscription = null;
+    return [
+      for (final subscription in subscriptions)
+        if (subscription != null) subscription.cancel(),
+    ];
+  }
+
+  Future<void> _disposePlayerIfOwned(VideoPlayerPort player) async {
+    if (!identical(_player, player)) return;
+    _player = null;
+    final subscriptionCancellations = _detachPlayerSubscriptions();
+    for (final cancellation in subscriptionCancellations) {
+      unawaited(cancellation);
+    }
+    final disposal = player.dispose();
+    _playerDisposal = disposal;
+    await disposal;
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _disposeCurrentPlayer() async {
+    final player = _player;
+    if (player == null) {
+      final subscriptionCancellations = _detachPlayerSubscriptions();
+      await _playerDisposal;
+      for (final cancellation in subscriptionCancellations) {
+        unawaited(cancellation);
+      }
+      return;
+    }
+    await _disposePlayerIfOwned(player);
   }
 
   void _scheduleControlsHide() {
@@ -211,11 +372,14 @@ class _PlayerPaneState extends State<PlayerPane> {
 
   @override
   void dispose() {
+    _openGeneration++;
+    _cancelStartTimers();
     _hideControlsTimer?.cancel();
     unawaited(_errorSubscription?.cancel());
     unawaited(_playingSubscription?.cancel());
     unawaited(_bufferingSubscription?.cancel());
     unawaited(_player?.dispose());
+    _player = null;
     if (_fullscreen) unawaited(widget.windowController.setFullscreen(false));
     _focusNode.dispose();
     super.dispose();
@@ -261,22 +425,20 @@ class _PlayerPaneState extends State<PlayerPane> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (_videoController case final controller?)
+                  if (_player case final player?)
                     GestureDetector(
                       onDoubleTap: _toggleFullscreen,
-                      child: Video(
-                        controller: controller,
-                        controls: NoVideoControls,
-                        fill: Colors.black,
-                        fit: _fit,
-                      ),
+                      child: player.buildView(fit: _fit),
                     ),
-                  if (_videoController == null || _opening)
+                  if (_player == null || _opening)
                     const Center(
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   if (_error case final error?)
-                    _PlayerError(message: error, onRetry: () => _open(channel)),
+                    _PlayerError(
+                      message: error,
+                      onRetry: () => _requestOpen(channel),
+                    ),
                   Align(
                     alignment: Alignment.bottomCenter,
                     child: IgnorePointer(

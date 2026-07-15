@@ -1,3 +1,3 @@
 #EXTM3U
 #EXTINF:-1 group-title="Validation",Fullscreen fixture
-https://192.0.2.1/live.ts
+https://198.18.0.1:4443/live.ts

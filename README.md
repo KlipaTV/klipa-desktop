@@ -24,6 +24,8 @@ Private developer alpha:
 - Compact live controls for play/pause, mute, app-session volume, fit mode and
   native full screen, with focus-scoped keyboard shortcuts and playback-only
   auto-hide
+- Race-safe channel replacement behind a small playback port, with teardown-first
+  switching, bounded readiness, retry, and generic user-facing native errors
 - Strict HTTP(S), redirect, size, header, protocol and private-network controls
 - Versioned SQLite3MultipleCiphers schema, atomic snapshot writes, DPAPI
   key-sealing, reset primitives, and database/WAL/SHM leak tests

@@ -22,6 +22,12 @@ per action, webview, local server, plugin system, or background scheduler.
 - event-based XML parsing for XMLTV
 - small reviewed Windows interop only where Flutter lacks an API
 
+`PlayerPane` depends only on the small `VideoPlayerPort` surface. Each channel
+replacement invalidates older callbacks, disposes the prior native player
+before creating the next one, and has a bounded first-media readiness window.
+This keeps native lifecycle behavior directly testable without adding a general
+media abstraction layer.
+
 ## Persistence gate
 
 No source, channel URL, credential, or guide URL may be persisted until all of

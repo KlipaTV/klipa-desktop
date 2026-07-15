@@ -13,7 +13,7 @@ manifests, segments, subtitles, and decoder input are all untrusted.
 | Network destinations | URI validation, DNS classification, local/private target denial by default, explicit per-source LAN opt-in |
 | M3U parsing | Background isolate; 25 MiB input, 64 KiB line, 8 KiB field and 100,000 channel limits; binary/NUL rejection; non-HTTP(S) streams skipped |
 | Playlist directives | Only User-Agent, Referer and Origin are accepted; CR/LF values and privileged headers are dropped |
-| Playback | One lazy native player; protocol allowlist is TCP, TLS, HTTP, HTTPS and crypto; libmpv config/scripts and URL extractors are disabled; no local file protocol |
+| Playback | At most one native player; teardown precedes replacement; stale events are rejected; first-media readiness is bounded and retryable; protocol allowlist is TCP, TLS, HTTP, HTTPS and crypto; libmpv config/scripts and URL extractors are disabled; no local file protocol; native errors are replaced with a generic user message |
 | Remote artwork | Disabled. The alpha renders local initials, so an imported logo cannot trigger a nested request |
 | Diagnostics | Common credentials, secret fields and complete URL paths/query/fragment data are redacted; no telemetry or remote logging |
 | Local storage foundation | SQLite3MultipleCiphers is selected through a native-asset hook; schema v2 migrates transactionally, keeps stream/source secrets out of list queries, replaces snapshots atomically, and preserves stable favorites; a random 256-bit key can be DPAPI-sealed to the current user; tests scan the database, live WAL and SHM for seeded secrets and cover wrong/missing keys plus reset primitives |
@@ -29,7 +29,7 @@ database reopened while an unkeyed SQLite connection failed, and the bundled
 native media backend loaded and disposed with the restricted protocol list. A
 private authorized Xtream catalog imported through the masked form and an
 MPEG-TS channel played in the embedded player; unavailable entries failed with
-their credential-bearing URL path redacted. See
+a generic retryable message that did not expose native or provider details. See
 [native-validation.md](native-validation.md).
 
 ## Distribution blockers
