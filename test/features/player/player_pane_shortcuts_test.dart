@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:klipa_player_windows/domain/channel.dart';
 import 'package:klipa_player_windows/features/player/player_pane.dart';
+import 'package:klipa_player_windows/platform/app_window_controller.dart';
 
 void main() {
   testWidgets('mute shortcut is scoped to a focused player', (tester) async {
@@ -50,6 +51,39 @@ void main() {
     expect(find.byTooltip('Mute'), findsOneWidget);
     expect(find.byTooltip('Unmute'), findsNothing);
   });
+
+  testWidgets('F and Escape enter and exit full screen with player focus', (
+    tester,
+  ) async {
+    final windowController = _FakeWindowController();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(),
+        home: Scaffold(
+          body: PlayerPane(
+            channel: _blockedFixtureChannel(),
+            windowController: windowController,
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tapAt(const Offset(400, 300));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.pump();
+    expect(windowController.requests, [true]);
+    expect(find.byTooltip('Exit full screen'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(windowController.requests, [true, false]);
+    expect(find.byTooltip('Enter full screen'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.f11);
+    await tester.pump();
+    expect(windowController.requests, [true, false, true]);
+  });
 }
 
 Channel _blockedFixtureChannel() => Channel(
@@ -59,3 +93,16 @@ Channel _blockedFixtureChannel() => Channel(
   sourceId: 'fixture',
   allowsPrivateNetwork: false,
 );
+
+final class _FakeWindowController implements AppWindowController {
+  final requests = <bool>[];
+
+  @override
+  Future<bool> isFullscreen() async => requests.lastOrNull ?? false;
+
+  @override
+  Future<bool> setFullscreen(bool enabled) async {
+    requests.add(enabled);
+    return enabled;
+  }
+}

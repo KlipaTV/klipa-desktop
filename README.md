@@ -21,8 +21,9 @@ Private developer alpha:
 - Klipa desktop shell, bounded M3U import, search and single-player vertical slice
 - Masked Xtream login with bounded, live-only account/category/stream requests
 - Compact category filtering and background-isolate playlist parsing
-- Compact live controls for play/pause, mute, app-session volume and fit mode,
-  with focus-scoped keyboard shortcuts and playback-only auto-hide
+- Compact live controls for play/pause, mute, app-session volume, fit mode and
+  native full screen, with focus-scoped keyboard shortcuts and playback-only
+  auto-hide
 - Strict HTTP(S), redirect, size, header, protocol and private-network controls
 - Versioned SQLite3MultipleCiphers schema, atomic snapshot writes, DPAPI
   key-sealing, reset primitives, and database/WAL/SHM leak tests

@@ -9,12 +9,18 @@ import '../../app/app_theme.dart';
 import '../../core/security/network_policy.dart';
 import '../../core/security/sensitive_data_redactor.dart';
 import '../../domain/channel.dart';
+import '../../platform/app_window_controller.dart';
 import 'playback_control_bar.dart';
 
 class PlayerPane extends StatefulWidget {
-  const PlayerPane({required this.channel, super.key});
+  const PlayerPane({
+    required this.channel,
+    this.windowController = const MethodChannelAppWindowController(),
+    super.key,
+  });
 
   final Channel? channel;
+  final AppWindowController windowController;
 
   @override
   State<PlayerPane> createState() => _PlayerPaneState();
@@ -25,14 +31,17 @@ class _PlayerPaneState extends State<PlayerPane> {
   VideoController? _videoController;
   StreamSubscription<String>? _errorSubscription;
   StreamSubscription<bool>? _playingSubscription;
+  StreamSubscription<bool>? _bufferingSubscription;
   final _focusNode = FocusNode(debugLabel: 'Player');
   Timer? _hideControlsTimer;
   var _opening = false;
   var _playing = false;
+  var _buffering = false;
   var _controlsVisible = true;
   var _muted = false;
   var _volume = 100.0;
   var _fit = BoxFit.contain;
+  var _fullscreen = false;
   String? _error;
 
   @override
@@ -52,6 +61,7 @@ class _PlayerPaneState extends State<PlayerPane> {
   Future<void> _open(Channel channel) async {
     setState(() {
       _opening = true;
+      _buffering = true;
       _error = null;
       _controlsVisible = true;
     });
@@ -76,11 +86,14 @@ class _PlayerPaneState extends State<PlayerPane> {
         setState(() {
           _error = const SensitiveDataRedactor().text(message);
           _opening = false;
+          _buffering = false;
           _controlsVisible = true;
         });
       });
       await _playingSubscription?.cancel();
       _playingSubscription = player.stream.playing.listen(_handlePlaying);
+      await _bufferingSubscription?.cancel();
+      _bufferingSubscription = player.stream.buffering.listen(_handleBuffering);
 
       // libmpv embeds with config loading off by default. These properties also
       // keep URL extractors and script discovery disabled before any media opens.
@@ -101,6 +114,7 @@ class _PlayerPaneState extends State<PlayerPane> {
       if (!mounted || widget.channel?.id != channel.id) return;
       setState(() {
         _opening = false;
+        _buffering = false;
         _error = const SensitiveDataRedactor().text(error.toString());
         _controlsVisible = true;
       });
@@ -114,13 +128,23 @@ class _PlayerPaneState extends State<PlayerPane> {
       _playing = playing;
       _controlsVisible = true;
     });
-    if (playing) _scheduleControlsHide();
+    if (playing && !_buffering) _scheduleControlsHide();
+  }
+
+  void _handleBuffering(bool buffering) {
+    if (!mounted) return;
+    _hideControlsTimer?.cancel();
+    setState(() {
+      _buffering = buffering && _error == null;
+      _controlsVisible = true;
+    });
+    if (!_buffering && _playing) _scheduleControlsHide();
   }
 
   void _scheduleControlsHide() {
     _hideControlsTimer?.cancel();
     _hideControlsTimer = Timer(const Duration(seconds: 3), () {
-      if (!mounted || !_playing || _error != null) return;
+      if (!mounted || !_playing || _buffering || _error != null) return;
       setState(() => _controlsVisible = false);
     });
   }
@@ -129,7 +153,7 @@ class _PlayerPaneState extends State<PlayerPane> {
     if (!_controlsVisible && mounted) {
       setState(() => _controlsVisible = true);
     }
-    if (_playing) _scheduleControlsHide();
+    if (_playing && !_buffering) _scheduleControlsHide();
   }
 
   void _togglePlayback() {
@@ -163,12 +187,36 @@ class _PlayerPaneState extends State<PlayerPane> {
     });
   }
 
+  Future<void> _setFullscreen(bool enabled) async {
+    _revealControls();
+    try {
+      final fullscreen = await widget.windowController.setFullscreen(enabled);
+      if (!mounted) return;
+      setState(() => _fullscreen = fullscreen);
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(content: Text('Full screen is unavailable.')),
+      );
+    }
+  }
+
+  void _toggleFullscreen() {
+    unawaited(_setFullscreen(!_fullscreen));
+  }
+
+  void _exitFullscreen() {
+    if (_fullscreen) unawaited(_setFullscreen(false));
+  }
+
   @override
   void dispose() {
     _hideControlsTimer?.cancel();
     unawaited(_errorSubscription?.cancel());
     unawaited(_playingSubscription?.cancel());
+    unawaited(_bufferingSubscription?.cancel());
     unawaited(_player?.dispose());
+    if (_fullscreen) unawaited(widget.windowController.setFullscreen(false));
     _focusNode.dispose();
     super.dispose();
   }
@@ -179,14 +227,28 @@ class _PlayerPaneState extends State<PlayerPane> {
     if (channel == null) {
       return const _EmptyPlayer();
     }
+    final controlsVisible = shouldShowPlaybackControls(
+      requestedVisible: _controlsVisible,
+      playing: _playing,
+      buffering: _buffering,
+      opening: _opening,
+      hasError: _error != null,
+    );
 
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.space): _togglePlayback,
         const SingleActivator(LogicalKeyboardKey.keyM): _toggleMute,
+        const SingleActivator(LogicalKeyboardKey.keyF): _toggleFullscreen,
+        const SingleActivator(LogicalKeyboardKey.f11): _toggleFullscreen,
+        const SingleActivator(LogicalKeyboardKey.escape): _exitFullscreen,
       },
       child: Focus(
         focusNode: _focusNode,
+        onKeyEvent: (_, event) {
+          if (event is KeyDownEvent) _revealControls();
+          return KeyEventResult.ignored;
+        },
         child: MouseRegion(
           onHover: (_) => _revealControls(),
           child: Listener(
@@ -200,11 +262,14 @@ class _PlayerPaneState extends State<PlayerPane> {
                 fit: StackFit.expand,
                 children: [
                   if (_videoController case final controller?)
-                    Video(
-                      controller: controller,
-                      controls: NoVideoControls,
-                      fill: Colors.black,
-                      fit: _fit,
+                    GestureDetector(
+                      onDoubleTap: _toggleFullscreen,
+                      child: Video(
+                        controller: controller,
+                        controls: NoVideoControls,
+                        fill: Colors.black,
+                        fit: _fit,
+                      ),
                     ),
                   if (_videoController == null || _opening)
                     const Center(
@@ -215,20 +280,23 @@ class _PlayerPaneState extends State<PlayerPane> {
                   Align(
                     alignment: Alignment.bottomCenter,
                     child: IgnorePointer(
-                      ignoring: !_controlsVisible,
+                      ignoring: !controlsVisible,
                       child: AnimatedOpacity(
-                        opacity: _controlsVisible ? 1 : 0,
+                        opacity: controlsVisible ? 1 : 0,
                         duration: const Duration(milliseconds: 180),
                         child: PlaybackControlBar(
                           channelName: channel.name,
                           playing: _playing,
+                          buffering: _buffering,
                           muted: _muted,
                           volume: _muted ? 0 : _volume,
                           fit: _fit,
+                          fullscreen: _fullscreen,
                           onPlayPause: _player == null ? null : _togglePlayback,
                           onMute: _player == null ? null : _toggleMute,
                           onVolumeChanged: _player == null ? null : _setVolume,
                           onFitChanged: _toggleFit,
+                          onFullscreenChanged: _toggleFullscreen,
                         ),
                       ),
                     ),

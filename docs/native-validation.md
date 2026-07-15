@@ -42,6 +42,11 @@ no remote or publishing step.
   database, WAL and SHM files.
 - The bundled native media backend loads and disposes while scripts, URL
   extractors, and non-required protocols stay disabled.
+- The profile runner entered monitor-aware borderless full screen through the
+  native window channel and `F`, then `Esc` restored the prior framed window
+  placement. The same synthetic unreachable stream kept the visible overlay in
+  `BUFFERING` state instead of incorrectly auto-hiding it. The check used a
+  local test playlist and no provider data.
 - Widget and platform tests cover separate masked Xtream credentials, live-only
   endpoint selection, same-origin M3U compatibility mapping restricted to live
   IDs, background-isolate playlist parsing, bounded M3U/Xtream input,

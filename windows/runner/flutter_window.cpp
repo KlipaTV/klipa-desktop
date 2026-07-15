@@ -1,8 +1,16 @@
 #include "flutter_window.h"
 
 #include <optional>
+#include <variant>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "flutter/standard_method_codec.h"
+
+namespace {
+
+constexpr char kWindowChannel[] = "dev.klipa.player/window";
+
+}  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -25,6 +33,34 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  window_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), kWindowChannel,
+          &flutter::StandardMethodCodec::GetInstance());
+  window_channel_->SetMethodCallHandler(
+      [this](const auto& call, auto result) {
+        if (call.method_name() == "setFullscreen") {
+          const auto* arguments = call.arguments();
+          if (arguments == nullptr ||
+              !std::holds_alternative<bool>(*arguments)) {
+            result->Error("invalid_argument",
+                          "setFullscreen requires a boolean value.");
+            return;
+          }
+          if (!SetFullscreen(std::get<bool>(*arguments))) {
+            result->Error("window_error",
+                          "Windows could not change full-screen mode.");
+            return;
+          }
+          result->Success(flutter::EncodableValue(is_fullscreen_));
+          return;
+        }
+        if (call.method_name() == "isFullscreen") {
+          result->Success(flutter::EncodableValue(is_fullscreen_));
+          return;
+        }
+        result->NotImplemented();
+      });
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -40,11 +76,65 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  window_channel_.reset();
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
 
   Win32Window::OnDestroy();
+}
+
+bool FlutterWindow::SetFullscreen(bool enabled) {
+  if (enabled == is_fullscreen_) {
+    return true;
+  }
+
+  const HWND window = GetHandle();
+  if (window == nullptr) {
+    return false;
+  }
+
+  if (enabled) {
+    windowed_style_ = GetWindowLongPtr(window, GWL_STYLE);
+    windowed_placement_ = {};
+    windowed_placement_.length = sizeof(WINDOWPLACEMENT);
+    if (!GetWindowPlacement(window, &windowed_placement_)) {
+      return false;
+    }
+
+    MONITORINFO monitor_info{};
+    monitor_info.cbSize = sizeof(MONITORINFO);
+    const HMONITOR monitor =
+        MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
+    if (monitor == nullptr || !GetMonitorInfo(monitor, &monitor_info)) {
+      return false;
+    }
+
+    SetWindowLongPtr(window, GWL_STYLE,
+                     windowed_style_ & ~WS_OVERLAPPEDWINDOW);
+    if (!SetWindowPos(window, HWND_TOP, monitor_info.rcMonitor.left,
+                      monitor_info.rcMonitor.top,
+                      monitor_info.rcMonitor.right - monitor_info.rcMonitor.left,
+                      monitor_info.rcMonitor.bottom - monitor_info.rcMonitor.top,
+                      SWP_NOOWNERZORDER | SWP_FRAMECHANGED)) {
+      SetWindowLongPtr(window, GWL_STYLE, windowed_style_);
+      return false;
+    }
+    is_fullscreen_ = true;
+    return true;
+  }
+
+  SetWindowLongPtr(window, GWL_STYLE, windowed_style_);
+  if (!SetWindowPlacement(window, &windowed_placement_)) {
+    return false;
+  }
+  if (!SetWindowPos(window, nullptr, 0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                        SWP_NOOWNERZORDER | SWP_FRAMECHANGED)) {
+    return false;
+  }
+  is_fullscreen_ = false;
+  return true;
 }
 
 LRESULT

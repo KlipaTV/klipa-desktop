@@ -2,29 +2,43 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
 
+bool shouldShowPlaybackControls({
+  required bool requestedVisible,
+  required bool playing,
+  required bool buffering,
+  required bool opening,
+  required bool hasError,
+}) => requestedVisible || !playing || buffering || opening || hasError;
+
 class PlaybackControlBar extends StatelessWidget {
   const PlaybackControlBar({
     required this.channelName,
     required this.playing,
+    required this.buffering,
     required this.muted,
     required this.volume,
     required this.fit,
+    required this.fullscreen,
     required this.onPlayPause,
     required this.onMute,
     required this.onVolumeChanged,
     required this.onFitChanged,
+    required this.onFullscreenChanged,
     super.key,
   });
 
   final String channelName;
   final bool playing;
+  final bool buffering;
   final bool muted;
   final double volume;
   final BoxFit fit;
+  final bool fullscreen;
   final VoidCallback? onPlayPause;
   final VoidCallback? onMute;
   final ValueChanged<double>? onVolumeChanged;
   final VoidCallback onFitChanged;
+  final VoidCallback onFullscreenChanged;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -48,15 +62,15 @@ class PlaybackControlBar extends StatelessWidget {
         Container(
           width: 7,
           height: 7,
-          decoration: const BoxDecoration(
-            color: KlipaColors.live,
+          decoration: BoxDecoration(
+            color: buffering ? KlipaColors.warning : KlipaColors.live,
             shape: BoxShape.circle,
           ),
         ),
         const SizedBox(width: 8),
-        const Text(
-          'LIVE',
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+        Text(
+          buffering ? 'BUFFERING' : 'LIVE',
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -74,6 +88,15 @@ class PlaybackControlBar extends StatelessWidget {
             fit == BoxFit.contain
                 ? Icons.fit_screen_rounded
                 : Icons.fullscreen_exit_rounded,
+          ),
+        ),
+        IconButton(
+          tooltip: fullscreen ? 'Exit full screen' : 'Enter full screen',
+          onPressed: onFullscreenChanged,
+          icon: Icon(
+            fullscreen
+                ? Icons.fullscreen_exit_rounded
+                : Icons.fullscreen_rounded,
           ),
         ),
         IconButton(
