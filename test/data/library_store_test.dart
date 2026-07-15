@@ -41,7 +41,11 @@ void main() {
 
     final restored = await _store(temporaryDirectory).load();
 
-    expect(restored.sources.single.location, contains(locationSecret));
+    expect(restored.sources.single.name, 'Provider');
+    final refreshAccess = await _store(
+      temporaryDirectory,
+    ).readSourceRefreshAccess('source-1');
+    expect(refreshAccess?.source.location, contains(locationSecret));
     expect(restored.channels.single.streamUri.path, contains(streamSecret));
     expect(restored.channels.single.httpHeaders['Origin'], headerSecret);
 
@@ -87,6 +91,38 @@ void main() {
     expect(await temporaryDirectory.list().toList(), isEmpty);
     expect((await store.load()).channels, isEmpty);
   });
+
+  test(
+    'rename keeps secrets isolated and delete cascades the source',
+    () async {
+      final store = _store(temporaryDirectory);
+      await store.replaceSourceSnapshot(
+        source: _source(location: 'https://provider.invalid/private-location'),
+        channels: [
+          _channel(streamUri: Uri.parse('https://stream.invalid/private-live')),
+        ],
+        username: 'private-user',
+        password: 'private-password',
+      );
+
+      await store.renameSource(sourceId: 'source-1', name: 'Renamed source');
+
+      final renamed = await store.load();
+      expect(renamed.sources.single.name, 'Renamed source');
+      expect(renamed.sources.single.toString(), isNot(contains('private')));
+      final access = await store.readSourceRefreshAccess('source-1');
+      expect(access?.source.location, contains('private-location'));
+      expect(access?.username, 'private-user');
+      expect(access?.password, 'private-password');
+
+      await store.deleteSource('source-1');
+
+      final deleted = await store.load();
+      expect(deleted.sources, isEmpty);
+      expect(deleted.channels, isEmpty);
+      expect(await store.readSourceRefreshAccess('source-1'), isNull);
+    },
+  );
 
   test(
     'the production store seals its key with Windows DPAPI',

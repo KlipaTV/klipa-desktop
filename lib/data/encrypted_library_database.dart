@@ -449,26 +449,6 @@ class EncryptedLibraryDatabase {
       )
       .toList(growable: false);
 
-  List<PlaylistSource> loadSources() => _database
-      .select('''
-        SELECT s.id, s.name, s.kind, s.allows_private_network, s.imported_at,
-          x.location
-        FROM playlist_sources s
-        INNER JOIN source_secrets x ON x.source_id = s.id
-        ORDER BY s.name COLLATE NOCASE, s.id
-      ''')
-      .map(
-        (row) => PlaylistSource(
-          id: row['id'] as String,
-          name: row['name'] as String,
-          kind: PlaylistSourceKind.values.byName(row['kind'] as String),
-          location: row['location'] as String,
-          allowsPrivateNetwork: row['allows_private_network'] == 1,
-          importedAt: DateTime.parse(row['imported_at'] as String),
-        ),
-      )
-      .toList(growable: false);
-
   List<LibraryChannelSummary> loadChannelSummaries({String? sourceId}) {
     final where = sourceId == null ? '' : 'WHERE c.source_id = ?';
     return _database
@@ -613,6 +593,27 @@ class EncryptedLibraryDatabase {
         [sourceId, channelId],
       );
     }
+  }
+
+  void renameSource({required String sourceId, required String name}) {
+    final normalized = name.trim();
+    if (normalized.isEmpty ||
+        normalized.length > 120 ||
+        normalized.contains('\r') ||
+        normalized.contains('\n')) {
+      throw const LibraryDatabaseException('Enter a valid source name.');
+    }
+    _database.execute('UPDATE playlist_sources SET name = ? WHERE id = ?', [
+      normalized,
+      sourceId,
+    ]);
+    if (_database.updatedRows == 0) {
+      throw const LibraryDatabaseException('The source no longer exists.');
+    }
+  }
+
+  void deleteSource(String sourceId) {
+    _database.execute('DELETE FROM playlist_sources WHERE id = ?', [sourceId]);
   }
 
   void writeProbeForTest(String value) {

@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_theme.dart';
 import '../../domain/channel.dart';
+import '../../domain/library_source.dart';
+import '../../domain/playlist_source.dart';
 import '../player/player_pane.dart';
 import 'library_controller.dart';
 import 'library_state.dart';
@@ -46,6 +48,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         },
         const SingleActivator(LogicalKeyboardKey.keyF, control: true):
             _searchFocus.requestFocus,
+        const SingleActivator(LogicalKeyboardKey.keyR, control: true): () {
+          unawaited(controller.refreshActiveSource());
+        },
       },
       child: Focus(
         autofocus: true,
@@ -73,6 +78,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   searchFocus: _searchFocus,
                   playerController: _playerController,
                   onReset: () => _confirmAndReset(controller),
+                  onRenameSource: (source) => _renameSource(source, controller),
+                  onRefreshSource: (source) =>
+                      unawaited(controller.refreshSource(source.id)),
+                  onDeleteSource: (source) => _deleteSource(source, controller),
                 ),
               if (state.isImporting || state.isResetting)
                 const Positioned.fill(
@@ -110,6 +119,29 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     await _playerController.stop();
     if (!mounted) return;
     await controller.resetLibrary();
+  }
+
+  Future<void> _renameSource(
+    LibrarySource source,
+    LibraryController controller,
+  ) async {
+    final name = await _showRenameSourceDialog(context, source);
+    if (name == null || !mounted) return;
+    await controller.renameSource(source.id, name);
+  }
+
+  Future<void> _deleteSource(
+    LibrarySource source,
+    LibraryController controller,
+  ) async {
+    final confirmed = await _showDeleteSourceDialog(context, source);
+    if (confirmed != true || !mounted) return;
+    final state = ref.read(libraryControllerProvider);
+    if (state.selectedChannel?.sourceId == source.id) {
+      await _playerController.stop();
+    }
+    if (!mounted) return;
+    await controller.deleteSource(source.id);
   }
 }
 
@@ -231,6 +263,9 @@ class _DesktopLibrary extends StatelessWidget {
     required this.searchFocus,
     required this.playerController,
     required this.onReset,
+    required this.onRenameSource,
+    required this.onRefreshSource,
+    required this.onDeleteSource,
   });
 
   final LibraryState state;
@@ -238,20 +273,36 @@ class _DesktopLibrary extends StatelessWidget {
   final FocusNode searchFocus;
   final PlayerPaneController playerController;
   final VoidCallback onReset;
+  final ValueChanged<LibrarySource> onRenameSource;
+  final ValueChanged<LibrarySource> onRefreshSource;
+  final ValueChanged<LibrarySource> onDeleteSource;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
+      final expandedSources = constraints.maxWidth >= 1100;
       final compact = constraints.maxWidth < 980;
       return Row(
         children: [
-          _SourceRail(controller: controller, onReset: onReset),
+          _SourceRail(
+            state: state,
+            controller: controller,
+            expanded: expandedSources,
+            onReset: onReset,
+            onRenameSource: onRenameSource,
+            onRefreshSource: onRefreshSource,
+            onDeleteSource: onDeleteSource,
+          ),
           SizedBox(
             width: compact ? 280 : 340,
             child: _ChannelBrowser(
               state: state,
               controller: controller,
               searchFocus: searchFocus,
+              showSourceFilter: !expandedSources,
+              onRenameSource: onRenameSource,
+              onRefreshSource: onRefreshSource,
+              onDeleteSource: onDeleteSource,
             ),
           ),
           const VerticalDivider(width: 1),
@@ -268,61 +319,362 @@ class _DesktopLibrary extends StatelessWidget {
 }
 
 class _SourceRail extends StatelessWidget {
-  const _SourceRail({required this.controller, required this.onReset});
+  const _SourceRail({
+    required this.state,
+    required this.controller,
+    required this.expanded,
+    required this.onReset,
+    required this.onRenameSource,
+    required this.onRefreshSource,
+    required this.onDeleteSource,
+  });
 
+  final LibraryState state;
   final LibraryController controller;
+  final bool expanded;
   final VoidCallback onReset;
+  final ValueChanged<LibrarySource> onRenameSource;
+  final ValueChanged<LibrarySource> onRefreshSource;
+  final ValueChanged<LibrarySource> onDeleteSource;
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 72,
+    width: expanded ? 236 : 72,
     color: KlipaColors.inkRaised,
-    child: Column(
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 18),
-          child: _BrandMark(size: 34),
-        ),
-        const Divider(height: 1),
-        const SizedBox(height: 10),
-        const _RailButton(
-          tooltip: 'Live TV',
-          icon: Icons.live_tv_rounded,
-          selected: true,
-        ),
-        const Spacer(),
-        _RailButton(
-          tooltip: 'Add local playlist',
-          icon: Icons.playlist_add_rounded,
-          onPressed: controller.importFile,
-        ),
-        _RailButton(
-          tooltip: 'Add playlist URL',
-          icon: Icons.add_link_rounded,
-          onPressed: () => _showUrlDialog(context, controller),
-        ),
-        _RailButton(
-          tooltip: 'Use Xtream login',
-          icon: Icons.key_rounded,
-          onPressed: () => _showXtreamDialog(context, controller),
-        ),
-        _RailButton(
-          tooltip: 'Reset app data',
-          icon: Icons.delete_outline_rounded,
-          onPressed: onReset,
-        ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(8, 10, 8, 16),
-          child: Tooltip(
-            message: 'Klipa for mobile',
-            child: Icon(
-              Icons.phone_android_rounded,
-              size: 19,
-              color: KlipaColors.foregroundDim,
+    child: expanded ? _expanded(context) : _compact(context),
+  );
+
+  Widget _expanded(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const Padding(
+        padding: EdgeInsets.fromLTRB(16, 16, 12, 14),
+        child: Row(
+          children: [
+            _BrandMark(size: 34),
+            SizedBox(width: 11),
+            Expanded(
+              child: Text(
+                'Klipa Player',
+                maxLines: 1,
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+              ),
             ),
+          ],
+        ),
+      ),
+      const Divider(height: 1),
+      const SizedBox(height: 10),
+      _SourceListTile(
+        key: const Key('source-all'),
+        name: 'All channels',
+        count: state.channels.length,
+        selected: state.selectedSourceId == null,
+        icon: Icons.live_tv_rounded,
+        onPressed: () => controller.filterSource(null),
+      ),
+      const Padding(
+        padding: EdgeInsets.fromLTRB(18, 18, 12, 7),
+        child: Text(
+          'SOURCES',
+          style: TextStyle(
+            color: KlipaColors.foregroundDim,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1,
           ),
         ),
-      ],
+      ),
+      Expanded(
+        child: ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          itemCount: state.sources.length,
+          itemBuilder: (context, index) {
+            final source = state.sources[index];
+            final channelCount = state.channels
+                .where((channel) => channel.sourceId == source.id)
+                .length;
+            return _SourceListTile(
+              key: ValueKey('source-${source.id}'),
+              name: source.name,
+              count: channelCount,
+              selected: state.selectedSourceId == source.id,
+              icon: _sourceIcon(source.kind),
+              onPressed: () => controller.filterSource(source.id),
+              menu: PopupMenuButton<_SourceAction>(
+                tooltip: 'Manage ${source.name}',
+                enabled: !state.isImporting,
+                onSelected: (action) => switch (action) {
+                  _SourceAction.refresh => onRefreshSource(source),
+                  _SourceAction.rename => onRenameSource(source),
+                  _SourceAction.delete => onDeleteSource(source),
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: _SourceAction.refresh,
+                    child: Text('Refresh'),
+                  ),
+                  PopupMenuItem(
+                    value: _SourceAction.rename,
+                    child: Text('Rename'),
+                  ),
+                  PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: _SourceAction.delete,
+                    child: Text('Delete'),
+                  ),
+                ],
+                icon: const Icon(Icons.more_horiz_rounded, size: 18),
+              ),
+            );
+          },
+        ),
+      ),
+      const Divider(height: 1),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _SmallRailButton(
+              tooltip: 'Add local playlist',
+              icon: Icons.playlist_add_rounded,
+              onPressed: state.isImporting ? null : controller.importFile,
+            ),
+            _SmallRailButton(
+              tooltip: 'Add playlist URL',
+              icon: Icons.add_link_rounded,
+              onPressed: state.isImporting
+                  ? null
+                  : () => _showUrlDialog(context, controller),
+            ),
+            _SmallRailButton(
+              tooltip: 'Use Xtream login',
+              icon: Icons.key_rounded,
+              onPressed: state.isImporting
+                  ? null
+                  : () => _showXtreamDialog(context, controller),
+            ),
+            _SmallRailButton(
+              tooltip: 'Reset app data',
+              icon: Icons.delete_outline_rounded,
+              onPressed: state.isImporting ? null : onReset,
+            ),
+          ],
+        ),
+      ),
+      const Padding(
+        padding: EdgeInsets.fromLTRB(16, 5, 16, 14),
+        child: Row(
+          children: [
+            Icon(
+              Icons.phone_android_rounded,
+              size: 16,
+              color: KlipaColors.foregroundDim,
+            ),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Klipa on phone & TV',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: KlipaColors.foregroundDim,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+
+  Widget _compact(BuildContext context) => Column(
+    children: [
+      const Padding(
+        padding: EdgeInsets.symmetric(vertical: 18),
+        child: _BrandMark(size: 34),
+      ),
+      const Divider(height: 1),
+      const SizedBox(height: 10),
+      const _RailButton(
+        tooltip: 'Live TV',
+        icon: Icons.live_tv_rounded,
+        selected: true,
+      ),
+      const Spacer(),
+      _RailButton(
+        tooltip: 'Add local playlist',
+        icon: Icons.playlist_add_rounded,
+        onPressed: controller.importFile,
+      ),
+      _RailButton(
+        tooltip: 'Add playlist URL',
+        icon: Icons.add_link_rounded,
+        onPressed: () => _showUrlDialog(context, controller),
+      ),
+      _RailButton(
+        tooltip: 'Use Xtream login',
+        icon: Icons.key_rounded,
+        onPressed: () => _showXtreamDialog(context, controller),
+      ),
+      _RailButton(
+        tooltip: 'Reset app data',
+        icon: Icons.delete_outline_rounded,
+        onPressed: onReset,
+      ),
+      const Padding(
+        padding: EdgeInsets.fromLTRB(8, 10, 8, 16),
+        child: Tooltip(
+          message: 'Klipa for mobile',
+          child: Icon(
+            Icons.phone_android_rounded,
+            size: 19,
+            color: KlipaColors.foregroundDim,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+enum _SourceAction { refresh, rename, delete }
+
+IconData _sourceIcon(PlaylistSourceKind kind) => switch (kind) {
+  PlaylistSourceKind.localFile => Icons.description_outlined,
+  PlaylistSourceKind.remoteUrl => Icons.link_rounded,
+  PlaylistSourceKind.xtream => Icons.key_rounded,
+};
+
+class _SourceListTile extends StatelessWidget {
+  const _SourceListTile({
+    required this.name,
+    required this.count,
+    required this.selected,
+    required this.icon,
+    required this.onPressed,
+    this.menu,
+    super.key,
+  });
+
+  final String name;
+  final int count;
+  final bool selected;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final Widget? menu;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    child: Material(
+      color: selected ? KlipaColors.inkHover : Colors.transparent,
+      borderRadius: BorderRadius.circular(7),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(7),
+        child: SizedBox(
+          height: 42,
+          child: Row(
+            children: [
+              const SizedBox(width: 10),
+              Icon(
+                icon,
+                size: 18,
+                color: selected
+                    ? KlipaColors.indigo
+                    : KlipaColors.foregroundDim,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selected
+                        ? KlipaColors.foreground
+                        : KlipaColors.foregroundMuted,
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+              Text(
+                '$count',
+                style: const TextStyle(
+                  color: KlipaColors.foregroundDim,
+                  fontSize: 10,
+                ),
+              ),
+              if (menu case final menu?)
+                SizedBox(width: 36, height: 36, child: menu)
+              else
+                const SizedBox(width: 12),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _SmallRailButton extends StatelessWidget {
+  const _SmallRailButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: IconButton(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+      padding: EdgeInsets.zero,
+    ),
+  );
+}
+
+class _LibraryDropdown<T> extends StatelessWidget {
+  const _LibraryDropdown({
+    required this.value,
+    required this.items,
+    required this.onChanged,
+    super.key,
+  });
+
+  final T value;
+  final List<DropdownMenuItem<T>> items;
+  final ValueChanged<T?> onChanged;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: KlipaColors.inkRaised,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: KlipaColors.border),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 11),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          isExpanded: true,
+          borderRadius: BorderRadius.circular(8),
+          dropdownColor: KlipaColors.inkRaised,
+          icon: const Icon(Icons.expand_more_rounded, size: 19),
+          items: items,
+          onChanged: onChanged,
+        ),
+      ),
     ),
   );
 }
@@ -366,18 +718,33 @@ class _ChannelBrowser extends StatelessWidget {
     required this.state,
     required this.controller,
     required this.searchFocus,
+    required this.showSourceFilter,
+    required this.onRenameSource,
+    required this.onRefreshSource,
+    required this.onDeleteSource,
   });
 
   final LibraryState state;
   final LibraryController controller;
   final FocusNode searchFocus;
+  final bool showSourceFilter;
+  final ValueChanged<LibrarySource> onRenameSource;
+  final ValueChanged<LibrarySource> onRefreshSource;
+  final ValueChanged<LibrarySource> onDeleteSource;
 
   @override
   Widget build(BuildContext context) {
     final channels = state.visibleChannels;
-    final groups = state.groups;
+    final groups = state.availableGroups;
     final filtered =
-        state.query.trim().isNotEmpty || state.selectedGroup != null;
+        state.query.trim().isNotEmpty ||
+        state.selectedGroup != null ||
+        state.selectedSourceId != null;
+    final managedSource = switch (state.selectedSourceId) {
+      final id? => state.sources.where((source) => source.id == id).firstOrNull,
+      _ when state.sources.length == 1 => state.sources.single,
+      _ => null,
+    };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -396,6 +763,72 @@ class _ChannelBrowser extends StatelessWidget {
             ],
           ),
         ),
+        if (showSourceFilter && state.sources.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _LibraryDropdown<String?>(
+                    key: const Key('source-filter'),
+                    value: state.selectedSourceId,
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('All sources'),
+                      ),
+                      for (final source in state.sources)
+                        DropdownMenuItem(
+                          value: source.id,
+                          child: Text(
+                            source.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: controller.filterSource,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                PopupMenuButton<_SourceAction>(
+                  key: const Key('compact-source-actions'),
+                  tooltip: managedSource == null
+                      ? 'Select a source to manage'
+                      : 'Manage ${managedSource.name}',
+                  enabled: managedSource != null && !state.isImporting,
+                  onSelected: (action) {
+                    final source = managedSource;
+                    if (source == null) return;
+                    switch (action) {
+                      case _SourceAction.refresh:
+                        onRefreshSource(source);
+                      case _SourceAction.rename:
+                        onRenameSource(source);
+                      case _SourceAction.delete:
+                        onDeleteSource(source);
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: _SourceAction.refresh,
+                      child: Text('Refresh'),
+                    ),
+                    PopupMenuItem(
+                      value: _SourceAction.rename,
+                      child: Text('Rename'),
+                    ),
+                    PopupMenuDivider(),
+                    PopupMenuItem(
+                      value: _SourceAction.delete,
+                      child: Text('Delete'),
+                    ),
+                  ],
+                  icon: const Icon(Icons.more_horiz_rounded, size: 18),
+                ),
+              ],
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
           child: TextField(
@@ -625,6 +1058,90 @@ Future<bool?> _showResetDialog(BuildContext context) => showDialog<bool>(
         key: const Key('confirm-reset-app-data'),
         onPressed: () => Navigator.pop(context, true),
         child: const Text('Reset app data'),
+      ),
+    ],
+  ),
+);
+
+Future<String?> _showRenameSourceDialog(
+  BuildContext context,
+  LibrarySource source,
+) => showDialog<String>(
+  context: context,
+  builder: (context) => _RenameSourceDialog(source: source),
+);
+
+class _RenameSourceDialog extends StatefulWidget {
+  const _RenameSourceDialog({required this.source});
+
+  final LibrarySource source;
+
+  @override
+  State<_RenameSourceDialog> createState() => _RenameSourceDialogState();
+}
+
+class _RenameSourceDialogState extends State<_RenameSourceDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.source.name,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Rename source'),
+    content: TextField(
+      key: const Key('source-name-field'),
+      controller: _controller,
+      autofocus: true,
+      maxLength: 120,
+      textInputAction: TextInputAction.done,
+      onSubmitted: _submit,
+      decoration: const InputDecoration(labelText: 'Source name'),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        key: const Key('confirm-rename-source'),
+        onPressed: () => _submit(_controller.text),
+        child: const Text('Rename'),
+      ),
+    ],
+  );
+
+  void _submit(String value) {
+    final normalized = value.trim();
+    if (normalized.isNotEmpty) Navigator.pop(context, normalized);
+  }
+}
+
+Future<bool?> _showDeleteSourceDialog(
+  BuildContext context,
+  LibrarySource source,
+) => showDialog<bool>(
+  context: context,
+  builder: (context) => AlertDialog(
+    title: const Text('Delete source?'),
+    content: Text(
+      'Delete “${source.name}” and its cached channels, saved login, '
+      'favorites, and guide data from this PC?\n\nThis cannot be undone.',
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context, false),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        key: const Key('confirm-delete-source'),
+        onPressed: () => Navigator.pop(context, true),
+        child: const Text('Delete source'),
       ),
     ],
   ),

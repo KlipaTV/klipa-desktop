@@ -4,9 +4,11 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/security/sensitive_data_redactor.dart';
+import '../../data/encrypted_library_database.dart';
 import '../../data/library_store.dart';
 import '../../data/playlist_import_service.dart';
 import '../../domain/channel.dart';
+import '../../domain/library_source.dart';
 import 'library_state.dart';
 
 final playlistImportServiceProvider = Provider<PlaylistImportService>(
@@ -87,6 +89,22 @@ class LibraryController extends Notifier<LibraryState> {
     state = state.copyWith(selectedGroup: value, clearGroup: value == null);
   }
 
+  void filterSource(String? sourceId) {
+    final sourceChannels = sourceId == null
+        ? state.channels
+        : state.channels
+              .where((channel) => channel.sourceId == sourceId)
+              .toList(growable: false);
+    final keepGroup =
+        state.selectedGroup == null ||
+        sourceChannels.any((channel) => channel.group == state.selectedGroup);
+    state = state.copyWith(
+      selectedSourceId: sourceId,
+      clearSource: sourceId == null,
+      clearGroup: !keepGroup,
+    );
+  }
+
   void select(Channel channel) {
     state = state.copyWith(selectedChannel: channel, clearError: true);
   }
@@ -95,8 +113,120 @@ class LibraryController extends Notifier<LibraryState> {
     state = state.copyWith(clearMessage: true, clearError: true);
   }
 
+  Future<void> refreshActiveSource() async {
+    final sourceId =
+        state.selectedSourceId ??
+        state.selectedChannel?.sourceId ??
+        (state.sources.length == 1 ? state.sources.single.id : null);
+    if (sourceId == null) {
+      state = state.copyWith(
+        error: 'Select a source before refreshing.',
+        clearMessage: true,
+      );
+      return;
+    }
+    await refreshSource(sourceId);
+  }
+
+  Future<void> refreshSource(String sourceId) async {
+    if (_operationInProgress) return;
+    _startOperation();
+    try {
+      final access = await _store.readSourceRefreshAccess(sourceId);
+      if (access == null) {
+        throw const LibraryDatabaseException('The source no longer exists.');
+      }
+      final result = await _importer.refresh(
+        access.source,
+        username: access.username,
+        password: access.password,
+      );
+      await _store.replaceSourceSnapshot(
+        source: result.source,
+        channels: result.channels,
+        username: access.username,
+        password: access.password,
+      );
+      if (_disposed) return;
+      _publishSourceSnapshot(result, verb: 'Refreshed');
+    } on Object catch (error) {
+      _failOperation(error);
+    }
+  }
+
+  Future<void> renameSource(String sourceId, String name) async {
+    final normalized = name.trim();
+    if (normalized.isEmpty) {
+      state = state.copyWith(error: 'Enter a valid source name.');
+      return;
+    }
+    if (_operationInProgress) return;
+    _startOperation();
+    try {
+      await _store.renameSource(sourceId: sourceId, name: normalized);
+      if (_disposed) return;
+      state = state.copyWith(
+        sources: List.unmodifiable([
+          for (final source in state.sources)
+            source.id == sourceId ? source.copyWith(name: normalized) : source,
+        ]),
+        isImporting: false,
+        message: 'Renamed source.',
+      );
+    } on Object catch (error) {
+      _failOperation(error);
+    }
+  }
+
+  Future<void> deleteSource(String sourceId) async {
+    if (_operationInProgress) return;
+    _startOperation();
+    try {
+      await _store.deleteSource(sourceId);
+      if (_disposed) return;
+      final channels = state.channels
+          .where((channel) => channel.sourceId != sourceId)
+          .toList(growable: false);
+      final selectedWasDeleted = state.selectedChannel?.sourceId == sourceId;
+      final sourceFilterWasDeleted = state.selectedSourceId == sourceId;
+      state = state.copyWith(
+        sources: List.unmodifiable(
+          state.sources.where((source) => source.id != sourceId),
+        ),
+        channels: List.unmodifiable(channels),
+        groups: LibraryState.deriveGroups(channels),
+        clearSelection: selectedWasDeleted,
+        clearSource: sourceFilterWasDeleted,
+        clearGroup: sourceFilterWasDeleted,
+        isImporting: false,
+        message: 'Deleted source.',
+      );
+    } on Object catch (error) {
+      _failOperation(error);
+    }
+  }
+
+  bool get _operationInProgress =>
+      state.isLoading || state.isImporting || state.isResetting;
+
+  void _startOperation() {
+    state = state.copyWith(
+      isImporting: true,
+      clearError: true,
+      clearMessage: true,
+    );
+  }
+
+  void _failOperation(Object error) {
+    if (_disposed) return;
+    state = state.copyWith(
+      isImporting: false,
+      error: const SensitiveDataRedactor().text(error.toString()),
+    );
+  }
+
   Future<void> resetLibrary() async {
-    if (state.isLoading || state.isImporting || state.isResetting) return;
+    if (_operationInProgress) return;
     state = state.copyWith(
       clearSelection: true,
       isResetting: true,
@@ -122,12 +252,8 @@ class LibraryController extends Notifier<LibraryState> {
     String? username,
     String? password,
   }) async {
-    if (state.isLoading || state.isImporting) return;
-    state = state.copyWith(
-      isImporting: true,
-      clearError: true,
-      clearMessage: true,
-    );
+    if (_operationInProgress) return;
+    _startOperation();
     try {
       final result = await operation();
       if (_disposed) return;
@@ -144,35 +270,70 @@ class LibraryController extends Notifier<LibraryState> {
       );
       if (_disposed) return;
 
-      final otherChannels = state.channels
-          .where((channel) => channel.sourceId != result.source.id)
-          .toList();
-      final otherSources = state.sources
-          .where((source) => source.id != result.source.id)
-          .toList();
-      final channels = [...otherChannels, ...result.channels]
-        ..sort((left, right) => left.name.compareTo(right.name));
-      final keepSelectedGroup =
-          state.selectedGroup == null ||
-          channels.any((channel) => channel.group == state.selectedGroup);
-      final warningSuffix = result.warnings.isEmpty
-          ? ''
-          : ' ${result.warnings.length} entries were skipped or limited.';
-      state = state.copyWith(
-        sources: [...otherSources, result.source],
-        channels: List.unmodifiable(channels),
-        groups: LibraryState.deriveGroups(channels),
-        clearGroup: !keepSelectedGroup,
-        isImporting: false,
-        message: 'Imported ${result.channels.length} channels.$warningSuffix',
-      );
+      _publishSourceSnapshot(result, verb: 'Imported');
     } on Object catch (error) {
-      if (_disposed) return;
-      state = state.copyWith(
-        isImporting: false,
-        error: const SensitiveDataRedactor().text(error.toString()),
-      );
+      _failOperation(error);
     }
+  }
+
+  void _publishSourceSnapshot(
+    PlaylistImportResult result, {
+    required String verb,
+  }) {
+    final otherChannels = state.channels
+        .where((channel) => channel.sourceId != result.source.id)
+        .toList();
+    final previousSource = state.sources
+        .where((source) => source.id == result.source.id)
+        .firstOrNull;
+    final otherSources = state.sources
+        .where((source) => source.id != result.source.id)
+        .toList();
+    final channels = [...otherChannels, ...result.channels]
+      ..sort((left, right) => left.name.compareTo(right.name));
+    final source = LibrarySource.fromImported(
+      result.source,
+      refreshedAt: DateTime.now().toUtc(),
+    );
+    final selectedId = state.selectedChannel?.sourceId == result.source.id
+        ? state.selectedChannel?.id
+        : null;
+    Channel? refreshedSelection;
+    if (selectedId != null) {
+      for (final channel in result.channels) {
+        if (channel.id == selectedId) {
+          refreshedSelection = channel;
+          break;
+        }
+      }
+    }
+    final relevantChannels = state.selectedSourceId == null
+        ? channels
+        : channels
+              .where((channel) => channel.sourceId == state.selectedSourceId)
+              .toList(growable: false);
+    final keepSelectedGroup =
+        state.selectedGroup == null ||
+        relevantChannels.any((channel) => channel.group == state.selectedGroup);
+    final warningSuffix = result.warnings.isEmpty
+        ? ''
+        : ' ${result.warnings.length} entries were skipped or limited.';
+    final sources = <LibrarySource>[
+      ...otherSources,
+      previousSource == null
+          ? source
+          : source.copyWith(name: previousSource.name),
+    ]..sort((left, right) => left.name.compareTo(right.name));
+    state = state.copyWith(
+      sources: List.unmodifiable(sources),
+      channels: List.unmodifiable(channels),
+      groups: LibraryState.deriveGroups(channels),
+      selectedChannel: refreshedSelection,
+      clearSelection: selectedId != null && refreshedSelection == null,
+      clearGroup: !keepSelectedGroup,
+      isImporting: false,
+      message: '$verb ${result.channels.length} channels.$warningSuffix',
+    );
   }
 
   Future<void> _restoreLibrary() async {

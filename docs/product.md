@@ -19,7 +19,8 @@ A user can import a synthetic or personally supplied M3U/M3U8 source, search
 and filter its live channels, select one, and play it in a Klipa-branded desktop
 shell. On Windows, successful imports are committed atomically to the encrypted
 per-user library and restored on the next launch without autoplaying an
-arbitrary channel.
+arbitrary channel. Multiple sources can be filtered, renamed, refreshed, and
+deleted without placing their provider locations or credentials in UI state.
 
 ## Security boundary
 

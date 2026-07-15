@@ -47,6 +47,10 @@ no remote or publishing step.
 - Reset requires an enumerated confirmation, awaits native player disposal,
   removes the database/WAL/SHM and sealed-key files, and returns to onboarding.
   A startup key/read failure exposes the same recovery action.
+- Source locations and credentials are absent from UI source summaries.
+  Stable-identity refresh, rename and confirmed cascading delete are covered;
+  failed download/parse/save paths retain the prior source snapshot, and a
+  surviving channel selection is rebound to the refreshed channel object.
 - The bundled native media backend loads and disposes while scripts, URL
   extractors, and non-required protocols stay disabled.
 - Deterministic lifecycle tests cover first-media timeout and retry, a hung open
@@ -61,7 +65,8 @@ no remote or publishing step.
 - Widget and platform tests cover separate masked Xtream credentials, live-only
   endpoint selection, same-origin M3U compatibility mapping restricted to live
   IDs, background-isolate playlist parsing, bounded M3U/Xtream input,
-  category/search filtering, private-network opt-in, URL path/query redaction,
+  source/category/search filtering, compact and expanded source management,
+  private-network opt-in, URL path/query redaction,
   playback control states, and focus-scoped single-letter shortcuts.
 - An authorized private, multi-thousand-channel catalog imported through the
   masked Xtream form without entering a credential-bearing URL. A matching

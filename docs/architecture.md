@@ -50,3 +50,10 @@ pass on the actual Windows native build. Reset waits for native player teardown,
 then removes the encrypted database, sidecars, sealed key, and interrupted key
 replacement. A missing or unreadable key routes startup to the same confirmed
 recovery flow. The broader distribution blockers in the security model remain.
+
+UI state receives only safe source summaries. Provider locations, usernames,
+and passwords remain in the encrypted source-secret table and are loaded into a
+short-lived refresh request only. Refresh downloads and parses first, commits a
+complete replacement transaction second, and publishes the new UI snapshot
+last; any failure leaves the prior playable snapshot and stable selection
+untouched.

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -68,6 +69,52 @@ class PlaylistImportService {
     final file = picker.getFile();
     if (file == null) return null;
 
+    return _fromFile(file);
+  }
+
+  Future<PlaylistImportResult> refresh(
+    PlaylistSource source, {
+    String? username,
+    String? password,
+  }) async {
+    switch (source.kind) {
+      case PlaylistSourceKind.remoteUrl:
+        final uri = Uri.parse(source.location);
+        final bytes = await _httpClient.getPlaylist(
+          uri,
+          allowPrivateNetwork: source.allowsPrivateNetwork,
+        );
+        return _finish(
+          bytes,
+          name: source.name,
+          kind: source.kind,
+          location: source.location,
+          allowPrivateNetwork: source.allowsPrivateNetwork,
+          sourceId: source.id,
+          importedAt: source.importedAt,
+        );
+      case PlaylistSourceKind.localFile:
+        return _fromFile(File(source.location), existingSource: source);
+      case PlaylistSourceKind.xtream:
+        if (username == null || password == null) {
+          throw const XtreamException(
+            'The saved Xtream login is incomplete. Re-add this source.',
+          );
+        }
+        final imported = await fromXtream(
+          server: Uri.parse(source.location),
+          username: username,
+          password: password,
+          allowPrivateNetwork: source.allowsPrivateNetwork,
+        );
+        return _rebindToExistingSource(imported, source);
+    }
+  }
+
+  Future<PlaylistImportResult> _fromFile(
+    File file, {
+    PlaylistSource? existingSource,
+  }) async {
     final length = await file.length();
     if (length > M3uParser.maxBytes) {
       throw const PlaylistFormatException(
@@ -80,10 +127,12 @@ class PlaylistImportService {
         : file.uri.pathSegments.last;
     return _finish(
       bytes,
-      name: name,
+      name: existingSource?.name ?? name,
       kind: PlaylistSourceKind.localFile,
       location: file.path,
       allowPrivateNetwork: false,
+      sourceId: existingSource?.id,
+      importedAt: existingSource?.importedAt,
     );
   }
 
@@ -214,25 +263,71 @@ class PlaylistImportService {
     required PlaylistSourceKind kind,
     required String location,
     required bool allowPrivateNetwork,
+    String? sourceId,
+    DateTime? importedAt,
   }) async {
-    final sourceId = sha256.convert(bytes).toString();
+    final resolvedSourceId =
+        sourceId ??
+        sha256
+            .convert(utf8.encode('source\u0000${kind.name}\u0000$location'))
+            .toString();
     final parsed = await _parse(
       bytes,
-      sourceId: sourceId,
+      sourceId: resolvedSourceId,
       allowPrivateNetwork: allowPrivateNetwork,
     );
     return PlaylistImportResult(
       source: PlaylistSource(
-        id: sourceId,
+        id: resolvedSourceId,
         name: name,
         kind: kind,
         location: location,
         allowsPrivateNetwork: allowPrivateNetwork,
-        importedAt: DateTime.now().toUtc(),
+        importedAt: importedAt ?? DateTime.now().toUtc(),
       ),
       channels: parsed.channels,
       warnings: parsed.warnings,
     );
+  }
+
+  PlaylistImportResult _rebindToExistingSource(
+    PlaylistImportResult result,
+    PlaylistSource existing,
+  ) {
+    final channels = result.source.id == existing.id
+        ? result.channels
+        : result.channels
+              .map(
+                (channel) => Channel(
+                  id: _reboundChannelId(existing.id, channel),
+                  name: channel.name,
+                  streamUri: channel.streamUri,
+                  sourceId: existing.id,
+                  allowsPrivateNetwork: existing.allowsPrivateNetwork,
+                  group: channel.group,
+                  logoUri: channel.logoUri,
+                  httpHeaders: channel.httpHeaders,
+                ),
+              )
+              .toList(growable: false);
+    return PlaylistImportResult(
+      source: PlaylistSource(
+        id: existing.id,
+        name: existing.name,
+        kind: existing.kind,
+        location: existing.location,
+        allowsPrivateNetwork: existing.allowsPrivateNetwork,
+        importedAt: existing.importedAt,
+      ),
+      channels: List.unmodifiable(channels),
+      warnings: result.warnings,
+    );
+  }
+
+  String _reboundChannelId(String sourceId, Channel channel) {
+    final streamId = _streamId(channel.streamUri);
+    final identity = streamId ?? '${channel.streamUri}\u0000${channel.name}';
+    return sha256.convert(utf8.encode('$sourceId\u0000$identity')).toString();
   }
 
   Future<M3uParseResult> _parse(

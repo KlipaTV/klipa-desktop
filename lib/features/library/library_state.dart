@@ -1,5 +1,5 @@
 import '../../domain/channel.dart';
-import '../../domain/playlist_source.dart';
+import '../../domain/library_source.dart';
 
 class LibraryState {
   const LibraryState({
@@ -7,6 +7,7 @@ class LibraryState {
     this.channels = const [],
     this.groups = const [],
     this.selectedChannel,
+    this.selectedSourceId,
     this.selectedGroup,
     this.query = '',
     this.isLoading = false,
@@ -17,10 +18,11 @@ class LibraryState {
     this.error,
   });
 
-  final List<PlaylistSource> sources;
+  final List<LibrarySource> sources;
   final List<Channel> channels;
   final List<String> groups;
   final Channel? selectedChannel;
+  final String? selectedSourceId;
   final String? selectedGroup;
   final String query;
   final bool isLoading;
@@ -42,9 +44,17 @@ class LibraryState {
     return List.unmodifiable(values);
   }
 
+  List<Channel> get sourceChannels => selectedSourceId == null
+      ? channels
+      : channels
+            .where((channel) => channel.sourceId == selectedSourceId)
+            .toList(growable: false);
+
+  List<String> get availableGroups => deriveGroups(sourceChannels);
+
   List<Channel> get visibleChannels {
     final normalized = query.trim().toLowerCase();
-    return channels
+    return sourceChannels
         .where((channel) {
           if (selectedGroup != null && channel.group != selectedGroup) {
             return false;
@@ -57,11 +67,13 @@ class LibraryState {
   }
 
   LibraryState copyWith({
-    List<PlaylistSource>? sources,
+    List<LibrarySource>? sources,
     List<Channel>? channels,
     List<String>? groups,
     Channel? selectedChannel,
     bool clearSelection = false,
+    String? selectedSourceId,
+    bool clearSource = false,
     String? selectedGroup,
     bool clearGroup = false,
     String? query,
@@ -80,6 +92,9 @@ class LibraryState {
     selectedChannel: clearSelection
         ? null
         : selectedChannel ?? this.selectedChannel,
+    selectedSourceId: clearSource
+        ? null
+        : selectedSourceId ?? this.selectedSourceId,
     selectedGroup: clearGroup ? null : selectedGroup ?? this.selectedGroup,
     query: query ?? this.query,
     isLoading: isLoading ?? this.isLoading,

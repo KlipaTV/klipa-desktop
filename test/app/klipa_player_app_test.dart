@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:klipa_player_windows/app/klipa_player_app.dart';
 import 'package:klipa_player_windows/data/library_store.dart';
 import 'package:klipa_player_windows/domain/channel.dart';
+import 'package:klipa_player_windows/domain/library_source.dart';
+import 'package:klipa_player_windows/domain/playlist_source.dart';
 import 'package:klipa_player_windows/features/library/library_controller.dart';
 import 'package:klipa_player_windows/features/library/library_state.dart';
 
@@ -116,6 +119,66 @@ void main() {
     expect(_RecoveryFixtureController.resetCalls, 1);
     expect(find.text('App data was reset.'), findsOneWidget);
   });
+
+  testWidgets('source rail filters and confirms destructive deletion', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1440, 900);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    _ManagementFixtureController.deletedSourceId = null;
+    _ManagementFixtureController.renamedSource = null;
+    _ManagementFixtureController.refreshCalls = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          libraryControllerProvider.overrideWith(
+            _ManagementFixtureController.new,
+          ),
+        ],
+        child: const KlipaPlayerApp(),
+      ),
+    );
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    expect(_ManagementFixtureController.refreshCalls, 1);
+
+    await tester.tap(find.byKey(const Key('source-two')));
+    await tester.pump();
+    expect(find.text('One News'), findsNothing);
+    expect(find.text('Two Sports'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Manage Source two'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rename'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('source-name-field')),
+      'Renamed two',
+    );
+    await tester.tap(find.byKey(const Key('confirm-rename-source')));
+    await tester.pumpAndSettle();
+    expect(_ManagementFixtureController.renamedSource, ('two', 'Renamed two'));
+    expect(find.text('Renamed two'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Manage Renamed two'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete source?'), findsOneWidget);
+    expect(find.textContaining('saved login'), findsOneWidget);
+    expect(find.textContaining('favorites'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('confirm-delete-source')));
+    await tester.pumpAndSettle();
+
+    expect(_ManagementFixtureController.deletedSourceId, 'two');
+    expect(find.text('Two Sports'), findsNothing);
+    expect(find.text('One News'), findsOneWidget);
+  });
 }
 
 Widget _testApp() => ProviderScope(
@@ -149,11 +212,74 @@ final class _RecoveryFixtureController extends LibraryController {
   }
 }
 
+final class _ManagementFixtureController extends LibraryController {
+  static String? deletedSourceId;
+  static (String, String)? renamedSource;
+  static var refreshCalls = 0;
+
+  @override
+  LibraryState build() => LibraryState(
+    sources: [_librarySource('one'), _librarySource('two')],
+    channels: [
+      _sourceChannel('One News', 'one', 'News'),
+      _sourceChannel('Two Sports', 'two', 'Sports'),
+    ],
+  );
+
+  @override
+  Future<void> deleteSource(String sourceId) async {
+    deletedSourceId = sourceId;
+    final channels = state.channels
+        .where((channel) => channel.sourceId != sourceId)
+        .toList(growable: false);
+    state = state.copyWith(
+      sources: state.sources
+          .where((source) => source.id != sourceId)
+          .toList(growable: false),
+      channels: channels,
+      clearSource: state.selectedSourceId == sourceId,
+      clearGroup: true,
+    );
+  }
+
+  @override
+  Future<void> refreshActiveSource() async => refreshCalls++;
+
+  @override
+  Future<void> renameSource(String sourceId, String name) async {
+    renamedSource = (sourceId, name);
+    state = state.copyWith(
+      sources: [
+        for (final source in state.sources)
+          source.id == sourceId ? source.copyWith(name: name) : source,
+      ],
+    );
+  }
+}
+
 Channel _channel(String name, String group) => Channel(
   id: name,
   name: name,
   streamUri: Uri.parse('https://stream.example/$name'),
   sourceId: 'fixture',
+  allowsPrivateNetwork: false,
+  group: group,
+);
+
+LibrarySource _librarySource(String id) => LibrarySource(
+  id: id,
+  name: 'Source $id',
+  kind: PlaylistSourceKind.remoteUrl,
+  allowsPrivateNetwork: false,
+  importedAt: DateTime.utc(2026, 7, 15),
+  refreshedAt: DateTime.utc(2026, 7, 15),
+);
+
+Channel _sourceChannel(String name, String sourceId, String group) => Channel(
+  id: name,
+  name: name,
+  streamUri: Uri.parse('https://stream.example/$name'),
+  sourceId: sourceId,
   allowsPrivateNetwork: false,
   group: group,
 );

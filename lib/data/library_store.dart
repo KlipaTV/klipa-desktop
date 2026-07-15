@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import '../core/security/dpapi_secret_protector.dart';
 import '../core/security/secret_protector.dart';
 import '../domain/channel.dart';
+import '../domain/library_source.dart';
 import '../domain/playlist_source.dart';
 import 'database_key_store.dart';
 import 'encrypted_library_database.dart';
@@ -15,8 +16,20 @@ class LibrarySnapshot {
 
   const LibrarySnapshot.empty() : sources = const [], channels = const [];
 
-  final List<PlaylistSource> sources;
+  final List<LibrarySource> sources;
   final List<Channel> channels;
+}
+
+class SourceRefreshAccess {
+  const SourceRefreshAccess({
+    required this.source,
+    required this.username,
+    required this.password,
+  });
+
+  final PlaylistSource source;
+  final String? username;
+  final String? password;
 }
 
 abstract interface class LibraryStore {
@@ -30,6 +43,12 @@ abstract interface class LibraryStore {
   });
 
   Future<void> reset();
+
+  Future<SourceRefreshAccess?> readSourceRefreshAccess(String sourceId);
+
+  Future<void> renameSource({required String sourceId, required String name});
+
+  Future<void> deleteSource(String sourceId);
 }
 
 /// Keeps non-Windows development and widget tests independent of DPAPI.
@@ -50,6 +69,19 @@ final class DisabledLibraryStore implements LibraryStore {
 
   @override
   Future<void> reset() async {}
+
+  @override
+  Future<SourceRefreshAccess?> readSourceRefreshAccess(String sourceId) async =>
+      null;
+
+  @override
+  Future<void> renameSource({
+    required String sourceId,
+    required String name,
+  }) async {}
+
+  @override
+  Future<void> deleteSource(String sourceId) async {}
 }
 
 final class EncryptedLibraryStore implements LibraryStore {
@@ -100,6 +132,34 @@ final class EncryptedLibraryStore implements LibraryStore {
     await Isolate.run(() => _resetEncryptedLibrary(paths));
   }
 
+  @override
+  Future<SourceRefreshAccess?> readSourceRefreshAccess(String sourceId) async {
+    final paths = await _paths();
+    final protector = _protector;
+    return Isolate.run(
+      () => _readSourceRefreshAccess(paths, protector, sourceId),
+    );
+  }
+
+  @override
+  Future<void> renameSource({
+    required String sourceId,
+    required String name,
+  }) async {
+    final paths = await _paths();
+    final protector = _protector;
+    await Isolate.run(
+      () => _renameEncryptedSource(paths, protector, sourceId, name),
+    );
+  }
+
+  @override
+  Future<void> deleteSource(String sourceId) async {
+    final paths = await _paths();
+    final protector = _protector;
+    await Isolate.run(() => _deleteEncryptedSource(paths, protector, sourceId));
+  }
+
   Future<_LibraryPaths> _paths() async {
     final root = await _rootDirectory();
     final separator = Platform.pathSeparator;
@@ -140,8 +200,20 @@ Future<LibrarySnapshot> _loadEncryptedLibrary(
   EncryptedLibraryDatabase? database;
   try {
     database = await _openEncryptedLibrary(paths, protector);
+    final sourceSummaries = database.loadSourceSummaries();
     return LibrarySnapshot(
-      sources: List.unmodifiable(database.loadSources()),
+      sources: List.unmodifiable(
+        sourceSummaries.map(
+          (source) => LibrarySource(
+            id: source.id,
+            name: source.name,
+            kind: source.kind,
+            allowsPrivateNetwork: source.allowsPrivateNetwork,
+            importedAt: source.importedAt,
+            refreshedAt: source.refreshedAt,
+          ),
+        ),
+      ),
       channels: List.unmodifiable(database.loadChannels()),
     );
   } on DatabaseKeyException {
@@ -184,4 +256,68 @@ Future<void> _resetEncryptedLibrary(_LibraryPaths paths) async {
   await DatabaseKeyStore(
     protector: const DpapiSecretProtector(),
   ).delete(File(paths.keyPath));
+}
+
+Future<SourceRefreshAccess?> _readSourceRefreshAccess(
+  _LibraryPaths paths,
+  SecretProtector protector,
+  String sourceId,
+) async {
+  EncryptedLibraryDatabase? database;
+  try {
+    database = await _openEncryptedLibrary(paths, protector);
+    final summaries = database.loadSourceSummaries();
+    LibrarySourceSummary? summary;
+    for (final candidate in summaries) {
+      if (candidate.id == sourceId) {
+        summary = candidate;
+        break;
+      }
+    }
+    final secret = database.readSourceSecret(sourceId);
+    if (summary == null || secret == null) return null;
+    return SourceRefreshAccess(
+      source: PlaylistSource(
+        id: summary.id,
+        name: summary.name,
+        kind: summary.kind,
+        location: secret.location,
+        allowsPrivateNetwork: summary.allowsPrivateNetwork,
+        importedAt: summary.importedAt,
+      ),
+      username: secret.username,
+      password: secret.password,
+    );
+  } finally {
+    database?.close();
+  }
+}
+
+Future<void> _renameEncryptedSource(
+  _LibraryPaths paths,
+  SecretProtector protector,
+  String sourceId,
+  String name,
+) async {
+  EncryptedLibraryDatabase? database;
+  try {
+    database = await _openEncryptedLibrary(paths, protector);
+    database.renameSource(sourceId: sourceId, name: name);
+  } finally {
+    database?.close();
+  }
+}
+
+Future<void> _deleteEncryptedSource(
+  _LibraryPaths paths,
+  SecretProtector protector,
+  String sourceId,
+) async {
+  EncryptedLibraryDatabase? database;
+  try {
+    database = await _openEncryptedLibrary(paths, protector);
+    database.deleteSource(sourceId);
+  } finally {
+    database?.close();
+  }
 }
