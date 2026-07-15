@@ -41,8 +41,8 @@ no remote or publishing step.
 - Widget and platform tests cover separate masked Xtream credentials, live-only
   endpoint selection, same-origin M3U compatibility mapping restricted to live
   IDs, background-isolate playlist parsing, bounded M3U/Xtream input,
-  category/search filtering, private-network opt-in, and URL path/query
-  redaction.
+  category/search filtering, private-network opt-in, URL path/query redaction,
+  playback control states, and focus-scoped single-letter shortcuts.
 - An authorized private, multi-thousand-channel catalog imported through the
   masked Xtream form without entering a credential-bearing URL. A matching
   same-origin M3U path played as MPEG-TS in the embedded player. Unavailable
