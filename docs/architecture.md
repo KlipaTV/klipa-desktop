@@ -18,6 +18,7 @@ per action, webview, local server, plugin system, or background scheduler.
 - direct SQLite FFI using SQLite3MultipleCiphers
 - one random database key sealed to the Windows user with DPAPI
 - dart:io HttpClient behind a bounded, redirect-aware client
+- Dart isolates for bounded M3U and Xtream JSON parsing off the UI thread
 - event-based XML parsing for XMLTV
 - small reviewed Windows interop only where Flutter lacks an API
 

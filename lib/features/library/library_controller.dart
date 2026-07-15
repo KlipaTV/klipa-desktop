@@ -62,6 +62,10 @@ class LibraryController extends Notifier<LibraryState> {
     state = state.copyWith(query: value);
   }
 
+  void filterGroup(String? value) {
+    state = state.copyWith(selectedGroup: value, clearGroup: value == null);
+  }
+
   void select(Channel channel) {
     state = state.copyWith(selectedChannel: channel, clearError: true);
   }
@@ -94,12 +98,17 @@ class LibraryController extends Notifier<LibraryState> {
           .toList();
       final channels = [...otherChannels, ...result.channels]
         ..sort((left, right) => left.name.compareTo(right.name));
+      final keepSelectedGroup =
+          state.selectedGroup == null ||
+          channels.any((channel) => channel.group == state.selectedGroup);
       final warningSuffix = result.warnings.isEmpty
           ? ''
           : ' ${result.warnings.length} entries were skipped or limited.';
       state = state.copyWith(
         sources: [...otherSources, result.source],
         channels: List.unmodifiable(channels),
+        groups: LibraryState.deriveGroups(channels),
+        clearGroup: !keepSelectedGroup,
         isImporting: false,
         message: 'Imported ${result.channels.length} channels.$warningSuffix',
       );

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -138,7 +139,7 @@ class PlaylistImportService {
         playlistUri,
         allowPrivateNetwork: allowPrivateNetwork,
       );
-      final parsed = _parser.parse(
+      final parsed = await _parse(
         bytes,
         sourceId: result.sourceId,
         allowPrivateNetwork: allowPrivateNetwork,
@@ -207,15 +208,15 @@ class PlaylistImportService {
     return match?.group(1);
   }
 
-  PlaylistImportResult _finish(
+  Future<PlaylistImportResult> _finish(
     Uint8List bytes, {
     required String name,
     required PlaylistSourceKind kind,
     required String location,
     required bool allowPrivateNetwork,
-  }) {
+  }) async {
     final sourceId = sha256.convert(bytes).toString();
-    final parsed = _parser.parse(
+    final parsed = await _parse(
       bytes,
       sourceId: sourceId,
       allowPrivateNetwork: allowPrivateNetwork,
@@ -231,6 +232,21 @@ class PlaylistImportService {
       ),
       channels: parsed.channels,
       warnings: parsed.warnings,
+    );
+  }
+
+  Future<M3uParseResult> _parse(
+    Uint8List bytes, {
+    required String sourceId,
+    required bool allowPrivateNetwork,
+  }) {
+    final parser = _parser;
+    return Isolate.run(
+      () => parser.parse(
+        bytes,
+        sourceId: sourceId,
+        allowPrivateNetwork: allowPrivateNetwork,
+      ),
     );
   }
 }

@@ -318,6 +318,9 @@ class _ChannelBrowser extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final channels = state.visibleChannels;
+    final groups = state.groups;
+    final filtered =
+        state.query.trim().isNotEmpty || state.selectedGroup != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -328,14 +331,16 @@ class _ChannelBrowser extends StatelessWidget {
               Text('Live TV', style: Theme.of(context).textTheme.headlineSmall),
               const Spacer(),
               Text(
-                '${state.channels.length}',
+                filtered
+                    ? '${channels.length}/${state.channels.length}'
+                    : '${state.channels.length}',
                 style: const TextStyle(color: KlipaColors.foregroundDim),
               ),
             ],
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
           child: TextField(
             key: const Key('channel-search'),
             focusNode: searchFocus,
@@ -347,6 +352,46 @@ class _ChannelBrowser extends StatelessWidget {
             ),
           ),
         ),
+        if (groups.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: KlipaColors.inkRaised,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: KlipaColors.border),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 11),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String?>(
+                    key: const Key('category-filter'),
+                    value: state.selectedGroup,
+                    isExpanded: true,
+                    borderRadius: BorderRadius.circular(8),
+                    dropdownColor: KlipaColors.inkRaised,
+                    icon: const Icon(Icons.expand_more_rounded, size: 19),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('All categories'),
+                      ),
+                      for (final group in groups)
+                        DropdownMenuItem<String?>(
+                          value: group,
+                          child: Text(
+                            group,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: controller.filterGroup,
+                  ),
+                ),
+              ),
+            ),
+          ),
         const Divider(height: 1),
         Expanded(
           child: channels.isEmpty

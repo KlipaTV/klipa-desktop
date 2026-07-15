@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:klipa_player_windows/app/klipa_player_app.dart';
+import 'package:klipa_player_windows/domain/channel.dart';
+import 'package:klipa_player_windows/features/library/library_controller.dart';
+import 'package:klipa_player_windows/features/library/library_state.dart';
 
 void main() {
   testWidgets('first run explains content ownership and import choices', (
@@ -53,4 +56,47 @@ void main() {
     expect(password.enableSuggestions, isFalse);
     expect(find.textContaining('HTTP exposes the login'), findsOneWidget);
   });
+
+  testWidgets('category filter narrows the visible channel list', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          libraryControllerProvider.overrideWith(
+            _CategoryFixtureController.new,
+          ),
+        ],
+        child: const KlipaPlayerApp(),
+      ),
+    );
+
+    expect(find.text('News One'), findsOneWidget);
+    expect(find.text('Sports One'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('category-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sports').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('News One'), findsNothing);
+    expect(find.text('Sports One'), findsOneWidget);
+    expect(find.text('1/2'), findsOneWidget);
+  });
 }
+
+final class _CategoryFixtureController extends LibraryController {
+  @override
+  LibraryState build() => LibraryState(
+    channels: [_channel('News One', 'News'), _channel('Sports One', 'Sports')],
+    groups: const ['News', 'Sports'],
+  );
+}
+
+Channel _channel(String name, String group) => Channel(
+  id: name,
+  name: name,
+  streamUri: Uri.parse('https://stream.example/$name'),
+  sourceId: 'fixture',
+  allowsPrivateNetwork: false,
+  group: group,
+);

@@ -40,7 +40,8 @@ no remote or publishing step.
   extractors, and non-required protocols stay disabled.
 - Widget and platform tests cover separate masked Xtream credentials, live-only
   endpoint selection, same-origin M3U compatibility mapping restricted to live
-  IDs, bounded M3U/Xtream input, private-network opt-in, and URL path/query
+  IDs, background-isolate playlist parsing, bounded M3U/Xtream input,
+  category/search filtering, private-network opt-in, and URL path/query
   redaction.
 - An authorized private, multi-thousand-channel catalog imported through the
   masked Xtream form without entering a credential-bearing URL. A matching

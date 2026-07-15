@@ -68,6 +68,7 @@ Future<void> _settleAssets(WidgetTester tester) async {
 final class _FixtureLibraryController extends LibraryController {
   @override
   LibraryState build() => LibraryState(
+    groups: const ['Entertainment', 'News'],
     channels: List.generate(
       18,
       (index) => Channel(

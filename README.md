@@ -20,6 +20,7 @@ Private developer alpha:
 - Windows-only Flutter project and local Git repository
 - Klipa desktop shell, bounded M3U import, search and single-player vertical slice
 - Masked Xtream login with bounded, live-only account/category/stream requests
+- Compact category filtering and background-isolate playlist parsing
 - Strict HTTP(S), redirect, size, header, protocol and private-network controls
 - SQLite3MultipleCiphers plus DPAPI key-sealing foundation and leak tests
 - Memory-only imports until all native persistence gates pass on Windows

@@ -11,7 +11,7 @@ manifests, segments, subtitles, and decoder input are all untrusted.
 | Playlist download | HTTP(S) only; trusted platform TLS; 10 s connect and 60 s total timeout; 5 manual redirects; no HTTPS downgrade; 25 MiB limit; HTML response rejection |
 | Xtream import | Separate server, username and obscured-password fields; live-only API catalog; same-origin bounded M3U compatibility data intersected with live IDs; bounded JSON parsed off the UI isolate; sanitized source metadata; no persistence |
 | Network destinations | URI validation, DNS classification, local/private target denial by default, explicit per-source LAN opt-in |
-| M3U parsing | 25 MiB input, 64 KiB line, 8 KiB field and 100,000 channel limits; binary/NUL rejection; non-HTTP(S) streams skipped |
+| M3U parsing | Background isolate; 25 MiB input, 64 KiB line, 8 KiB field and 100,000 channel limits; binary/NUL rejection; non-HTTP(S) streams skipped |
 | Playlist directives | Only User-Agent, Referer and Origin are accepted; CR/LF values and privileged headers are dropped |
 | Playback | One lazy native player; protocol allowlist is TCP, TLS, HTTP, HTTPS and crypto; libmpv config/scripts and URL extractors are disabled; no local file protocol |
 | Remote artwork | Disabled. The alpha renders local initials, so an imported logo cannot trigger a nested request |
