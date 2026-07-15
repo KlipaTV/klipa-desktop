@@ -40,10 +40,13 @@ these are implemented and tested:
 5. Reset and corrupted/missing-key recovery.
 6. Tests showing secrets are absent from database bytes and diagnostics.
 
-The key-protection and encrypted-database primitives now exist. Schema v2 uses
-explicit transactional migration, separates list metadata from source and
-channel secrets, replaces source snapshots atomically, preserves stable
-favorites, and has database/WAL/SHM secret scans plus reset primitives. DPAPI,
-SQLite3MultipleCiphers and package smoke tests pass on the actual Windows native
-build. Imports remain memory-only until reset/recovery UX and the broader
-distribution blockers in the security model are closed.
+The key-protection and encrypted-database primitives are wired into the Windows
+runtime. Schema v2 uses explicit transactional migration, separates list
+metadata from source and channel secrets, replaces source snapshots atomically,
+preserves stable favorites, and has database/WAL/SHM secret scans plus reset
+primitives. Save and startup restore run off the UI isolate. DPAPI,
+SQLite3MultipleCiphers, a fresh-store close/reopen cycle, and package smoke tests
+pass on the actual Windows native build. Reset waits for native player teardown,
+then removes the encrypted database, sidecars, sealed key, and interrupted key
+replacement. A missing or unreadable key routes startup to the same confirmed
+recovery flow. The broader distribution blockers in the security model remain.

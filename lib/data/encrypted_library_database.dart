@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:sqlite3/sqlite3.dart';
 
+import '../core/security/network_policy.dart';
 import '../domain/channel.dart';
 import '../domain/playlist_source.dart';
 
@@ -86,6 +87,7 @@ class EncryptedLibraryDatabase {
   EncryptedLibraryDatabase._(this._database);
 
   static const int schemaVersion = 2;
+  static const int maxSources = 20;
   static const int maxChannelsPerSource = 100000;
 
   final Database _database;
@@ -302,6 +304,20 @@ class EncryptedLibraryDatabase {
   }) {
     _database.execute('BEGIN IMMEDIATE');
     try {
+      final sourceExists = _database.select(
+        'SELECT 1 FROM playlist_sources WHERE id = ?',
+        [source.id],
+      ).isNotEmpty;
+      final sourceCount =
+          _database
+                  .select('SELECT count(*) AS count FROM playlist_sources')
+                  .single['count']
+              as int;
+      if (!sourceExists && sourceCount >= maxSources) {
+        throw const LibraryDatabaseException(
+          'The library supports up to 20 sources.',
+        );
+      }
       final refreshedAt = DateTime.now().toUtc().toIso8601String();
       _database
         ..execute(
@@ -433,6 +449,26 @@ class EncryptedLibraryDatabase {
       )
       .toList(growable: false);
 
+  List<PlaylistSource> loadSources() => _database
+      .select('''
+        SELECT s.id, s.name, s.kind, s.allows_private_network, s.imported_at,
+          x.location
+        FROM playlist_sources s
+        INNER JOIN source_secrets x ON x.source_id = s.id
+        ORDER BY s.name COLLATE NOCASE, s.id
+      ''')
+      .map(
+        (row) => PlaylistSource(
+          id: row['id'] as String,
+          name: row['name'] as String,
+          kind: PlaylistSourceKind.values.byName(row['kind'] as String),
+          location: row['location'] as String,
+          allowsPrivateNetwork: row['allows_private_network'] == 1,
+          importedAt: DateTime.parse(row['imported_at'] as String),
+        ),
+      )
+      .toList(growable: false);
+
   List<LibraryChannelSummary> loadChannelSummaries({String? sourceId}) {
     final where = sourceId == null ? '' : 'WHERE c.source_id = ?';
     return _database
@@ -456,6 +492,62 @@ class EncryptedLibraryDatabase {
           ),
         )
         .toList(growable: false);
+  }
+
+  List<Channel> loadChannels() => _database
+      .select('''
+        SELECT c.source_id, c.id, c.name, c.group_name,
+          s.allows_private_network, x.stream_uri, x.logo_uri,
+          x.http_headers_json
+        FROM channels c
+        INNER JOIN playlist_sources s ON s.id = c.source_id
+        INNER JOIN channel_secrets x
+          ON x.source_id = c.source_id AND x.channel_id = c.id
+        ORDER BY c.name COLLATE NOCASE, c.id
+      ''')
+      .map(_channelFromRow)
+      .toList(growable: false);
+
+  Channel _channelFromRow(Row row) {
+    final streamUri = Uri.parse(row['stream_uri'] as String);
+    const NetworkPolicy().validateHttpUriShape(streamUri);
+    final logoUri = switch (row['logo_uri']) {
+      final String value => Uri.parse(value),
+      _ => null,
+    };
+    if (logoUri != null) const NetworkPolicy().validateHttpUriShape(logoUri);
+
+    final decodedHeaders = jsonDecode(row['http_headers_json'] as String);
+    if (decodedHeaders is! Map) {
+      throw const LibraryDatabaseException(
+        'The encrypted library contains invalid channel data.',
+      );
+    }
+    final headers = <String, String>{};
+    const allowedHeaders = {'User-Agent', 'Referer', 'Origin'};
+    for (final entry in decodedHeaders.entries) {
+      if (entry.key is! String ||
+          entry.value is! String ||
+          !allowedHeaders.contains(entry.key) ||
+          (entry.value as String).length > 8192 ||
+          (entry.value as String).contains('\r') ||
+          (entry.value as String).contains('\n')) {
+        throw const LibraryDatabaseException(
+          'The encrypted library contains invalid channel data.',
+        );
+      }
+      headers[entry.key as String] = entry.value as String;
+    }
+    return Channel(
+      id: row['id'] as String,
+      name: row['name'] as String,
+      streamUri: streamUri,
+      sourceId: row['source_id'] as String,
+      allowsPrivateNetwork: row['allows_private_network'] == 1,
+      group: row['group_name'] as String?,
+      logoUri: logoUri,
+      httpHeaders: headers,
+    );
   }
 
   StoredSourceSecret? readSourceSecret(String sourceId) {

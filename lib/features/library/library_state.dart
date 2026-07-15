@@ -9,7 +9,10 @@ class LibraryState {
     this.selectedChannel,
     this.selectedGroup,
     this.query = '',
+    this.isLoading = false,
     this.isImporting = false,
+    this.isResetting = false,
+    this.recoveryRequired = false,
     this.message,
     this.error,
   });
@@ -20,7 +23,10 @@ class LibraryState {
   final Channel? selectedChannel;
   final String? selectedGroup;
   final String query;
+  final bool isLoading;
   final bool isImporting;
+  final bool isResetting;
+  final bool recoveryRequired;
   final String? message;
   final String? error;
 
@@ -59,7 +65,10 @@ class LibraryState {
     String? selectedGroup,
     bool clearGroup = false,
     String? query,
+    bool? isLoading,
     bool? isImporting,
+    bool? isResetting,
+    bool? recoveryRequired,
     String? message,
     bool clearMessage = false,
     String? error,
@@ -73,7 +82,10 @@ class LibraryState {
         : selectedChannel ?? this.selectedChannel,
     selectedGroup: clearGroup ? null : selectedGroup ?? this.selectedGroup,
     query: query ?? this.query,
+    isLoading: isLoading ?? this.isLoading,
     isImporting: isImporting ?? this.isImporting,
+    isResetting: isResetting ?? this.isResetting,
+    recoveryRequired: recoveryRequired ?? this.recoveryRequired,
     message: clearMessage ? null : message ?? this.message,
     error: clearError ? null : error ?? this.error,
   );

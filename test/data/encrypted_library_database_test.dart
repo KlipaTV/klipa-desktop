@@ -204,6 +204,60 @@ void main() {
     database.close();
   });
 
+  test('rejects a twenty-first source without changing the library', () {
+    final database = EncryptedLibraryDatabase.open(
+      path: databasePath,
+      key: _key(),
+    );
+    for (var index = 0; index < EncryptedLibraryDatabase.maxSources; index++) {
+      final source = PlaylistSource(
+        id: 'source-$index',
+        name: 'Source $index',
+        kind: PlaylistSourceKind.remoteUrl,
+        location: 'https://source-$index.invalid/list',
+        allowsPrivateNetwork: false,
+        importedAt: DateTime.utc(2026, 7, 15),
+      );
+      database.replaceSourceSnapshot(
+        source: source,
+        channels: [
+          Channel(
+            id: 'channel-$index',
+            name: 'Channel $index',
+            streamUri: Uri.parse('https://stream.invalid/$index'),
+            sourceId: source.id,
+            allowsPrivateNetwork: false,
+          ),
+        ],
+      );
+    }
+
+    expect(
+      () => database.replaceSourceSnapshot(
+        source: PlaylistSource(
+          id: 'source-over-limit',
+          name: 'Over limit',
+          kind: PlaylistSourceKind.remoteUrl,
+          location: 'https://over-limit.invalid/list',
+          allowsPrivateNetwork: false,
+          importedAt: DateTime.utc(2026, 7, 15),
+        ),
+        channels: [
+          Channel(
+            id: 'over-limit',
+            name: 'Over limit',
+            streamUri: Uri.parse('https://stream.invalid/over-limit'),
+            sourceId: 'source-over-limit',
+            allowsPrivateNetwork: false,
+          ),
+        ],
+      ),
+      throwsA(isA<LibraryDatabaseException>()),
+    );
+    expect(database.loadSourceSummaries(), hasLength(20));
+    database.close();
+  });
+
   test('database, WAL and SHM do not expose seeded secrets', () async {
     const secrets = [
       'KLIPA_WAL_LOCATION_17c1',

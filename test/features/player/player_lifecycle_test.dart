@@ -140,6 +140,32 @@ void main() {
     );
     expect(player.disposeCount, 1);
   });
+
+  testWidgets('external stop awaits native player disposal', (tester) async {
+    final player = _FakeVideoPlayerPort('reset');
+    final controller = PlayerPaneController();
+    addTearDown(player.closeStreams);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PlayerPane(
+            channel: _channel('one'),
+            controller: controller,
+            playerFactory: () => player,
+            channelStartTimeout: const Duration(seconds: 1),
+          ),
+        ),
+      ),
+    );
+    await _pumpOpen(tester);
+
+    await controller.stop();
+    await tester.pump();
+
+    expect(player.disposeCount, 1);
+    expect(find.byKey(const ValueKey('fake-video-reset')), findsNothing);
+  });
 }
 
 const _timeoutMessage = 'The channel did not start in time. You can try again.';

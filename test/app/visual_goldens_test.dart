@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:klipa_player_windows/app/klipa_player_app.dart';
+import 'package:klipa_player_windows/data/library_store.dart';
 import 'package:klipa_player_windows/domain/channel.dart';
 import 'package:klipa_player_windows/features/library/library_controller.dart';
 import 'package:klipa_player_windows/features/library/library_state.dart';
@@ -15,7 +16,14 @@ void main() {
 
   testWidgets('onboarding 1440x900', (tester) async {
     await _setDesktopViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: KlipaPlayerApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          libraryStoreProvider.overrideWithValue(const DisabledLibraryStore()),
+        ],
+        child: const KlipaPlayerApp(),
+      ),
+    );
     await _settleAssets(tester);
 
     await expectLater(

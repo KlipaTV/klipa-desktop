@@ -40,6 +40,13 @@ no remote or publishing step.
   snapshots through prepared statements, rolls back interrupted refreshes,
   preserves stable favorites, and keeps seeded secrets absent from the live
   database, WAL and SHM files.
+- The runtime library store saves atomically off the UI isolate, seals its key
+  with DPAPI, closes, reopens through a fresh store instance, and restores the
+  source and playable channel. Controller tests prove state is published only
+  after the save succeeds and that a failed save preserves the prior snapshot.
+- Reset requires an enumerated confirmation, awaits native player disposal,
+  removes the database/WAL/SHM and sealed-key files, and returns to onboarding.
+  A startup key/read failure exposes the same recovery action.
 - The bundled native media backend loads and disposes while scripts, URL
   extractors, and non-required protocols stay disabled.
 - Deterministic lifecycle tests cover first-media timeout and retry, a hung open

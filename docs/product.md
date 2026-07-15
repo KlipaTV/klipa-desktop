@@ -17,8 +17,9 @@ promotes Klipa mobile without behaving like adware.
 
 A user can import a synthetic or personally supplied M3U/M3U8 source, search
 and filter its live channels, select one, and play it in a Klipa-branded desktop
-shell. Until encrypted persistence is complete, imported data remains in memory
-and is discarded on exit.
+shell. On Windows, successful imports are committed atomically to the encrypted
+per-user library and restored on the next launch without autoplaying an
+arbitrary channel.
 
 ## Security boundary
 

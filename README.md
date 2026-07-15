@@ -29,8 +29,10 @@ Private developer alpha:
 - Strict HTTP(S), redirect, size, header, protocol and private-network controls
 - Versioned SQLite3MultipleCiphers schema, atomic snapshot writes, DPAPI
   key-sealing, reset primitives, and database/WAL/SHM leak tests
-- Memory-only imports while reset UX and broader distribution security gates
-  remain open
+- Encrypted library save and startup restore on a background isolate; a failed
+  save leaves the previous working snapshot active
+- Confirmed reset and missing/corrupt-key recovery are wired; broader
+  distribution security gates remain open
 - Native Windows debug build, DPAPI, encrypted database and libmpv smoke tests pass
 - Native release build and an authorized private MPEG-TS playback smoke pass
 - No remote configured and no public artifact
@@ -64,6 +66,10 @@ interoperability streams. An authorized private provider may be used for a
 manual local smoke test through the masked UI, but never include its URL,
 username, password, token, or authorization headers in source, commands, logs,
 issues, tests, or screenshots.
+
+On Windows, library data is stored below the app-specific directory in
+`%LOCALAPPDATA%`. The database is encrypted as a whole and its random key is
+sealed to the current Windows user with DPAPI. There is no plaintext fallback.
 
 ## Scope
 

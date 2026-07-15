@@ -12,9 +12,22 @@ import 'playback_control_bar.dart';
 import 'playback_error_mapper.dart';
 import 'video_player_port.dart';
 
+final class PlayerPaneController {
+  Future<void> Function()? _stop;
+
+  Future<void> stop() => _stop?.call() ?? Future<void>.value();
+
+  void _attach(Future<void> Function() stop) => _stop = stop;
+
+  void _detach(Future<void> Function() stop) {
+    if (identical(_stop, stop)) _stop = null;
+  }
+}
+
 class PlayerPane extends StatefulWidget {
   const PlayerPane({
     required this.channel,
+    this.controller,
     this.windowController = const MethodChannelAppWindowController(),
     this.playerFactory = createMediaKitVideoPlayerPort,
     this.channelStartTimeout = const Duration(seconds: 20),
@@ -24,6 +37,7 @@ class PlayerPane extends StatefulWidget {
   });
 
   final Channel? channel;
+  final PlayerPaneController? controller;
   final AppWindowController windowController;
   final VideoPlayerPortFactory playerFactory;
   final Duration channelStartTimeout;
@@ -57,22 +71,29 @@ class _PlayerPaneState extends State<PlayerPane> {
   var _volume = 100.0;
   var _fit = BoxFit.contain;
   var _fullscreen = false;
+
+  late final Future<void> Function() _stopCallback = _stopPlayer;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    widget.controller?._attach(_stopCallback);
     if (widget.channel case final channel?) _requestOpen(channel);
   }
 
   @override
   void didUpdateWidget(PlayerPane oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(widget.controller, oldWidget.controller)) {
+      oldWidget.controller?._detach(_stopCallback);
+      widget.controller?._attach(_stopCallback);
+    }
     if (widget.channel?.id != oldWidget.channel?.id) {
       if (widget.channel case final channel?) {
         _requestOpen(channel);
       } else {
-        _requestStop();
+        unawaited(_stopPlayer());
       }
     }
   }
@@ -95,11 +116,21 @@ class _PlayerPaneState extends State<PlayerPane> {
     _openQueue = _openQueue.then((_) => _performOpen(channel, generation));
   }
 
-  void _requestStop() {
+  Future<void> _stopPlayer() {
     _openGeneration++;
     _cancelStartTimers();
     _hideControlsTimer?.cancel();
+    if (mounted) {
+      setState(() {
+        _opening = false;
+        _playing = false;
+        _buffering = false;
+        _error = null;
+        _controlsVisible = true;
+      });
+    }
     _openQueue = _openQueue.then((_) => _disposeCurrentPlayer());
+    return _openQueue;
   }
 
   Future<void> _performOpen(Channel channel, int generation) async {
@@ -372,6 +403,7 @@ class _PlayerPaneState extends State<PlayerPane> {
 
   @override
   void dispose() {
+    widget.controller?._detach(_stopCallback);
     _openGeneration++;
     _cancelStartTimers();
     _hideControlsTimer?.cancel();

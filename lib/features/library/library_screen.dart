@@ -19,6 +19,7 @@ class LibraryScreen extends ConsumerStatefulWidget {
 
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   final _searchFocus = FocusNode(debugLabel: 'channel-search');
+  final _playerController = PlayerPaneController();
 
   @override
   void dispose() {
@@ -51,18 +52,29 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         child: Scaffold(
           body: Stack(
             children: [
-              if (state.channels.isEmpty)
+              if (state.isLoading)
+                const Center(
+                  child: CircularProgressIndicator(
+                    key: Key('library-loading'),
+                    strokeWidth: 2,
+                  ),
+                )
+              else if (state.channels.isEmpty)
                 _Onboarding(
                   controller: controller,
                   isImporting: state.isImporting,
+                  recoveryRequired: state.recoveryRequired,
+                  onReset: () => _confirmAndReset(controller),
                 )
               else
                 _DesktopLibrary(
                   state: state,
                   controller: controller,
                   searchFocus: _searchFocus,
+                  playerController: _playerController,
+                  onReset: () => _confirmAndReset(controller),
                 ),
-              if (state.isImporting)
+              if (state.isImporting || state.isResetting)
                 const Positioned.fill(
                   child: IgnorePointer(
                     child: ColoredBox(color: Color(0x45000000)),
@@ -77,6 +89,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     message: state.error ?? state.message!,
                     isError: state.error != null,
                     onDismiss: controller.dismissNotices,
+                    actionLabel: state.recoveryRequired
+                        ? 'Reset app data'
+                        : null,
+                    onAction: state.recoveryRequired
+                        ? () => _confirmAndReset(controller)
+                        : null,
                   ),
                 ),
             ],
@@ -85,13 +103,28 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       ),
     );
   }
+
+  Future<void> _confirmAndReset(LibraryController controller) async {
+    final confirmed = await _showResetDialog(context);
+    if (confirmed != true || !mounted) return;
+    await _playerController.stop();
+    if (!mounted) return;
+    await controller.resetLibrary();
+  }
 }
 
 class _Onboarding extends StatelessWidget {
-  const _Onboarding({required this.controller, required this.isImporting});
+  const _Onboarding({
+    required this.controller,
+    required this.isImporting,
+    required this.recoveryRequired,
+    required this.onReset,
+  });
 
   final LibraryController controller;
   final bool isImporting;
+  final bool recoveryRequired;
+  final VoidCallback onReset;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -166,7 +199,7 @@ class _Onboarding extends StatelessWidget {
                 SizedBox(width: 7),
                 Flexible(
                   child: Text(
-                    'This alpha keeps imports in memory and sends no telemetry.',
+                    'Your library is encrypted on this PC. No telemetry is sent.',
                     style: TextStyle(
                       color: KlipaColors.foregroundDim,
                       fontSize: 12,
@@ -175,6 +208,15 @@ class _Onboarding extends StatelessWidget {
                 ),
               ],
             ),
+            if (recoveryRequired) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                key: const Key('recover-reset-app-data'),
+                onPressed: onReset,
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: const Text('Reset app data'),
+              ),
+            ],
           ],
         ),
       ),
@@ -187,11 +229,15 @@ class _DesktopLibrary extends StatelessWidget {
     required this.state,
     required this.controller,
     required this.searchFocus,
+    required this.playerController,
+    required this.onReset,
   });
 
   final LibraryState state;
   final LibraryController controller;
   final FocusNode searchFocus;
+  final PlayerPaneController playerController;
+  final VoidCallback onReset;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -199,7 +245,7 @@ class _DesktopLibrary extends StatelessWidget {
       final compact = constraints.maxWidth < 980;
       return Row(
         children: [
-          _SourceRail(controller: controller),
+          _SourceRail(controller: controller, onReset: onReset),
           SizedBox(
             width: compact ? 280 : 340,
             child: _ChannelBrowser(
@@ -209,7 +255,12 @@ class _DesktopLibrary extends StatelessWidget {
             ),
           ),
           const VerticalDivider(width: 1),
-          Expanded(child: PlayerPane(channel: state.selectedChannel)),
+          Expanded(
+            child: PlayerPane(
+              channel: state.selectedChannel,
+              controller: playerController,
+            ),
+          ),
         ],
       );
     },
@@ -217,9 +268,10 @@ class _DesktopLibrary extends StatelessWidget {
 }
 
 class _SourceRail extends StatelessWidget {
-  const _SourceRail({required this.controller});
+  const _SourceRail({required this.controller, required this.onReset});
 
   final LibraryController controller;
+  final VoidCallback onReset;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -253,6 +305,11 @@ class _SourceRail extends StatelessWidget {
           tooltip: 'Use Xtream login',
           icon: Icons.key_rounded,
           onPressed: () => _showXtreamDialog(context, controller),
+        ),
+        _RailButton(
+          tooltip: 'Reset app data',
+          icon: Icons.delete_outline_rounded,
+          onPressed: onReset,
         ),
         const Padding(
           padding: EdgeInsets.fromLTRB(8, 10, 8, 16),
@@ -509,11 +566,15 @@ class _Notice extends StatelessWidget {
     required this.message,
     required this.isError,
     required this.onDismiss,
+    this.actionLabel,
+    this.onAction,
   });
 
   final String message;
   final bool isError;
   final VoidCallback onDismiss;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -533,6 +594,8 @@ class _Notice extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(child: Text(message, maxLines: 3)),
+          if (actionLabel case final label?)
+            TextButton(onPressed: onAction, child: Text(label)),
           IconButton(
             tooltip: 'Dismiss',
             onPressed: onDismiss,
@@ -543,6 +606,29 @@ class _Notice extends StatelessWidget {
     ),
   );
 }
+
+Future<bool?> _showResetDialog(BuildContext context) => showDialog<bool>(
+  context: context,
+  builder: (context) => AlertDialog(
+    title: const Text('Reset app data?'),
+    content: const Text(
+      'This permanently removes all saved playlists and channels, provider '
+      'credentials, favorites, guide/cache data, and settings from this PC.\n\n'
+      'This cannot be undone.',
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context, false),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        key: const Key('confirm-reset-app-data'),
+        onPressed: () => Navigator.pop(context, true),
+        child: const Text('Reset app data'),
+      ),
+    ],
+  ),
+);
 
 class _BrandMark extends StatelessWidget {
   const _BrandMark({required this.size});
