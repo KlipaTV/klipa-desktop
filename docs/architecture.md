@@ -34,7 +34,10 @@ these are implemented and tested:
 5. Reset and corrupted/missing-key recovery.
 6. Tests showing secrets are absent from database bytes and diagnostics.
 
-The key-protection and encrypted-database primitives now exist. DPAPI,
+The key-protection and encrypted-database primitives now exist. Schema v2 uses
+explicit transactional migration, separates list metadata from source and
+channel secrets, replaces source snapshots atomically, preserves stable
+favorites, and has database/WAL/SHM secret scans plus reset primitives. DPAPI,
 SQLite3MultipleCiphers and package smoke tests pass on the actual Windows native
-build. Imports remain memory-only until WAL/SHM secret scanning, schema
-migration, and reset/recovery UX are implemented and exercised.
+build. Imports remain memory-only until reset/recovery UX and the broader
+distribution blockers in the security model are closed.

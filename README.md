@@ -24,8 +24,10 @@ Private developer alpha:
 - Compact live controls for play/pause, mute, app-session volume and fit mode,
   with focus-scoped keyboard shortcuts and playback-only auto-hide
 - Strict HTTP(S), redirect, size, header, protocol and private-network controls
-- SQLite3MultipleCiphers plus DPAPI key-sealing foundation and leak tests
-- Memory-only imports until all native persistence gates pass on Windows
+- Versioned SQLite3MultipleCiphers schema, atomic snapshot writes, DPAPI
+  key-sealing, reset primitives, and database/WAL/SHM leak tests
+- Memory-only imports while reset UX and broader distribution security gates
+  remain open
 - Native Windows debug build, DPAPI, encrypted database and libmpv smoke tests pass
 - Native release build and an authorized private MPEG-TS playback smoke pass
 - No remote configured and no public artifact

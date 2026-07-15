@@ -22,6 +22,12 @@ class DatabaseKeyStore {
 
   final SecretProtector _protector;
 
+  Future<void> delete(File keyFile) async {
+    for (final candidate in [keyFile, File('${keyFile.path}.new')]) {
+      if (await candidate.exists()) await candidate.delete();
+    }
+  }
+
   Future<Uint8List> loadOrCreate({
     required File keyFile,
     required bool databaseExists,

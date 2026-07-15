@@ -16,7 +16,7 @@ manifests, segments, subtitles, and decoder input are all untrusted.
 | Playback | One lazy native player; protocol allowlist is TCP, TLS, HTTP, HTTPS and crypto; libmpv config/scripts and URL extractors are disabled; no local file protocol |
 | Remote artwork | Disabled. The alpha renders local initials, so an imported logo cannot trigger a nested request |
 | Diagnostics | Common credentials, secret fields and complete URL paths/query/fragment data are redacted; no telemetry or remote logging |
-| Local storage foundation | SQLite3MultipleCiphers is selected through a native-asset hook; a random 256-bit key can be DPAPI-sealed to the current user; Windows tests prove the database is unreadable without its key and a marker does not appear in the closed database bytes |
+| Local storage foundation | SQLite3MultipleCiphers is selected through a native-asset hook; schema v2 migrates transactionally, keeps stream/source secrets out of list queries, replaces snapshots atomically, and preserves stable favorites; a random 256-bit key can be DPAPI-sealed to the current user; tests scan the database, live WAL and SHM for seeded secrets and cover wrong/missing keys plus reset primitives |
 | Secrets in source | No provider fixture, host, account, token, certificate bypass or signing credential is committed |
 
 ## Native validation completed
@@ -47,8 +47,9 @@ encrypted persistence or distribute a binary until all blockers below close.
    bundle, record hashes, and establish a patch/update response window.
 4. Fuzz the M3U and Xtream parsers and synthetic corrupt-media corpus under
    release builds.
-5. Add encrypted schema migration, reset/recovery UX and an automated scan of
-   the database, WAL, SHM, crash dumps and logs for seeded secrets.
+5. Add reset/recovery UX and extend seeded-secret scanning to any future crash
+   dumps and diagnostic logs. Transactional schema migration, reset primitives,
+   and database/WAL/SHM scanning are covered.
 6. Configure a private security intake before making the repository public.
 
 ## Explicit non-goals

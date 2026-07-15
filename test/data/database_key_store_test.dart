@@ -47,6 +47,35 @@ void main() {
     );
     expect(await keyFile.exists(), isFalse);
   });
+
+  test('rejects a malformed protected key without replacing it', () async {
+    final keyFile = File('${temporaryDirectory.path}/library.key');
+    final store = DatabaseKeyStore(protector: const _TestProtector());
+    await keyFile.writeAsBytes([1, 2, 3]);
+
+    await expectLater(
+      store.loadOrCreate(keyFile: keyFile, databaseExists: true),
+      throwsA(isA<DatabaseKeyException>()),
+    );
+
+    expect(await keyFile.readAsBytes(), [1, 2, 3]);
+  });
+
+  test(
+    'deletes the protected key and interrupted replacement on reset',
+    () async {
+      final keyFile = File('${temporaryDirectory.path}/library.key');
+      final temporaryKey = File('${keyFile.path}.new');
+      final store = DatabaseKeyStore(protector: const _TestProtector());
+      await keyFile.writeAsBytes([1, 2, 3]);
+      await temporaryKey.writeAsBytes([4, 5, 6]);
+
+      await store.delete(keyFile);
+
+      expect(await keyFile.exists(), isFalse);
+      expect(await temporaryKey.exists(), isFalse);
+    },
+  );
 }
 
 final class _TestProtector implements SecretProtector {
