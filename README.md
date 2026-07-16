@@ -35,6 +35,8 @@ Private developer alpha:
   delete, and atomic refresh with `Ctrl+R`
 - Encrypted per-channel favorites with responsive row toggles and a composable
   favorites-only filter; stable favorites survive source refresh
+- Encrypted last source/group/channel state with stale-identity validation and
+  an explicit one-click Resume action that never autoplays on startup
 - Confirmed reset and missing/corrupt-key recovery are wired; broader
   distribution security gates remain open
 - Native Windows debug build, DPAPI, encrypted database and libmpv smoke tests pass

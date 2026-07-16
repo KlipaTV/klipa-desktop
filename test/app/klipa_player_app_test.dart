@@ -70,6 +70,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          libraryStoreProvider.overrideWithValue(const DisabledLibraryStore()),
           libraryControllerProvider.overrideWith(
             _CategoryFixtureController.new,
           ),
@@ -163,6 +164,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          libraryStoreProvider.overrideWithValue(const DisabledLibraryStore()),
           libraryControllerProvider.overrideWith(
             _ManagementFixtureController.new,
           ),

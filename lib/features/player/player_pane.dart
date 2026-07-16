@@ -27,6 +27,8 @@ final class PlayerPaneController {
 class PlayerPane extends StatefulWidget {
   const PlayerPane({
     required this.channel,
+    this.resumeChannel,
+    this.onResume,
     this.controller,
     this.windowController = const MethodChannelAppWindowController(),
     this.playerFactory = createMediaKitVideoPlayerPort,
@@ -37,6 +39,8 @@ class PlayerPane extends StatefulWidget {
   });
 
   final Channel? channel;
+  final Channel? resumeChannel;
+  final VoidCallback? onResume;
   final PlayerPaneController? controller;
   final AppWindowController windowController;
   final VideoPlayerPortFactory playerFactory;
@@ -89,7 +93,8 @@ class _PlayerPaneState extends State<PlayerPane> {
       oldWidget.controller?._detach(_stopCallback);
       widget.controller?._attach(_stopCallback);
     }
-    if (widget.channel?.id != oldWidget.channel?.id) {
+    if (widget.channel?.id != oldWidget.channel?.id ||
+        widget.channel?.sourceId != oldWidget.channel?.sourceId) {
       if (widget.channel case final channel?) {
         _requestOpen(channel);
       } else {
@@ -186,7 +191,8 @@ class _PlayerPaneState extends State<PlayerPane> {
   bool _isCurrent(Channel channel, int generation) =>
       mounted &&
       generation == _openGeneration &&
-      widget.channel?.id == channel.id;
+      widget.channel?.id == channel.id &&
+      widget.channel?.sourceId == channel.sourceId;
 
   bool _isOwnedAndCurrent(
     VideoPlayerPort player,
@@ -421,7 +427,10 @@ class _PlayerPaneState extends State<PlayerPane> {
   Widget build(BuildContext context) {
     final channel = widget.channel;
     if (channel == null) {
-      return const _EmptyPlayer();
+      return _EmptyPlayer(
+        resumeChannel: widget.resumeChannel,
+        onResume: widget.onResume,
+      );
     }
     final controlsVisible = shouldShowPlaybackControls(
       requestedVisible: _controlsVisible,
@@ -506,7 +515,10 @@ class _PlayerPaneState extends State<PlayerPane> {
 }
 
 class _EmptyPlayer extends StatelessWidget {
-  const _EmptyPlayer();
+  const _EmptyPlayer({this.resumeChannel, this.onResume});
+
+  final Channel? resumeChannel;
+  final VoidCallback? onResume;
 
   @override
   Widget build(BuildContext context) => ColoredBox(
@@ -525,6 +537,19 @@ class _EmptyPlayer extends StatelessWidget {
             'Choose a channel',
             style: TextStyle(color: KlipaColors.foregroundMuted),
           ),
+          if (resumeChannel case final channel?) ...[
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              key: const Key('resume-last-channel'),
+              onPressed: onResume,
+              icon: const Icon(Icons.history_rounded, size: 18),
+              label: Text(
+                'Resume ${channel.name}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ],
       ),
     ),

@@ -7,6 +7,47 @@ import 'package:klipa_player_windows/features/player/player_pane.dart';
 import 'package:klipa_player_windows/features/player/video_player_port.dart';
 
 void main() {
+  testWidgets('resume waits for an explicit click before opening media', (
+    tester,
+  ) async {
+    final player = _FakeVideoPlayerPort('resume');
+    addTearDown(player.closeStreams);
+    final resume = _channel('resume');
+    Channel? active;
+    var factoryCalls = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark().copyWith(splashFactory: NoSplash.splashFactory),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => PlayerPane(
+              channel: active,
+              resumeChannel: resume,
+              onResume: () => setState(() => active = resume),
+              playerFactory: () {
+                factoryCalls++;
+                return player;
+              },
+              channelStartTimeout: const Duration(seconds: 1),
+              openCommandTimeout: const Duration(milliseconds: 50),
+              readinessGrace: const Duration(milliseconds: 10),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('resume-last-channel')), findsOneWidget);
+    expect(factoryCalls, 0);
+    expect(player.opened, isEmpty);
+
+    await tester.tap(find.byKey(const Key('resume-last-channel')));
+    await _pumpUntil(tester, () => player.opened.isNotEmpty);
+    expect(factoryCalls, 1);
+    expect(player.opened.single.id, 'resume');
+  });
+
   testWidgets('times out, disposes, and retries a channel start', (
     tester,
   ) async {
@@ -113,6 +154,35 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
+  testWidgets('same channel ID from another source replaces the player', (
+    tester,
+  ) async {
+    final first = _FakeVideoPlayerPort('first-source');
+    final second = _FakeVideoPlayerPort('second-source');
+    final ports = [first, second];
+    addTearDown(() => Future.wait(ports.map((port) => port.closeStreams())));
+    var factoryIndex = 0;
+
+    await tester.pumpWidget(
+      _testApp(
+        channel: _channel('shared', sourceId: 'one'),
+        playerFactory: () => ports[factoryIndex++],
+      ),
+    );
+    await _pumpOpen(tester);
+
+    await tester.pumpWidget(
+      _testApp(
+        channel: _channel('shared', sourceId: 'two'),
+        playerFactory: () => ports[factoryIndex++],
+      ),
+    );
+    await _pumpUntil(tester, () => second.opened.isNotEmpty);
+
+    expect(first.disposeCount, 1);
+    expect(second.opened.single.sourceId, 'two');
+  });
+
   testWidgets('current playback errors are redacted and retryable', (
     tester,
   ) async {
@@ -205,11 +275,11 @@ Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) async {
   );
 }
 
-Channel _channel(String id) => Channel(
+Channel _channel(String id, {String sourceId = 'fixture'}) => Channel(
   id: id,
   name: 'Channel $id',
   streamUri: Uri.parse('https://192.0.2.1/$id'),
-  sourceId: 'fixture',
+  sourceId: sourceId,
   allowsPrivateNetwork: false,
 );
 

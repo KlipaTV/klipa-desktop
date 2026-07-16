@@ -9,6 +9,7 @@ import '../../data/library_store.dart';
 import '../../data/playlist_import_service.dart';
 import '../../domain/channel.dart';
 import '../../domain/channel_identity.dart';
+import '../../domain/library_navigation.dart';
 import '../../domain/library_source.dart';
 import 'library_state.dart';
 
@@ -28,6 +29,7 @@ final libraryControllerProvider =
 class LibraryController extends Notifier<LibraryState> {
   var _disposed = false;
   final _favoriteWrites = <ChannelIdentity>{};
+  Future<void> _navigationWrites = Future.value();
 
   PlaylistImportService get _importer =>
       ref.read(playlistImportServiceProvider);
@@ -89,6 +91,7 @@ class LibraryController extends Notifier<LibraryState> {
 
   void filterGroup(String? value) {
     state = state.copyWith(selectedGroup: value, clearGroup: value == null);
+    _queueNavigationSave();
   }
 
   void filterSource(String? sourceId) {
@@ -105,6 +108,7 @@ class LibraryController extends Notifier<LibraryState> {
       clearSource: sourceId == null,
       clearGroup: !keepGroup,
     );
+    _queueNavigationSave();
   }
 
   void setFavoritesOnly(bool value) {
@@ -117,6 +121,7 @@ class LibraryController extends Notifier<LibraryState> {
     if (!_favoriteWrites.add(identity)) return;
     final favorite = !state.favoriteChannels.contains(identity);
     try {
+      await _navigationWrites;
       await _store.setFavorite(
         sourceId: identity.sourceId,
         channelId: identity.channelId,
@@ -141,7 +146,12 @@ class LibraryController extends Notifier<LibraryState> {
   }
 
   void select(Channel channel) {
-    state = state.copyWith(selectedChannel: channel, clearError: true);
+    state = state.copyWith(
+      selectedChannel: channel,
+      lastChannelIdentity: (sourceId: channel.sourceId, channelId: channel.id),
+      clearError: true,
+    );
+    _queueNavigationSave();
   }
 
   void dismissNotices() {
@@ -167,6 +177,7 @@ class LibraryController extends Notifier<LibraryState> {
     if (_operationInProgress) return;
     _startOperation();
     try {
+      await _navigationWrites;
       final access = await _store.readSourceRefreshAccess(sourceId);
       if (access == null) {
         throw const LibraryDatabaseException('The source no longer exists.');
@@ -198,6 +209,7 @@ class LibraryController extends Notifier<LibraryState> {
     if (_operationInProgress) return;
     _startOperation();
     try {
+      await _navigationWrites;
       await _store.renameSource(sourceId: sourceId, name: normalized);
       if (_disposed) return;
       state = state.copyWith(
@@ -217,12 +229,15 @@ class LibraryController extends Notifier<LibraryState> {
     if (_operationInProgress) return;
     _startOperation();
     try {
+      await _navigationWrites;
       await _store.deleteSource(sourceId);
       if (_disposed) return;
       final channels = state.channels
           .where((channel) => channel.sourceId != sourceId)
           .toList(growable: false);
       final selectedWasDeleted = state.selectedChannel?.sourceId == sourceId;
+      final lastChannelWasDeleted =
+          state.lastChannelIdentity?.sourceId == sourceId;
       final sourceFilterWasDeleted = state.selectedSourceId == sourceId;
       state = state.copyWith(
         sources: List.unmodifiable(
@@ -236,11 +251,13 @@ class LibraryController extends Notifier<LibraryState> {
           ),
         ),
         clearSelection: selectedWasDeleted,
+        clearLastChannel: lastChannelWasDeleted,
         clearSource: sourceFilterWasDeleted,
         clearGroup: sourceFilterWasDeleted,
         isImporting: false,
         message: 'Deleted source.',
       );
+      _queueNavigationSave();
     } on Object catch (error) {
       _failOperation(error);
     }
@@ -278,6 +295,7 @@ class LibraryController extends Notifier<LibraryState> {
       clearMessage: true,
     );
     try {
+      await _navigationWrites;
       await _store.reset();
       if (_disposed) return;
       state = const LibraryState(message: 'App data was reset.');
@@ -305,6 +323,7 @@ class LibraryController extends Notifier<LibraryState> {
         return;
       }
 
+      await _navigationWrites;
       await _store.replaceSourceSnapshot(
         source: result.source,
         channels: result.channels,
@@ -358,6 +377,11 @@ class LibraryController extends Notifier<LibraryState> {
         }
       }
     }
+    final lastIdentity = state.lastChannelIdentity;
+    final keepLastChannel =
+        lastIdentity == null ||
+        lastIdentity.sourceId != result.source.id ||
+        refreshedChannelIds.contains(lastIdentity.channelId);
     final relevantChannels = state.selectedSourceId == null
         ? channels
         : channels
@@ -382,10 +406,12 @@ class LibraryController extends Notifier<LibraryState> {
       groups: LibraryState.deriveGroups(channels),
       selectedChannel: refreshedSelection,
       clearSelection: selectedId != null && refreshedSelection == null,
+      clearLastChannel: !keepLastChannel,
       clearGroup: !keepSelectedGroup,
       isImporting: false,
       message: '$verb ${result.channels.length} channels.$warningSuffix',
     );
+    _queueNavigationSave();
   }
 
   Future<void> _restoreLibrary() async {
@@ -398,6 +424,9 @@ class LibraryController extends Notifier<LibraryState> {
         sources: List.unmodifiable(snapshot.sources),
         channels: List.unmodifiable(channels),
         favoriteChannels: Set.unmodifiable(snapshot.favoriteChannels),
+        selectedSourceId: snapshot.navigation.selectedSourceId,
+        selectedGroup: snapshot.navigation.selectedGroup,
+        lastChannelIdentity: snapshot.navigation.lastChannel,
         groups: LibraryState.deriveGroups(channels),
         isLoading: false,
         recoveryRequired: false,
@@ -411,5 +440,23 @@ class LibraryController extends Notifier<LibraryState> {
         error: const SensitiveDataRedactor().text(error.toString()),
       );
     }
+  }
+
+  void _queueNavigationSave() {
+    final store = _store;
+    final navigation = LibraryNavigation(
+      selectedSourceId: state.selectedSourceId,
+      selectedGroup: state.selectedGroup,
+      lastChannel: state.lastChannelIdentity,
+    );
+    _navigationWrites = _navigationWrites
+        .then((_) => store.saveNavigation(navigation))
+        .onError((error, stackTrace) {
+          if (_disposed) return;
+          state = state.copyWith(
+            error: const SensitiveDataRedactor().text(error.toString()),
+            clearMessage: true,
+          );
+        });
   }
 }

@@ -77,6 +77,24 @@ void main() {
     expect(state.isFavorite(favorite), isTrue);
     expect(state.visibleChannels, [favorite]);
   });
+
+  test('resume channel resolves only an exact source and channel identity', () {
+    final channel = _channelForSource('News', 'one');
+    expect(
+      LibraryState(
+        channels: [channel],
+        lastChannelIdentity: const (sourceId: 'one', channelId: 'News'),
+      ).resumeChannel,
+      channel,
+    );
+    expect(
+      LibraryState(
+        channels: [channel],
+        lastChannelIdentity: const (sourceId: 'two', channelId: 'News'),
+      ).resumeChannel,
+      isNull,
+    );
+  });
 }
 
 Channel _channel(String name, {String? group}) => Channel(

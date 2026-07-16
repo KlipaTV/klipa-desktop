@@ -9,6 +9,7 @@ class LibraryState {
     this.favoriteChannels = const {},
     this.groups = const [],
     this.selectedChannel,
+    this.lastChannelIdentity,
     this.selectedSourceId,
     this.selectedGroup,
     this.query = '',
@@ -26,6 +27,7 @@ class LibraryState {
   final Set<ChannelIdentity> favoriteChannels;
   final List<String> groups;
   final Channel? selectedChannel;
+  final ChannelIdentity? lastChannelIdentity;
   final String? selectedSourceId;
   final String? selectedGroup;
   final String query;
@@ -62,6 +64,18 @@ class LibraryState {
     channelId: channel.id,
   ));
 
+  Channel? get resumeChannel {
+    final identity = lastChannelIdentity;
+    if (identity == null) return null;
+    return channels
+        .where(
+          (channel) =>
+              channel.sourceId == identity.sourceId &&
+              channel.id == identity.channelId,
+        )
+        .firstOrNull;
+  }
+
   List<Channel> get visibleChannels {
     final normalized = query.trim().toLowerCase();
     return sourceChannels
@@ -84,6 +98,8 @@ class LibraryState {
     List<String>? groups,
     Channel? selectedChannel,
     bool clearSelection = false,
+    ChannelIdentity? lastChannelIdentity,
+    bool clearLastChannel = false,
     String? selectedSourceId,
     bool clearSource = false,
     String? selectedGroup,
@@ -106,6 +122,9 @@ class LibraryState {
     selectedChannel: clearSelection
         ? null
         : selectedChannel ?? this.selectedChannel,
+    lastChannelIdentity: clearLastChannel
+        ? null
+        : lastChannelIdentity ?? this.lastChannelIdentity,
     selectedSourceId: clearSource
         ? null
         : selectedSourceId ?? this.selectedSourceId,

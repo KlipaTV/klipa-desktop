@@ -63,3 +63,9 @@ identities. A toggle is committed through the encrypted store before it is
 published to the UI. Refresh prunes favorites only when their stable channel
 identity disappears, while source deletion removes them through the database
 foreign-key cascade.
+
+The last source, group, and channel identity are stored together as one bounded
+encrypted navigation record. Restore validates every identity against the
+current library, restores filters, and exposes the surviving last channel only
+as an explicit Resume action. Startup never creates a media player or contacts
+a stream until the user activates a channel.

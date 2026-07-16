@@ -21,6 +21,8 @@ shell. On Windows, successful imports are committed atomically to the encrypted
 per-user library and restored on the next launch without autoplaying an
 arbitrary channel. Multiple sources can be filtered, renamed, refreshed, and
 deleted without placing their provider locations or credentials in UI state.
+The last valid source, group, and channel context is restored locally, but
+media resumes only after an explicit user click.
 
 ## Security boundary
 

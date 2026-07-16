@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:klipa_player_windows/data/library_store.dart';
 import 'package:klipa_player_windows/data/playlist_import_service.dart';
 import 'package:klipa_player_windows/domain/channel.dart';
+import 'package:klipa_player_windows/domain/library_navigation.dart';
 import 'package:klipa_player_windows/domain/library_source.dart';
 import 'package:klipa_player_windows/domain/playlist_source.dart';
 import 'package:klipa_player_windows/features/library/library_controller.dart';
@@ -18,6 +19,11 @@ void main() {
           sources: [_librarySource()],
           channels: [_channel('saved')],
           favoriteChannels: const {(sourceId: 'source-1', channelId: 'saved')},
+          navigation: const LibraryNavigation(
+            selectedSourceId: 'source-1',
+            selectedGroup: 'News',
+            lastChannel: (sourceId: 'source-1', channelId: 'saved'),
+          ),
         ),
       );
       final container = _container(store: store);
@@ -29,6 +35,9 @@ void main() {
       expect(state.sources.single.id, 'source-1');
       expect(state.channels.single.id, 'saved');
       expect(state.isFavorite(state.channels.single), isTrue);
+      expect(state.selectedSourceId, 'source-1');
+      expect(state.selectedGroup, 'News');
+      expect(state.resumeChannel?.id, 'saved');
       expect(state.selectedChannel, isNull);
       expect(state.isLoading, isFalse);
     },
@@ -177,6 +186,7 @@ void main() {
     final state = container.read(libraryControllerProvider);
     expect(state.selectedChannel?.name, 'Refreshed channel');
     expect(state.selectedChannel?.streamUri.host, 'new-stream.invalid');
+    expect(state.resumeChannel?.name, 'Refreshed channel');
     expect(state.isFavorite(refreshedChannel), isTrue);
     expect(state.sources.single.name, 'Provider');
     expect(store.savedUsername, 'saved-user');
@@ -305,6 +315,53 @@ void main() {
     expect(state.isFavorite(channel), isFalse);
     expect(state.error, contains('Synthetic favorite failure'));
   });
+
+  test('source, group, and channel navigation is queued in order', () async {
+    final channel = _channel('one');
+    final store = _FakeLibraryStore(
+      initial: LibrarySnapshot(
+        sources: [_librarySource()],
+        channels: [channel],
+      ),
+    );
+    final container = _container(store: store);
+    addTearDown(container.dispose);
+    await _waitForLoad(container);
+    final controller = container.read(libraryControllerProvider.notifier);
+
+    controller.filterSource('source-1');
+    controller.filterGroup('News');
+    controller.select(channel);
+    await _waitUntil(() => store.navigationWrites.length == 3);
+
+    final saved = store.navigationWrites.last;
+    expect(saved.selectedSourceId, 'source-1');
+    expect(saved.selectedGroup, 'News');
+    expect(saved.lastChannel, (sourceId: 'source-1', channelId: 'one'));
+  });
+
+  test('a failed navigation save does not undo the user action', () async {
+    final channel = _channel('one');
+    final store = _FakeLibraryStore(
+      initial: LibrarySnapshot(
+        sources: [_librarySource()],
+        channels: [channel],
+      ),
+      navigationError: Exception('Synthetic navigation failure.'),
+    );
+    final container = _container(store: store);
+    addTearDown(container.dispose);
+    await _waitForLoad(container);
+
+    container.read(libraryControllerProvider.notifier).select(channel);
+    await _waitUntil(
+      () => container.read(libraryControllerProvider).error != null,
+    );
+
+    final state = container.read(libraryControllerProvider);
+    expect(state.selectedChannel, channel);
+    expect(state.error, contains('Synthetic navigation failure'));
+  });
 }
 
 ProviderContainer _container({
@@ -359,6 +416,7 @@ final class _FakeLibraryStore implements LibraryStore {
     this.refreshAccess,
     this.favoriteGate,
     this.favoriteError,
+    this.navigationError,
   });
 
   final LibrarySnapshot initial;
@@ -368,6 +426,7 @@ final class _FakeLibraryStore implements LibraryStore {
   final SourceRefreshAccess? refreshAccess;
   final Completer<void>? favoriteGate;
   final Exception? favoriteError;
+  final Exception? navigationError;
   bool saveStarted = false;
   PlaylistSource? savedSource;
   String? savedUsername;
@@ -377,6 +436,7 @@ final class _FakeLibraryStore implements LibraryStore {
   (String, String)? renamed;
   String? deletedSourceId;
   final favoriteWrites = <(String, String, bool)>[];
+  final navigationWrites = <LibraryNavigation>[];
 
   @override
   Future<LibrarySnapshot> load() async {
@@ -426,6 +486,12 @@ final class _FakeLibraryStore implements LibraryStore {
     favoriteWrites.add((sourceId, channelId, favorite));
     await favoriteGate?.future;
     if (favoriteError case final error?) throw error;
+  }
+
+  @override
+  Future<void> saveNavigation(LibraryNavigation navigation) async {
+    navigationWrites.add(navigation);
+    if (navigationError case final error?) throw error;
   }
 }
 

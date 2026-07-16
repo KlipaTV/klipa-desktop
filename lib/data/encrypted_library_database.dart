@@ -608,6 +608,27 @@ class EncryptedLibraryDatabase {
     }
   }
 
+  String? readAppSetting(String key) =>
+      _database.select('SELECT value FROM app_settings WHERE key = ?', [
+            key,
+          ]).firstOrNull?['value']
+          as String?;
+
+  void writeAppSetting({required String key, required String value}) {
+    if (key.isEmpty || key.length > 120 || value.length > 4096) {
+      throw const LibraryDatabaseException(
+        'The application setting could not be saved.',
+      );
+    }
+    _database.execute(
+      '''
+      INSERT INTO app_settings (key, value) VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      ''',
+      [key, value],
+    );
+  }
+
   void renameSource({required String sourceId, required String name}) {
     final normalized = name.trim();
     if (normalized.isEmpty ||

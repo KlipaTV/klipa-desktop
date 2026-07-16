@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 
@@ -7,6 +8,7 @@ import '../core/security/dpapi_secret_protector.dart';
 import '../core/security/secret_protector.dart';
 import '../domain/channel.dart';
 import '../domain/channel_identity.dart';
+import '../domain/library_navigation.dart';
 import '../domain/library_source.dart';
 import '../domain/playlist_source.dart';
 import 'database_key_store.dart';
@@ -17,16 +19,19 @@ class LibrarySnapshot {
     required this.sources,
     required this.channels,
     this.favoriteChannels = const {},
+    this.navigation = const LibraryNavigation.empty(),
   });
 
   const LibrarySnapshot.empty()
     : sources = const [],
       channels = const [],
-      favoriteChannels = const {};
+      favoriteChannels = const {},
+      navigation = const LibraryNavigation.empty();
 
   final List<LibrarySource> sources;
   final List<Channel> channels;
   final Set<ChannelIdentity> favoriteChannels;
+  final LibraryNavigation navigation;
 }
 
 class SourceRefreshAccess {
@@ -64,6 +69,8 @@ abstract interface class LibraryStore {
     required String channelId,
     required bool favorite,
   });
+
+  Future<void> saveNavigation(LibraryNavigation navigation);
 }
 
 /// Keeps non-Windows development and widget tests independent of DPAPI.
@@ -104,6 +111,9 @@ final class DisabledLibraryStore implements LibraryStore {
     required String channelId,
     required bool favorite,
   }) async {}
+
+  @override
+  Future<void> saveNavigation(LibraryNavigation navigation) async {}
 }
 
 final class EncryptedLibraryStore implements LibraryStore {
@@ -201,6 +211,15 @@ final class EncryptedLibraryStore implements LibraryStore {
     );
   }
 
+  @override
+  Future<void> saveNavigation(LibraryNavigation navigation) async {
+    final paths = await _paths();
+    final protector = _protector;
+    await Isolate.run(
+      () => _saveEncryptedNavigation(paths, protector, navigation),
+    );
+  }
+
   Future<_LibraryPaths> _paths() async {
     final root = await _rootDirectory();
     final separator = Platform.pathSeparator;
@@ -242,21 +261,28 @@ Future<LibrarySnapshot> _loadEncryptedLibrary(
   try {
     database = await _openEncryptedLibrary(paths, protector);
     final sourceSummaries = database.loadSourceSummaries();
-    return LibrarySnapshot(
-      sources: List.unmodifiable(
-        sourceSummaries.map(
-          (source) => LibrarySource(
-            id: source.id,
-            name: source.name,
-            kind: source.kind,
-            allowsPrivateNetwork: source.allowsPrivateNetwork,
-            importedAt: source.importedAt,
-            refreshedAt: source.refreshedAt,
-          ),
+    final channels = List<Channel>.unmodifiable(database.loadChannels());
+    final sources = List<LibrarySource>.unmodifiable(
+      sourceSummaries.map(
+        (source) => LibrarySource(
+          id: source.id,
+          name: source.name,
+          kind: source.kind,
+          allowsPrivateNetwork: source.allowsPrivateNetwork,
+          importedAt: source.importedAt,
+          refreshedAt: source.refreshedAt,
         ),
       ),
-      channels: List.unmodifiable(database.loadChannels()),
+    );
+    return LibrarySnapshot(
+      sources: sources,
+      channels: channels,
       favoriteChannels: Set.unmodifiable(database.loadFavoriteChannels()),
+      navigation: _decodeNavigation(
+        database.readAppSetting(_libraryNavigationKey),
+        sources: sources,
+        channels: channels,
+      ),
     );
   } on DatabaseKeyException {
     rethrow;
@@ -381,5 +407,89 @@ Future<void> _setEncryptedFavorite(
     );
   } finally {
     database?.close();
+  }
+}
+
+const _libraryNavigationKey = 'library.navigation.v1';
+
+Future<void> _saveEncryptedNavigation(
+  _LibraryPaths paths,
+  SecretProtector protector,
+  LibraryNavigation navigation,
+) async {
+  EncryptedLibraryDatabase? database;
+  try {
+    database = await _openEncryptedLibrary(paths, protector);
+    database.writeAppSetting(
+      key: _libraryNavigationKey,
+      value: jsonEncode({
+        'source': navigation.selectedSourceId,
+        'group': navigation.selectedGroup,
+        'lastSource': navigation.lastChannel?.sourceId,
+        'lastChannel': navigation.lastChannel?.channelId,
+      }),
+    );
+  } finally {
+    database?.close();
+  }
+}
+
+LibraryNavigation _decodeNavigation(
+  String? value, {
+  required List<LibrarySource> sources,
+  required List<Channel> channels,
+}) {
+  if (value == null || value.length > 4096) {
+    return const LibraryNavigation.empty();
+  }
+  try {
+    final decoded = jsonDecode(value);
+    if (decoded is! Map<String, dynamic>) {
+      return const LibraryNavigation.empty();
+    }
+    String? safeString(String key) {
+      final candidate = decoded[key];
+      return candidate is String &&
+              candidate.isNotEmpty &&
+              candidate.length <= 512 &&
+              !candidate.contains('\r') &&
+              !candidate.contains('\n')
+          ? candidate
+          : null;
+    }
+
+    final storedSource = safeString('source');
+    final sourceIsValid =
+        decoded['source'] == null ||
+        (storedSource != null &&
+            sources.any((source) => source.id == storedSource));
+    final selectedSourceId = sourceIsValid && storedSource != null
+        ? storedSource
+        : null;
+    final storedGroup = safeString('group');
+    final selectedGroup =
+        sourceIsValid &&
+            channels.any(
+              (channel) =>
+                  (selectedSourceId == null ||
+                      channel.sourceId == selectedSourceId) &&
+                  channel.group == storedGroup,
+            )
+        ? storedGroup
+        : null;
+    final lastSource = safeString('lastSource');
+    final lastChannel = safeString('lastChannel');
+    final hasLastChannel = channels.any(
+      (channel) => channel.sourceId == lastSource && channel.id == lastChannel,
+    );
+    return LibraryNavigation(
+      selectedSourceId: selectedSourceId,
+      selectedGroup: selectedGroup,
+      lastChannel: hasLastChannel
+          ? (sourceId: lastSource!, channelId: lastChannel!)
+          : null,
+    );
+  } on FormatException {
+    return const LibraryNavigation.empty();
   }
 }

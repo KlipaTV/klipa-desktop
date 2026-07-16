@@ -54,6 +54,9 @@ no remote or publishing step.
 - Favorite toggles are encrypted, publish only after storage succeeds, compose
   with source/category/search filters, survive stable refresh identities, and
   are removed by source/channel cascades.
+- Last source/group/channel navigation writes are ordered and encrypted. Restore
+  discards stale identities, leaves the player stopped, and opens the exact
+  surviving source/channel pair only after an explicit Resume click.
 - The bundled native media backend loads and disposes while scripts, URL
   extractors, and non-required protocols stay disabled.
 - Deterministic lifecycle tests cover first-media timeout and retry, a hung open

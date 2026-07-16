@@ -124,6 +124,10 @@ final class _FixtureLibraryController extends LibraryController {
     ],
     groups: const ['Entertainment', 'News'],
     favoriteChannels: const {(sourceId: 'news-source', channelId: 'channel-0')},
+    lastChannelIdentity: const (
+      sourceId: 'news-source',
+      channelId: 'channel-0',
+    ),
     channels: List.generate(
       18,
       (index) => Channel(

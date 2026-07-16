@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:klipa_player_windows/core/security/secret_protector.dart';
 import 'package:klipa_player_windows/data/library_store.dart';
 import 'package:klipa_player_windows/domain/channel.dart';
+import 'package:klipa_player_windows/domain/library_navigation.dart';
 import 'package:klipa_player_windows/domain/playlist_source.dart';
 
 void main() {
@@ -104,6 +105,49 @@ void main() {
     restored = await _store(temporaryDirectory).load();
     expect(restored.favoriteChannels, isEmpty);
   });
+
+  test(
+    'restores only valid library navigation without autoplay state',
+    () async {
+      final store = _store(temporaryDirectory);
+      await store.replaceSourceSnapshot(
+        source: _source(location: 'https://provider.invalid/list'),
+        channels: [
+          _channel(streamUri: Uri.parse('https://stream.invalid/live')),
+        ],
+      );
+      await store.saveNavigation(
+        const LibraryNavigation(
+          selectedSourceId: 'source-1',
+          selectedGroup: 'News',
+          lastChannel: (sourceId: 'source-1', channelId: 'channel-1'),
+        ),
+      );
+
+      var restored = await _store(temporaryDirectory).load();
+      expect(restored.navigation.selectedSourceId, 'source-1');
+      expect(restored.navigation.selectedGroup, 'News');
+      expect(restored.navigation.lastChannel, (
+        sourceId: 'source-1',
+        channelId: 'channel-1',
+      ));
+
+      await store.saveNavigation(
+        const LibraryNavigation(
+          selectedSourceId: 'missing-source',
+          selectedGroup: 'News',
+          lastChannel: (
+            sourceId: 'missing-source',
+            channelId: 'missing-channel',
+          ),
+        ),
+      );
+      restored = await _store(temporaryDirectory).load();
+      expect(restored.navigation.selectedSourceId, isNull);
+      expect(restored.navigation.selectedGroup, isNull);
+      expect(restored.navigation.lastChannel, isNull);
+    },
+  );
 
   test('reset deletes the database, sidecars, key, and pending key', () async {
     final store = _store(temporaryDirectory);

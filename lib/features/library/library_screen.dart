@@ -309,6 +309,10 @@ class _DesktopLibrary extends StatelessWidget {
           Expanded(
             child: PlayerPane(
               channel: state.selectedChannel,
+              resumeChannel: state.resumeChannel,
+              onResume: state.resumeChannel == null
+                  ? null
+                  : () => controller.select(state.resumeChannel!),
               controller: playerController,
             ),
           ),
