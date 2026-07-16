@@ -18,7 +18,7 @@ final playlistImportServiceProvider = Provider<PlaylistImportService>(
 );
 
 final libraryStoreProvider = Provider<LibraryStore>(
-  (ref) => Platform.isWindows
+  (ref) => Platform.isWindows || Platform.isLinux
       ? EncryptedLibraryStore()
       : const DisabledLibraryStore(),
 );

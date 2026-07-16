@@ -12,11 +12,11 @@ per action, webview, local server, plugin system, or background scheduler.
 
 ## Selected stack
 
-- Flutter stable for the Windows UI
+- Flutter stable for the Windows and Linux UI
 - Riverpod stable APIs for state and dependency boundaries
 - media_kit/libmpv behind `VideoPlayerPort`
 - direct SQLite FFI using SQLite3MultipleCiphers
-- one random database key sealed to the Windows user with DPAPI
+- one random database key sealed with Windows DPAPI or Linux Secret Service
 - dart:io HttpClient behind a bounded, redirect-aware client
 - Dart isolates for bounded M3U, Xtream JSON, and XMLTV parsing off the UI thread
 - event-based plain/gzip XMLTV parsing with DTD/entity rejection

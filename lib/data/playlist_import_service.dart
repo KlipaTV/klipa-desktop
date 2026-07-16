@@ -4,7 +4,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:filepicker_windows/filepicker_windows.dart';
+import 'package:file_selector/file_selector.dart';
 
 import '../core/network/bounded_http_client.dart';
 import '../domain/channel.dart';
@@ -54,22 +54,19 @@ class PlaylistImportService {
   }
 
   Future<PlaylistImportResult?> fromFilePicker() async {
-    if (!Platform.isWindows) {
+    if (!Platform.isWindows && !Platform.isLinux) {
       throw const PlaylistFormatException(
-        'Local file selection requires Windows.',
+        'Local file selection requires Windows or Linux.',
       );
     }
-    final picker = OpenFilePicker()
-      ..title = 'Open IPTV playlist'
-      ..addToRecentDocuments = false
-      ..filterSpecification = const {
-        'M3U playlists': '*.m3u;*.m3u8',
-        'All files': '*.*',
-      };
-    final file = picker.getFile();
-    if (file == null) return null;
+    const playlistType = XTypeGroup(
+      label: 'M3U playlists',
+      extensions: ['m3u', 'm3u8'],
+    );
+    final selection = await openFile(acceptedTypeGroups: const [playlistType]);
+    if (selection == null) return null;
 
-    return _fromFile(file);
+    return _fromFile(File(selection.path));
   }
 
   Future<PlaylistImportResult> refresh(

@@ -1,23 +1,23 @@
-# Klipa Player for Windows
+# Klipa Player for Desktop
 
 > [!CAUTION]
 > Private local development. Do not publish, push to a public remote, submit to
 > a store, or distribute binaries yet.
 
 Klipa Player is a lightweight, open-source, local-first IPTV player for
-Windows. It is designed for people who bring their own M3U/M3U8 playlist or
+Windows and Linux. It is designed for people who bring their own M3U/M3U8 playlist or
 Xtream-compatible login. It includes no channels, subscriptions, ads, accounts,
 or telemetry.
 
 The product has a separate history and runtime from the Klipa mobile app. The
-Windows UI shares Klipa's visual language, while its navigation and interaction
+desktop UI shares Klipa's visual language, while its navigation and interaction
 model are desktop-native.
 
 ## Current status
 
 Private developer alpha:
 
-- Windows-only Flutter project and local Git repository
+- Native Windows and Linux Flutter runners in one local Git repository
 - Klipa desktop shell, bounded M3U import, search and single-player vertical slice
 - Masked Xtream login with bounded, live-only account/category/stream requests
 - Compact category filtering and background-isolate playlist parsing
@@ -27,8 +27,9 @@ Private developer alpha:
 - Race-safe channel replacement behind a small playback port, with teardown-first
   switching, bounded readiness, retry, and generic user-facing native errors
 - Strict HTTP(S), redirect, size, header, protocol and private-network controls
-- Versioned SQLite3MultipleCiphers schema, atomic snapshot writes, DPAPI
-  key-sealing, reset primitives, and database/WAL/SHM leak tests
+- Versioned SQLite3MultipleCiphers schema, atomic snapshot writes, Windows
+  DPAPI and Linux Secret Service key-sealing, reset primitives, and
+  database/WAL/SHM leak tests
 - Encrypted library save and startup restore on a background isolate; a failed
   save leaves the previous working snapshot active
 - Stable multi-source identities, source/group filtering, rename, confirmed
@@ -46,6 +47,8 @@ Private developer alpha:
   distribution security gates remain open
 - Native Windows debug build, DPAPI, encrypted database and libmpv smoke tests pass
 - Native release build and an authorized private MPEG-TS playback smoke pass
+- Native Linux release bundle builds at about 29 MiB before packaging; local
+  files use the same maintained picker on Windows and Linux
 - No remote configured and no public artifact
 
 The Windows toolchain uses Flutter 3.44.6 stable, Visual Studio Build Tools
@@ -64,12 +67,14 @@ Prerequisites:
 - Dart 3.11+
 - Windows 11 or Windows 10 22H2 x64
 - Visual Studio with Desktop development with C++ for native builds
+- On Linux: GTK 3 development files, libmpv, and libsecret
 
 ```powershell
 flutter pub get
 flutter analyze --fatal-infos --fatal-warnings
 flutter test
 flutter build windows --release
+# Linux: flutter build linux --release
 ```
 
 Automated tests use only synthetic fixtures or legally documented
@@ -81,6 +86,8 @@ issues, tests, or screenshots.
 On Windows, library data is stored below the app-specific directory in
 `%LOCALAPPDATA%`. The database is encrypted as a whole and its random key is
 sealed to the current Windows user with DPAPI. There is no plaintext fallback.
+Linux uses the same encrypted database and stores only its random key in the
+desktop Secret Service keyring.
 
 The application has no Klipa API, telemetry, update-check, guide proxy, or
 startup endpoint. Network access is initiated only for a source the user adds,

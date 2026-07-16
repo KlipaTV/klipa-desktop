@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:path_provider/path_provider.dart';
 
@@ -13,6 +14,7 @@ import '../domain/library_source.dart';
 import '../domain/playlist_source.dart';
 import 'database_key_store.dart';
 import 'encrypted_library_database.dart';
+import 'linux_database_key_store.dart';
 
 class LibrarySnapshot {
   const LibrarySnapshot({
@@ -120,11 +122,17 @@ final class EncryptedLibraryStore implements LibraryStore {
   EncryptedLibraryStore({
     Future<Directory> Function()? rootDirectory,
     SecretProtector protector = const DpapiSecretProtector(),
+    LinuxDatabaseKeyStore? linuxKeyStore,
+    bool useLinuxKeyring = true,
   }) : _rootDirectory = rootDirectory ?? getApplicationCacheDirectory,
-       _protector = protector;
+       _protector = protector,
+       _linuxKeyStore = linuxKeyStore ?? LinuxDatabaseKeyStore(),
+       _useLinuxKeyring = useLinuxKeyring;
 
   final Future<Directory> Function() _rootDirectory;
   final SecretProtector _protector;
+  final LinuxDatabaseKeyStore _linuxKeyStore;
+  final bool _useLinuxKeyring;
 
   @override
   Future<LibrarySnapshot> load() async {
@@ -134,7 +142,14 @@ final class EncryptedLibraryStore implements LibraryStore {
       return const LibrarySnapshot.empty();
     }
     final protector = _protector;
-    return Isolate.run(() => _loadEncryptedLibrary(paths, protector));
+    final key = await _linuxKey(paths);
+    try {
+      return await Isolate.run(
+        () => _loadEncryptedLibrary(paths, protector, key),
+      );
+    } finally {
+      key?.fillRange(0, key.length, 0);
+    }
   }
 
   @override
@@ -146,31 +161,43 @@ final class EncryptedLibraryStore implements LibraryStore {
   }) async {
     final paths = await _paths();
     final protector = _protector;
-    await Isolate.run(
-      () => _replaceEncryptedSource(
-        paths,
-        protector,
-        source,
-        channels,
-        username,
-        password,
-      ),
-    );
+    final key = await _linuxKey(paths);
+    try {
+      await Isolate.run(
+        () => _replaceEncryptedSource(
+          paths,
+          protector,
+          source,
+          channels,
+          username,
+          password,
+          key,
+        ),
+      );
+    } finally {
+      key?.fillRange(0, key.length, 0);
+    }
   }
 
   @override
   Future<void> reset() async {
     final paths = await _paths();
     await Isolate.run(() => _resetEncryptedLibrary(paths));
+    if (Platform.isLinux && _useLinuxKeyring) await _linuxKeyStore.delete();
   }
 
   @override
   Future<SourceRefreshAccess?> readSourceRefreshAccess(String sourceId) async {
     final paths = await _paths();
     final protector = _protector;
-    return Isolate.run(
-      () => _readSourceRefreshAccess(paths, protector, sourceId),
-    );
+    final key = await _linuxKey(paths);
+    try {
+      return await Isolate.run(
+        () => _readSourceRefreshAccess(paths, protector, sourceId, key),
+      );
+    } finally {
+      key?.fillRange(0, key.length, 0);
+    }
   }
 
   @override
@@ -180,16 +207,28 @@ final class EncryptedLibraryStore implements LibraryStore {
   }) async {
     final paths = await _paths();
     final protector = _protector;
-    await Isolate.run(
-      () => _renameEncryptedSource(paths, protector, sourceId, name),
-    );
+    final key = await _linuxKey(paths);
+    try {
+      await Isolate.run(
+        () => _renameEncryptedSource(paths, protector, sourceId, name, key),
+      );
+    } finally {
+      key?.fillRange(0, key.length, 0);
+    }
   }
 
   @override
   Future<void> deleteSource(String sourceId) async {
     final paths = await _paths();
     final protector = _protector;
-    await Isolate.run(() => _deleteEncryptedSource(paths, protector, sourceId));
+    final key = await _linuxKey(paths);
+    try {
+      await Isolate.run(
+        () => _deleteEncryptedSource(paths, protector, sourceId, key),
+      );
+    } finally {
+      key?.fillRange(0, key.length, 0);
+    }
   }
 
   @override
@@ -200,24 +239,35 @@ final class EncryptedLibraryStore implements LibraryStore {
   }) async {
     final paths = await _paths();
     final protector = _protector;
-    await Isolate.run(
-      () => _setEncryptedFavorite(
-        paths,
-        protector,
-        sourceId,
-        channelId,
-        favorite,
-      ),
-    );
+    final key = await _linuxKey(paths);
+    try {
+      await Isolate.run(
+        () => _setEncryptedFavorite(
+          paths,
+          protector,
+          sourceId,
+          channelId,
+          favorite,
+          key,
+        ),
+      );
+    } finally {
+      key?.fillRange(0, key.length, 0);
+    }
   }
 
   @override
   Future<void> saveNavigation(LibraryNavigation navigation) async {
     final paths = await _paths();
     final protector = _protector;
-    await Isolate.run(
-      () => _saveEncryptedNavigation(paths, protector, navigation),
-    );
+    final key = await _linuxKey(paths);
+    try {
+      await Isolate.run(
+        () => _saveEncryptedNavigation(paths, protector, navigation, key),
+      );
+    } finally {
+      key?.fillRange(0, key.length, 0);
+    }
   }
 
   Future<_LibraryPaths> _paths() async {
@@ -226,6 +276,13 @@ final class EncryptedLibraryStore implements LibraryStore {
     return _LibraryPaths(
       databasePath: '${root.path}${separator}library.db',
       keyPath: '${root.path}${separator}library.key',
+    );
+  }
+
+  Future<Uint8List?> _linuxKey(_LibraryPaths paths) async {
+    if (!Platform.isLinux || !_useLinuxKeyring) return null;
+    return _linuxKeyStore.loadOrCreate(
+      databaseExists: await File(paths.databasePath).exists(),
     );
   }
 }
@@ -239,13 +296,16 @@ class _LibraryPaths {
 
 Future<EncryptedLibraryDatabase> _openEncryptedLibrary(
   _LibraryPaths paths,
-  SecretProtector protector,
-) async {
+  SecretProtector protector, [
+  Uint8List? suppliedKey,
+]) async {
   final databaseFile = File(paths.databasePath);
-  final key = await DatabaseKeyStore(protector: protector).loadOrCreate(
-    keyFile: File(paths.keyPath),
-    databaseExists: await databaseFile.exists(),
-  );
+  final key =
+      suppliedKey ??
+      await DatabaseKeyStore(protector: protector).loadOrCreate(
+        keyFile: File(paths.keyPath),
+        databaseExists: await databaseFile.exists(),
+      );
   try {
     return EncryptedLibraryDatabase.open(path: databaseFile.path, key: key);
   } finally {
@@ -256,10 +316,11 @@ Future<EncryptedLibraryDatabase> _openEncryptedLibrary(
 Future<LibrarySnapshot> _loadEncryptedLibrary(
   _LibraryPaths paths,
   SecretProtector protector,
+  Uint8List? key,
 ) async {
   EncryptedLibraryDatabase? database;
   try {
-    database = await _openEncryptedLibrary(paths, protector);
+    database = await _openEncryptedLibrary(paths, protector, key);
     final sourceSummaries = database.loadSourceSummaries();
     final channels = List<Channel>.unmodifiable(database.loadChannels());
     final sources = List<LibrarySource>.unmodifiable(
@@ -304,10 +365,11 @@ Future<void> _replaceEncryptedSource(
   List<Channel> channels,
   String? username,
   String? password,
+  Uint8List? key,
 ) async {
   EncryptedLibraryDatabase? database;
   try {
-    database = await _openEncryptedLibrary(paths, protector);
+    database = await _openEncryptedLibrary(paths, protector, key);
     database.replaceSourceSnapshot(
       source: source,
       channels: channels,
@@ -330,10 +392,11 @@ Future<SourceRefreshAccess?> _readSourceRefreshAccess(
   _LibraryPaths paths,
   SecretProtector protector,
   String sourceId,
+  Uint8List? key,
 ) async {
   EncryptedLibraryDatabase? database;
   try {
-    database = await _openEncryptedLibrary(paths, protector);
+    database = await _openEncryptedLibrary(paths, protector, key);
     final summaries = database.loadSourceSummaries();
     LibrarySourceSummary? summary;
     for (final candidate in summaries) {
@@ -366,10 +429,11 @@ Future<void> _renameEncryptedSource(
   SecretProtector protector,
   String sourceId,
   String name,
+  Uint8List? key,
 ) async {
   EncryptedLibraryDatabase? database;
   try {
-    database = await _openEncryptedLibrary(paths, protector);
+    database = await _openEncryptedLibrary(paths, protector, key);
     database.renameSource(sourceId: sourceId, name: name);
   } finally {
     database?.close();
@@ -380,10 +444,11 @@ Future<void> _deleteEncryptedSource(
   _LibraryPaths paths,
   SecretProtector protector,
   String sourceId,
+  Uint8List? key,
 ) async {
   EncryptedLibraryDatabase? database;
   try {
-    database = await _openEncryptedLibrary(paths, protector);
+    database = await _openEncryptedLibrary(paths, protector, key);
     database.deleteSource(sourceId);
   } finally {
     database?.close();
@@ -396,10 +461,11 @@ Future<void> _setEncryptedFavorite(
   String sourceId,
   String channelId,
   bool favorite,
+  Uint8List? key,
 ) async {
   EncryptedLibraryDatabase? database;
   try {
-    database = await _openEncryptedLibrary(paths, protector);
+    database = await _openEncryptedLibrary(paths, protector, key);
     database.setFavorite(
       sourceId: sourceId,
       channelId: channelId,
@@ -416,10 +482,11 @@ Future<void> _saveEncryptedNavigation(
   _LibraryPaths paths,
   SecretProtector protector,
   LibraryNavigation navigation,
+  Uint8List? key,
 ) async {
   EncryptedLibraryDatabase? database;
   try {
-    database = await _openEncryptedLibrary(paths, protector);
+    database = await _openEncryptedLibrary(paths, protector, key);
     database.writeAppSetting(
       key: _libraryNavigationKey,
       value: jsonEncode({

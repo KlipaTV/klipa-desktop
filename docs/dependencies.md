@@ -1,17 +1,19 @@
 # Runtime dependencies
 
-Direct runtime package budget: **11 / 12** (Flutter SDK excluded).
+Direct runtime package budget: **13 / 14** (Flutter SDK excluded).
 
 | Package | Why it exists | Native code | License/release gate |
 |---|---|---|---|
 | `crypto` | Stable SHA-256 identities without custom hashing | No | BSD-3-Clause |
 | `ffi` | Auditable native allocation for the narrow DPAPI wrapper | No | BSD-3-Clause; no direct DLL loading |
-| `filepicker_windows` | Small maintained Win32 common-file dialog wrapper | FFI | BSD-3-Clause; uses the same reviewed `win32` dependency |
+| `file_selector` | Flutter-maintained native file picker for Windows and Linux | Plugin | BSD-3-Clause; no custom platform dialog code |
+| `flutter_secure_storage_linux` | Linux Secret Service plugin for the database key | Linux plugin | BSD-3-Clause; runtime requires libsecret and a desktop keyring |
+| `flutter_secure_storage_platform_interface` | Narrow API used to avoid bundling the redundant Windows secure-storage plugin | No | BSD-3-Clause; Linux implementation only |
 | `flutter_riverpod` | State and dependency boundaries | No | MIT; stable APIs only |
 | `media_kit` | Playback API and libmpv integration | FFI | Audit exact version and transitive behavior |
 | `media_kit_libs_video` | Pinned native media binaries | Yes | Full binary/codec/license audit before distribution |
-| `media_kit_video` | Flutter Windows video surface | Windows plugin | Memory/lifecycle spike required |
-| `path_provider` | Correct per-user app/cache directories | Windows plugin | Flutter-maintained; inventory plugin |
+| `media_kit_video` | Flutter desktop video surface | Native plugin | Memory/lifecycle spike required |
+| `path_provider` | Correct per-user app/cache directories | Native plugin | Flutter-maintained; inventory plugin |
 | `sqlite3` | Indexed local data and encrypted SQLite native asset | Yes | Use `sqlite3mc`; audit license and binary hash |
 | `win32` | DPAPI and minimal Windows integration | FFI/native asset | Pin and review downloaded native artifact |
 | `xml` | Event-based XMLTV parser | No | MIT; reject DOCTYPE before parsing |

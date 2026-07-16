@@ -225,6 +225,7 @@ void main() {
 EncryptedLibraryStore _store(Directory directory) => EncryptedLibraryStore(
   rootDirectory: () async => directory,
   protector: const _TestProtector(),
+  useLinuxKeyring: false,
 );
 
 PlaylistSource _source({required String location}) => PlaylistSource(
