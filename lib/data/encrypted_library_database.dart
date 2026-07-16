@@ -7,7 +7,9 @@ import 'package:sqlite3/sqlite3.dart';
 import '../core/security/network_policy.dart';
 import '../domain/channel.dart';
 import '../domain/channel_identity.dart';
+import '../domain/channel_schedule.dart';
 import '../domain/playlist_source.dart';
+import '../domain/programme.dart';
 
 class LibraryDatabaseException implements Exception {
   const LibraryDatabaseException(this.message);
@@ -87,9 +89,10 @@ class StoredChannelSecret {
 class EncryptedLibraryDatabase {
   EncryptedLibraryDatabase._(this._database);
 
-  static const int schemaVersion = 2;
+  static const int schemaVersion = 3;
   static const int maxSources = 20;
   static const int maxChannelsPerSource = 100000;
+  static const int maxProgrammesPerSource = 500000;
 
   final Database _database;
 
@@ -186,6 +189,8 @@ class EncryptedLibraryDatabase {
         switch (current) {
           case 1:
             _migrateV1ToV2(database);
+          case 2:
+            _migrateV2ToV3(database);
           default:
             throw LibraryMigrationException(
               'No migration exists from schema version $current.',
@@ -278,6 +283,42 @@ class EncryptedLibraryDatabase {
       ''');
   }
 
+  static void _migrateV2ToV3(Database database) {
+    database
+      ..execute('ALTER TABLE channels ADD COLUMN guide_id TEXT')
+      ..execute('''
+        CREATE INDEX channels_source_guide
+        ON channels(source_id, guide_id)
+        WHERE guide_id IS NOT NULL
+      ''')
+      ..execute('''
+        CREATE TABLE epg_snapshots (
+          source_id TEXT PRIMARY KEY NOT NULL,
+          refreshed_at TEXT NOT NULL,
+          expires_at TEXT NOT NULL,
+          FOREIGN KEY (source_id) REFERENCES playlist_sources(id)
+            ON DELETE CASCADE
+        ) WITHOUT ROWID
+      ''')
+      ..execute('''
+        CREATE TABLE programmes (
+          source_id TEXT NOT NULL,
+          guide_id TEXT NOT NULL,
+          start_utc TEXT NOT NULL,
+          end_utc TEXT NOT NULL,
+          title TEXT NOT NULL,
+          description TEXT,
+          PRIMARY KEY (source_id, guide_id, start_utc),
+          FOREIGN KEY (source_id) REFERENCES playlist_sources(id)
+            ON DELETE CASCADE
+        ) WITHOUT ROWID
+      ''')
+      ..execute('''
+        CREATE INDEX programmes_lookup
+        ON programmes(source_id, guide_id, start_utc, end_utc)
+      ''');
+  }
+
   int get currentSchemaVersion => int.parse(
     _database
             .select(
@@ -364,11 +405,12 @@ class EncryptedLibraryDatabase {
         'ON CONFLICT(channel_id) DO NOTHING',
       );
       final upsertChannel = _database.prepare('''
-        INSERT INTO channels (source_id, id, name, group_name)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO channels (source_id, id, name, group_name, guide_id)
+        VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(source_id, id) DO UPDATE SET
           name = excluded.name,
-          group_name = excluded.group_name
+          group_name = excluded.group_name,
+          guide_id = excluded.guide_id
       ''');
       final upsertSecret = _database.prepare('''
         INSERT INTO channel_secrets (
@@ -399,6 +441,7 @@ class EncryptedLibraryDatabase {
             channel.id,
             channel.name,
             channel.group,
+            channel.guideId,
           ]);
           upsertSecret.execute([
             source.id,
@@ -477,7 +520,7 @@ class EncryptedLibraryDatabase {
 
   List<Channel> loadChannels() => _database
       .select('''
-        SELECT c.source_id, c.id, c.name, c.group_name,
+        SELECT c.source_id, c.id, c.name, c.group_name, c.guide_id,
           s.allows_private_network, x.stream_uri, x.logo_uri,
           x.http_headers_json
         FROM channels c
@@ -488,6 +531,174 @@ class EncryptedLibraryDatabase {
       ''')
       .map(_channelFromRow)
       .toList(growable: false);
+
+  void replaceProgrammeSnapshot({
+    required String sourceId,
+    required Iterable<Programme> programmes,
+    required DateTime refreshedAt,
+    required DateTime expiresAt,
+  }) {
+    final refreshedUtc = refreshedAt.toUtc();
+    final expiresUtc = expiresAt.toUtc();
+    if (!expiresUtc.isAfter(refreshedUtc)) {
+      throw const LibraryDatabaseException(
+        'The programme snapshot expiry must be after its refresh time.',
+      );
+    }
+
+    _database.execute('BEGIN IMMEDIATE');
+    try {
+      final sourceExists = _database.select(
+        'SELECT 1 FROM playlist_sources WHERE id = ?',
+        [sourceId],
+      ).isNotEmpty;
+      if (!sourceExists) {
+        throw const LibraryDatabaseException(
+          'The programme source no longer exists.',
+        );
+      }
+
+      _database.execute('DELETE FROM programmes WHERE source_id = ?', [
+        sourceId,
+      ]);
+      final insert = _database.prepare('''
+        INSERT INTO programmes (
+          source_id, guide_id, start_utc, end_utc, title, description
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(source_id, guide_id, start_utc) DO UPDATE SET
+          end_utc = excluded.end_utc,
+          title = excluded.title,
+          description = excluded.description
+      ''');
+      try {
+        var count = 0;
+        for (final programme in programmes) {
+          count++;
+          if (count > maxProgrammesPerSource) {
+            throw const LibraryDatabaseException(
+              'The programme snapshot exceeds the 500,000 entry limit.',
+            );
+          }
+          _validateProgramme(programme, sourceId: sourceId);
+          insert.execute([
+            sourceId,
+            programme.guideId,
+            programme.startUtc.toUtc().toIso8601String(),
+            programme.endUtc.toUtc().toIso8601String(),
+            programme.title,
+            programme.description,
+          ]);
+        }
+      } finally {
+        insert.close();
+      }
+
+      _database
+        ..execute(
+          '''
+          INSERT INTO epg_snapshots (source_id, refreshed_at, expires_at)
+          VALUES (?, ?, ?)
+          ON CONFLICT(source_id) DO UPDATE SET
+            refreshed_at = excluded.refreshed_at,
+            expires_at = excluded.expires_at
+          ''',
+          [
+            sourceId,
+            refreshedUtc.toIso8601String(),
+            expiresUtc.toIso8601String(),
+          ],
+        )
+        ..execute('COMMIT');
+    } on Object {
+      _database.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
+  Map<ChannelIdentity, ChannelSchedule> loadNowNext({
+    required DateTime nowUtc,
+  }) {
+    final now = nowUtc.toUtc().toIso8601String();
+    final schedules = <ChannelIdentity, ChannelSchedule>{};
+    for (final row in _database.select(
+      '''
+      WITH candidates AS (
+        SELECT
+          c.source_id,
+          c.id AS channel_id,
+          p.guide_id,
+          p.start_utc,
+          p.end_utc,
+          p.title,
+          p.description,
+          CASE WHEN p.start_utc <= ? AND p.end_utc > ? THEN 0 ELSE 1 END
+            AS schedule_slot
+        FROM channels c
+        INNER JOIN epg_snapshots e
+          ON e.source_id = c.source_id AND e.expires_at > ?
+        INNER JOIN programmes p
+          ON p.source_id = c.source_id AND p.guide_id = c.guide_id
+        WHERE c.guide_id IS NOT NULL AND p.end_utc > ?
+      ), ranked AS (
+        SELECT *, ROW_NUMBER() OVER (
+          PARTITION BY source_id, channel_id, schedule_slot
+          ORDER BY start_utc, end_utc, title
+        ) AS schedule_rank
+        FROM candidates
+      )
+      SELECT source_id, channel_id, guide_id, start_utc, end_utc,
+        title, description, schedule_slot
+      FROM ranked
+      WHERE schedule_rank = 1
+      ORDER BY source_id, channel_id, schedule_slot
+      ''',
+      [now, now, now, now],
+    )) {
+      final identity = (
+        sourceId: row['source_id'] as String,
+        channelId: row['channel_id'] as String,
+      );
+      final programme = _programmeFromRow(row);
+      final existing = schedules[identity] ?? const ChannelSchedule();
+      schedules[identity] = row['schedule_slot'] == 0
+          ? ChannelSchedule(current: programme, next: existing.next)
+          : ChannelSchedule(current: existing.current, next: programme);
+    }
+    return Map.unmodifiable(schedules);
+  }
+
+  static void _validateProgramme(
+    Programme programme, {
+    required String sourceId,
+  }) {
+    if (programme.sourceId != sourceId) {
+      throw ArgumentError(
+        'A programme snapshot cannot contain a different source ID.',
+      );
+    }
+    if (programme.guideId.isEmpty || programme.guideId.length > 512) {
+      throw const LibraryDatabaseException(
+        'The programme snapshot contains an invalid guide ID.',
+      );
+    }
+    if (programme.title.isEmpty ||
+        programme.title.length > 8192 ||
+        (programme.description?.length ?? 0) > 8192 ||
+        !programme.endUtc.toUtc().isAfter(programme.startUtc.toUtc())) {
+      throw const LibraryDatabaseException(
+        'The programme snapshot contains an invalid entry.',
+      );
+    }
+  }
+
+  static Programme _programmeFromRow(Row row) => Programme(
+    sourceId: row['source_id'] as String,
+    guideId: row['guide_id'] as String,
+    title: row['title'] as String,
+    startUtc: DateTime.parse(row['start_utc'] as String).toUtc(),
+    endUtc: DateTime.parse(row['end_utc'] as String).toUtc(),
+    description: row['description'] as String?,
+  );
 
   Set<ChannelIdentity> loadFavoriteChannels() => {
     for (final row in _database.select('''
@@ -537,6 +748,7 @@ class EncryptedLibraryDatabase {
       streamUri: streamUri,
       sourceId: row['source_id'] as String,
       allowsPrivateNetwork: row['allows_private_network'] == 1,
+      guideId: row['guide_id'] as String?,
       group: row['group_name'] as String?,
       logoUri: logoUri,
       httpHeaders: headers,

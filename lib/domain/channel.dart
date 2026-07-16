@@ -8,6 +8,7 @@ class Channel {
     required this.streamUri,
     required this.sourceId,
     required this.allowsPrivateNetwork,
+    this.guideId,
     this.group,
     this.logoUri,
     Map<String, String> httpHeaders = const {},
@@ -18,6 +19,7 @@ class Channel {
   final Uri streamUri;
   final String sourceId;
   final bool allowsPrivateNetwork;
+  final String? guideId;
   final String? group;
   final Uri? logoUri;
   final Map<String, String> httpHeaders;

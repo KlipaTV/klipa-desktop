@@ -2,7 +2,7 @@
 
 **Status:** Private local evidence; not a release approval
 
-**Last run:** 2026-07-15
+**Last run:** 2026-07-16
 
 ## Environment
 
@@ -31,15 +31,22 @@ no remote or publishing step.
 
 - The native Windows debug and release executables and plugin bundles compile
   successfully.
+- The native Windows profile bundle compiles with the local XMLTV core and all
+  88 Windows tests pass against its packaged native libraries.
 - Static analysis completes with no issues.
 - A DPAPI round trip seals and restores random bytes for the current user.
 - A SQLite3MultipleCiphers database reopens with its key, rejects an unkeyed
   SQLite connection, and does not expose a seeded marker in the closed database
   bytes.
-- Schema v2 migrates from the legacy metadata schema, writes 10,000-channel
+- Schema v3 migrates from the legacy metadata schema, writes 10,000-channel
   snapshots through prepared statements, rolls back interrupted refreshes,
   preserves stable favorites, and keeps seeded secrets absent from the live
   database, WAL and SHM files.
+- Plain and gzip XMLTV are parsed off the UI isolate with compressed,
+  decompressed, nesting, field, time-window, and programme-count limits.
+  DTD/entities are rejected, XMLTV offsets become UTC, exact provider guide IDs
+  select now/next, and interrupted programme replacement preserves the prior
+  unexpired encrypted snapshot.
 - The runtime library store saves atomically off the UI isolate, seals its key
   with DPAPI, closes, reopens through a fresh store instance, and restores the
   source and playable channel. Controller tests prove state is published only
@@ -87,8 +94,7 @@ no remote or publishing step.
 - HLS coverage and broader repeated channel-change testing across the Intel,
   AMD and NVIDIA hardware matrix; the current MPEG-TS evidence is one machine
   and one authorized provider.
-- Automated secret scanning of live database WAL/SHM files, crash dumps and
-  application diagnostics.
+- Automated secret scanning of future crash dumps and application diagnostics.
 - Nested media request and DNS-rebinding controls or a documented constrained
   architecture that closes those gaps.
 - Release-mode fuzzing, exact native binary hashes, codec/license inventory,

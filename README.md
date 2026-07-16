@@ -37,6 +37,11 @@ Private developer alpha:
   favorites-only filter; stable favorites survive source refresh
 - Encrypted last source/group/channel state with stale-identity validation and
   an explicit one-click Resume action that never autoplays on startup
+- Provider guide IDs, a bounded plain/gzip XMLTV parser, and atomic encrypted
+  now/next snapshots are implemented; provider-direct retrieval and UI wiring
+  are still in progress
+- Runtime networking has no Klipa service dependency: install and startup make
+  no Klipa request, and provider data is never routed through Klipa
 - Confirmed reset and missing/corrupt-key recovery are wired; broader
   distribution security gates remain open
 - Native Windows debug build, DPAPI, encrypted database and libmpv smoke tests pass
@@ -76,6 +81,11 @@ issues, tests, or screenshots.
 On Windows, library data is stored below the app-specific directory in
 `%LOCALAPPDATA%`. The database is encrypted as a whole and its random key is
 sealed to the current Windows user with DPAPI. There is no plaintext fallback.
+
+The application has no Klipa API, telemetry, update-check, guide proxy, or
+startup endpoint. Network access is initiated only for a source the user adds,
+its provider-hosted guide/artwork/media, or a future explicit external-browser
+promotion action. Normal operation does not require a Klipa VPS.
 
 ## Scope
 

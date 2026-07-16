@@ -56,6 +56,7 @@ http://media.example/custom/$username/$password/42.m3u8
                 'name': 'Fixture News',
                 'category_id': '7',
                 'container_extension': 'm3u8',
+                'epg_channel_id': 'fixture.news',
                 'stream_icon': 'https://images.example/fixture.png',
               },
             ],
@@ -85,6 +86,7 @@ http://media.example/custom/$username/$password/42.m3u8
       final channel = result.channels.single;
       expect(channel.name, 'Fixture News');
       expect(channel.group, 'News');
+      expect(channel.guideId, 'fixture.news');
       expect(channel.streamUri.pathSegments, [
         'custom',
         username,

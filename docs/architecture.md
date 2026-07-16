@@ -18,8 +18,8 @@ per action, webview, local server, plugin system, or background scheduler.
 - direct SQLite FFI using SQLite3MultipleCiphers
 - one random database key sealed to the Windows user with DPAPI
 - dart:io HttpClient behind a bounded, redirect-aware client
-- Dart isolates for bounded M3U and Xtream JSON parsing off the UI thread
-- event-based XML parsing for XMLTV
+- Dart isolates for bounded M3U, Xtream JSON, and XMLTV parsing off the UI thread
+- event-based plain/gzip XMLTV parsing with DTD/entity rejection
 - small reviewed Windows interop only where Flutter lacks an API
 
 `PlayerPane` depends only on the small `VideoPlayerPort` surface. Each channel
@@ -41,10 +41,13 @@ these are implemented and tested:
 6. Tests showing secrets are absent from database bytes and diagnostics.
 
 The key-protection and encrypted-database primitives are wired into the Windows
-runtime. Schema v2 uses explicit transactional migration, separates list
+runtime. Schema v3 uses explicit transactional migration, separates list
 metadata from source and channel secrets, replaces source snapshots atomically,
-preserves stable favorites, and has database/WAL/SHM secret scans plus reset
-primitives. Save and startup restore run off the UI isolate. DPAPI,
+preserves stable favorites, and stores provider guide identity plus bounded EPG
+snapshots. Programme replacement is transactional, so a failed refresh retains
+the previous unexpired guide. Exact `(source, guide ID)` joins prevent channel
+name guessing. Database/WAL/SHM secret scans and reset primitives are covered.
+Save and startup restore run off the UI isolate. DPAPI,
 SQLite3MultipleCiphers, a fresh-store close/reopen cycle, and package smoke tests
 pass on the actual Windows native build. Reset waits for native player teardown,
 then removes the encrypted database, sidecars, sealed key, and interrupted key
@@ -57,6 +60,15 @@ short-lived refresh request only. Refresh downloads and parses first, commits a
 complete replacement transaction second, and publishes the new UI snapshot
 last; any failure leaves the prior playable snapshot and stable selection
 untouched.
+
+## Runtime network boundary
+
+Install and application startup do not perform network requests. The runtime
+contains no Klipa API client, guide proxy, telemetry sender, remote logger, or
+automatic update checker. Playlist, guide, artwork, and media requests are
+allowed only toward user-configured provider locations after the relevant user
+action. A promotional Klipa link, if added later, must be an explicit action
+that opens the system browser and must not become an in-app service dependency.
 
 Favorite state is represented in UI memory only by non-secret source/channel
 identities. A toggle is committed through the encrypted store before it is

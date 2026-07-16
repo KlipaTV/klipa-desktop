@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:klipa_player_windows/data/encrypted_library_database.dart';
 import 'package:klipa_player_windows/domain/channel.dart';
 import 'package:klipa_player_windows/domain/playlist_source.dart';
+import 'package:klipa_player_windows/domain/programme.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 void main() {
@@ -176,6 +177,177 @@ void main() {
     summary = database.loadChannelSummaries().single;
     expect(summary.name, 'Refreshed snapshot');
     expect(summary.isFavorite, isTrue);
+    database.close();
+  });
+
+  test('persists provider guide identity with a channel refresh', () {
+    final database = EncryptedLibraryDatabase.open(
+      path: databasePath,
+      key: _key(),
+    );
+    database.replaceSourceSnapshot(
+      source: _source(),
+      channels: [
+        _channel(
+          name: 'Guide channel',
+          stream: 'https://stream.invalid/guide',
+          guideId: 'provider.channel.1',
+        ),
+      ],
+    );
+
+    expect(database.loadChannels().single.guideId, 'provider.channel.1');
+    database.close();
+  });
+
+  test('loads current and next programmes by exact provider guide ID', () {
+    final database = EncryptedLibraryDatabase.open(
+      path: databasePath,
+      key: _key(),
+    );
+    database.replaceSourceSnapshot(
+      source: _source(),
+      channels: [
+        _channel(
+          id: 'matching',
+          name: 'Same display name',
+          stream: 'https://stream.invalid/matching',
+          guideId: 'guide.matching',
+        ),
+        _channel(
+          id: 'different',
+          name: 'Same display name',
+          stream: 'https://stream.invalid/different',
+          guideId: 'guide.different',
+        ),
+        _channel(
+          id: 'missing',
+          name: 'Same display name',
+          stream: 'https://stream.invalid/missing',
+        ),
+      ],
+    );
+    final now = DateTime.utc(2026, 7, 16, 12);
+    database.replaceProgrammeSnapshot(
+      sourceId: 'source-1',
+      refreshedAt: now.subtract(const Duration(minutes: 5)),
+      expiresAt: now.add(const Duration(hours: 2)),
+      programmes: [
+        _programme(
+          guideId: 'guide.matching',
+          title: 'Current show',
+          start: now.subtract(const Duration(minutes: 30)),
+          end: now.add(const Duration(minutes: 30)),
+        ),
+        _programme(
+          guideId: 'guide.matching',
+          title: 'Next show',
+          start: now.add(const Duration(minutes: 30)),
+          end: now.add(const Duration(minutes: 60)),
+        ),
+        _programme(
+          guideId: 'guide.unrelated',
+          title: 'Must not fuzzy match',
+          start: now.subtract(const Duration(minutes: 10)),
+          end: now.add(const Duration(minutes: 10)),
+        ),
+      ],
+    );
+
+    final schedules = database.loadNowNext(nowUtc: now);
+    expect(schedules, hasLength(1));
+    final schedule = schedules[(sourceId: 'source-1', channelId: 'matching')]!;
+    expect(schedule.current!.title, 'Current show');
+    expect(schedule.current!.startUtc.isUtc, isTrue);
+    expect(schedule.next!.title, 'Next show');
+    expect(schedules[(sourceId: 'source-1', channelId: 'different')], isNull);
+    expect(schedules[(sourceId: 'source-1', channelId: 'missing')], isNull);
+    database.close();
+  });
+
+  test('programme refresh is atomic and expired snapshots are ignored', () {
+    final database = EncryptedLibraryDatabase.open(
+      path: databasePath,
+      key: _key(),
+    );
+    database.replaceSourceSnapshot(
+      source: _source(),
+      channels: [
+        _channel(
+          name: 'Guide channel',
+          stream: 'https://stream.invalid/guide',
+          guideId: 'guide.one',
+        ),
+      ],
+    );
+    final now = DateTime.utc(2026, 7, 16, 12);
+    database.replaceProgrammeSnapshot(
+      sourceId: 'source-1',
+      refreshedAt: now.subtract(const Duration(minutes: 5)),
+      expiresAt: now.add(const Duration(hours: 1)),
+      programmes: [
+        _programme(
+          guideId: 'guide.one',
+          title: 'Preserved show',
+          start: now.subtract(const Duration(minutes: 10)),
+          end: now.add(const Duration(minutes: 20)),
+        ),
+      ],
+    );
+
+    expect(
+      () => database.replaceProgrammeSnapshot(
+        sourceId: 'source-1',
+        refreshedAt: now,
+        expiresAt: now.add(const Duration(hours: 2)),
+        programmes: _interruptedProgrammeRefresh(now),
+      ),
+      throwsStateError,
+    );
+    expect(
+      database.loadNowNext(nowUtc: now).values.single.current!.title,
+      'Preserved show',
+    );
+    expect(
+      database.loadNowNext(nowUtc: now.add(const Duration(hours: 2))),
+      isEmpty,
+    );
+    database.close();
+  });
+
+  test('deleting a source cascades its programme snapshot', () {
+    final database = EncryptedLibraryDatabase.open(
+      path: databasePath,
+      key: _key(),
+    );
+    database.replaceSourceSnapshot(
+      source: _source(),
+      channels: [
+        _channel(
+          name: 'Guide channel',
+          stream: 'https://stream.invalid/guide',
+          guideId: 'guide.one',
+        ),
+      ],
+    );
+    final now = DateTime.utc(2026, 7, 16, 12);
+    database.replaceProgrammeSnapshot(
+      sourceId: 'source-1',
+      refreshedAt: now,
+      expiresAt: now.add(const Duration(hours: 1)),
+      programmes: [
+        _programme(
+          guideId: 'guide.one',
+          title: 'Temporary show',
+          start: now,
+          end: now.add(const Duration(minutes: 30)),
+        ),
+      ],
+    );
+
+    database.deleteSource('source-1');
+
+    expect(database.loadNowNext(nowUtc: now), isEmpty);
     database.close();
   });
 
@@ -367,15 +539,18 @@ PlaylistSource _source({String location = 'https://provider.invalid/list'}) =>
     );
 
 Channel _channel({
+  String id = 'channel-1',
   required String name,
   required String stream,
+  String? guideId,
   Map<String, String> headers = const {},
 }) => Channel(
-  id: 'channel-1',
+  id: id,
   name: name,
   streamUri: Uri.parse(stream),
   sourceId: 'source-1',
   allowsPrivateNetwork: false,
+  guideId: guideId,
   group: 'News',
   httpHeaders: headers,
 );
@@ -383,6 +558,29 @@ Channel _channel({
 Iterable<Channel> _interruptedRefresh() sync* {
   yield _channel(name: 'Partial update', stream: 'https://partial.invalid');
   throw StateError('Synthetic interrupted refresh');
+}
+
+Programme _programme({
+  required String guideId,
+  required String title,
+  required DateTime start,
+  required DateTime end,
+}) => Programme(
+  sourceId: 'source-1',
+  guideId: guideId,
+  title: title,
+  startUtc: start,
+  endUtc: end,
+);
+
+Iterable<Programme> _interruptedProgrammeRefresh(DateTime now) sync* {
+  yield _programme(
+    guideId: 'guide.one',
+    title: 'Partial replacement',
+    start: now,
+    end: now.add(const Duration(minutes: 30)),
+  );
+  throw StateError('Synthetic interrupted EPG refresh');
 }
 
 void _createLegacyV1Database(

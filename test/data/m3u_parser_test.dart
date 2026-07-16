@@ -24,6 +24,7 @@ https://stream.example/live/one.m3u8
     expect(result.channels, hasLength(1));
     final channel = result.channels.single;
     expect(channel.name, 'Channel One');
+    expect(channel.guideId, 'one');
     expect(channel.group, 'News');
     expect(channel.logoUri, Uri.parse('https://img.example/one.png'));
     expect(channel.httpHeaders, {

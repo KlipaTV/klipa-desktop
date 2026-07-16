@@ -29,6 +29,7 @@ class M3uParser {
   static const int maxChannels = 100000;
   static const int maxLineLength = 64 * 1024;
   static const int maxFieldLength = 8192;
+  static const int maxGuideIdLength = 512;
 
   M3uParseResult parse(
     Uint8List bytes, {
@@ -119,6 +120,7 @@ class M3uParser {
           streamUri: parsed,
           sourceId: sourceId,
           allowsPrivateNetwork: allowPrivateNetwork,
+          guideId: _guideId(pending?.attributes['tvg-id']),
           group: group,
           logoUri: logo,
           httpHeaders: Map<String, String>.from(pendingHeaders),
@@ -216,6 +218,15 @@ class M3uParser {
   String? _boundedOrNull(String? value) {
     if (value == null || value.trim().isEmpty) return null;
     return _bounded(value.trim());
+  }
+
+  String? _guideId(String? value) {
+    final normalized = value?.trim();
+    return normalized != null &&
+            normalized.isNotEmpty &&
+            normalized.length <= maxGuideIdLength
+        ? normalized
+        : null;
   }
 }
 

@@ -40,6 +40,7 @@ class XtreamClient {
 
   static const int maxChannels = 100000;
   static const int maxFieldLength = 8192;
+  static const int maxGuideIdLength = 512;
   static const int maxCredentialLength = 1024;
 
   final BoundedHttpClient _httpClient;
@@ -218,6 +219,7 @@ class XtreamClient {
             pathSegments: ['live', username, password, '$streamId.$extension'],
           );
       final categoryId = _bounded(stream?['category_id']?.toString());
+      final guideId = _guideId(stream?['epg_channel_id']?.toString());
       final logoUri = _safeUri(stream?['stream_icon']?.toString());
       final channelId = sha256
           .convert(utf8.encode('$sourceId\u0000$streamId'))
@@ -229,6 +231,7 @@ class XtreamClient {
           streamUri: streamUri,
           sourceId: sourceId,
           allowsPrivateNetwork: allowPrivateNetwork,
+          guideId: guideId,
           group: categoryId == null ? null : categories[categoryId],
           logoUri: logoUri,
         ),
@@ -256,6 +259,15 @@ class XtreamClient {
     return trimmed.length <= maxFieldLength
         ? trimmed
         : trimmed.substring(0, maxFieldLength);
+  }
+
+  String? _guideId(String? value) {
+    final normalized = value?.trim();
+    return normalized != null &&
+            normalized.isNotEmpty &&
+            normalized.length <= maxGuideIdLength
+        ? normalized
+        : null;
   }
 
   String _safeExtension(String? value) {

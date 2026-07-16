@@ -12,12 +12,18 @@ manifests, segments, subtitles, and decoder input are all untrusted.
 | Xtream import | Separate server, username and obscured-password fields; live-only API catalog; same-origin bounded M3U compatibility data intersected with live IDs; bounded JSON parsed off the UI isolate; sanitized source metadata; no persistence |
 | Network destinations | URI validation, DNS classification, local/private target denial by default, explicit per-source LAN opt-in |
 | M3U parsing | Background isolate; 25 MiB input, 64 KiB line, 8 KiB field and 100,000 channel limits; binary/NUL rejection; non-HTTP(S) streams skipped |
+| XMLTV parsing/cache | Background event parser; 32 MiB compressed and 256 MiB decompressed limits; 500,000 retained-programme cap and bounded time window; strict UTF-8, nesting and field limits; DTD/entities rejected; explicit timezone conversion; exact provider guide-ID matching; atomic encrypted replacement preserves the last unexpired snapshot |
 | Playlist directives | Only User-Agent, Referer and Origin are accepted; CR/LF values and privileged headers are dropped |
 | Playback | At most one native player; teardown precedes replacement; stale events are rejected; first-media readiness is bounded and retryable; protocol allowlist is TCP, TLS, HTTP, HTTPS and crypto; libmpv config/scripts and URL extractors are disabled; no local file protocol; native errors are replaced with a generic user message |
 | Remote artwork | Disabled. The alpha renders local initials, so an imported logo cannot trigger a nested request |
 | Diagnostics | Common credentials, secret fields and complete URL paths/query/fragment data are redacted; no telemetry or remote logging |
-| Local storage | Windows imports, favorites, and bounded navigation state are saved and restored off the UI isolate in SQLite3MultipleCiphers; UI state receives source summaries and stable identities without locations or credentials; restored navigation is validated and never autoplays; refresh reads secrets transiently and publishes only after an atomic replacement succeeds; schema v2 preserves stable favorites; confirmed delete cascades source data; a random 256-bit key is DPAPI-sealed to the current user; there is no plaintext fallback; tests scan the database, live WAL and SHM for seeded secrets and cover wrong/missing keys plus reset primitives |
+| Local storage | Windows imports, favorites, bounded navigation, provider guide IDs, and programme snapshots are saved in SQLite3MultipleCiphers; UI state receives source summaries and stable identities without locations or credentials; restored navigation is validated and never autoplays; refresh reads secrets transiently and publishes only after an atomic replacement succeeds; schema v3 preserves stable favorites and the last valid EPG snapshot; confirmed delete cascades all source data; a random 256-bit key is DPAPI-sealed to the current user; there is no plaintext fallback; tests scan the database, live WAL and SHM for seeded secrets and cover wrong/missing keys plus reset primitives |
 | Secrets in source | No provider fixture, host, account, token, certificate bypass or signing credential is committed |
+
+The installed app has no Klipa VPS dependency and does not contact Klipa on
+install, launch, library browsing, playback, or EPG refresh. Provider network
+traffic is direct from the app to the user-configured source. No analytics,
+heartbeat, remote configuration, guide proxy, or background updater is present.
 
 ## Native validation completed
 
