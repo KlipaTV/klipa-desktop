@@ -1,10 +1,6 @@
 # Klipa Player for Desktop
 
-> [!CAUTION]
-> Private local development. Do not publish, push to a public remote, submit to
-> a store, or distribute binaries yet.
-
-Klipa Player is a lightweight, privately developed, local-first IPTV player for
+Klipa Player is a lightweight, local-first IPTV player for
 Windows and Linux. It is designed for people who bring their own M3U/M3U8 playlist or
 Xtream-compatible login. It includes no channels, subscriptions, ads, accounts,
 or telemetry.
@@ -48,7 +44,8 @@ Private testing release candidate:
 - Runtime networking has no Klipa service dependency: install and startup make
   no Klipa request, and provider data is never routed through Klipa
 - Confirmed reset and missing/corrupt-key recovery are wired; external
-  distribution security and signing gates remain open
+  distribution security and signing gates are implemented through
+  SignPath code signing and the GitHub Actions release workflow
 - Native Windows debug build, DPAPI, encrypted database and libmpv smoke tests pass
 - Native release build and an authorized private MPEG-TS playback smoke pass
 - Native Linux release bundle builds at about 29 MiB before packaging; local
@@ -61,7 +58,8 @@ Private testing release candidate:
   and versions, license notices, and a high/critical vulnerability gate
 - Deterministic release fuzzing covers M3U, XMLTV, and Xtream inputs; optional
   Windows Authenticode and Linux detached-signature paths keep keys external
-- No remote configured and no public artifact
+- Public source at https://github.com/KlipaTV/klipa-desktop; signed Windows
+  releases are published from tagged commits via the release workflow
 
 The Windows toolchain uses Flutter 3.44.6 stable, Visual Studio Build Tools
 2022, the Desktop development with C++ workload, and Windows SDK 10.0.26100.
@@ -144,8 +142,12 @@ procedure: see [Code signing policy](docs/code-signing-policy.md).
 
 ## License and branding
 
-The repository and first-party source are private and are not authorized for
-redistribution. The existing license and trademark files are provisional legal
-review inputs, not permission to publish the repository or binaries. Licensing,
-branding, and third-party redistribution terms are explicit gates before any
-external release.
+This project's first-party source code is licensed under the
+**GNU Lesser General Public License v3.0 or later** — see `LICENSE`. The LGPL
+was chosen so the commercial Klipa mobile app can link against shared
+desktop components without becoming FOSS itself.
+
+The Klipa name, logo, wordmark, and brand identifiers are **not** licensed
+under the LGPL. Forks and modified redistributions must rename and rebrand
+per `TRADEMARKS.md`. Nothing in this repository grants permission to imply
+endorsement by Klipa.
