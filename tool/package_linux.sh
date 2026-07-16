@@ -2,7 +2,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-flutter="${FLUTTER:-/home/user/flutter/bin/flutter}"
+flutter="${FLUTTER:-flutter}"
 dist="$root/dist/linux"
 stage="$dist/stage"
 bundle="$root/build/linux/x64/release/bundle"

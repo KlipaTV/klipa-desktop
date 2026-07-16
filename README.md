@@ -132,8 +132,8 @@ certificate by [SignPath Foundation](https://signpath.org).
 
 Team roles:
 
-- Authors/Reviewers: [@KlipaTV](https://github.com/KlipaTV)
-- Approvers: [@KlipaTV](https://github.com/KlipaTV)
+- Authors/Reviewers: [KlipaTV maintainers](https://github.com/orgs/KlipaTV/people?query=role%3Aowner)
+- Approvers: [KlipaTV maintainers](https://github.com/orgs/KlipaTV/people?query=role%3Aowner)
 
 Privacy: this program will not transfer any information to other networked
 systems unless specifically requested by the user or the person installing or
