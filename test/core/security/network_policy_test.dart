@@ -39,4 +39,50 @@ void main() {
       completion(NetworkTargetKind.privateOrLocal),
     );
   });
+
+  test(
+    'classifies reserved IPv4 and mapped IPv6 literals as non-public',
+    () async {
+      const nonPublic = [
+        '0.0.0.0',
+        '100.64.0.1',
+        '192.0.0.1',
+        '192.0.2.1',
+        '198.18.0.1',
+        '198.51.100.1',
+        '203.0.113.1',
+        '224.0.0.1',
+        '240.0.0.1',
+        '::ffff:127.0.0.1',
+        '::ffff:192.168.1.1',
+      ];
+      for (final host in nonPublic) {
+        await expectLater(
+          policy.classifyHost(host),
+          completion(NetworkTargetKind.privateOrLocal),
+          reason: host,
+        );
+      }
+    },
+  );
+
+  test('classifies reserved IPv6 literals as non-public', () async {
+    for (final host in ['::', '100::1', '2001:db8::1', 'fec0::1', 'fd00::1']) {
+      await expectLater(
+        policy.classifyHost(host),
+        completion(NetworkTargetKind.privateOrLocal),
+        reason: host,
+      );
+    }
+  });
+
+  test('keeps globally routable literals public', () async {
+    for (final host in ['1.1.1.1', '8.8.8.8', '2606:4700:4700::1111']) {
+      await expectLater(
+        policy.classifyHost(host),
+        completion(NetworkTargetKind.public),
+        reason: host,
+      );
+    }
+  });
 }

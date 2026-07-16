@@ -81,17 +81,43 @@ class NetworkPolicy {
 
     final bytes = address.rawAddress;
     if (address.type == InternetAddressType.IPv4) {
-      return bytes[0] == 10 ||
-          bytes[0] == 127 ||
-          (bytes[0] == 169 && bytes[1] == 254) ||
-          (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
-          (bytes[0] == 192 && bytes[1] == 168) ||
-          (bytes[0] == 100 && bytes[1] >= 64 && bytes[1] <= 127) ||
-          bytes[0] == 0;
+      return _isNonPublicIpv4(bytes);
     }
 
     final isUniqueLocal = (bytes[0] & 0xfe) == 0xfc;
+    final isDeprecatedSiteLocal = bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0xc0;
     final isUnspecified = bytes.every((byte) => byte == 0);
-    return isUniqueLocal || isUnspecified;
+    final isDocumentation =
+        bytes[0] == 0x20 &&
+        bytes[1] == 0x01 &&
+        bytes[2] == 0x0d &&
+        bytes[3] == 0xb8;
+    final isDiscardOnly =
+        bytes[0] == 0x01 && bytes.skip(1).take(7).every((byte) => byte == 0);
+    final isIpv4Mapped =
+        bytes.take(10).every((byte) => byte == 0) &&
+        bytes[10] == 0xff &&
+        bytes[11] == 0xff;
+    return isUniqueLocal ||
+        isDeprecatedSiteLocal ||
+        isUnspecified ||
+        isDocumentation ||
+        isDiscardOnly ||
+        (isIpv4Mapped && _isNonPublicIpv4(bytes.sublist(12)));
   }
+
+  bool _isNonPublicIpv4(List<int> bytes) =>
+      bytes[0] == 0 ||
+      bytes[0] == 10 ||
+      bytes[0] == 127 ||
+      bytes[0] >= 224 ||
+      (bytes[0] == 100 && bytes[1] >= 64 && bytes[1] <= 127) ||
+      (bytes[0] == 169 && bytes[1] == 254) ||
+      (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
+      (bytes[0] == 192 && bytes[1] == 0 && bytes[2] == 0) ||
+      (bytes[0] == 192 && bytes[1] == 0 && bytes[2] == 2) ||
+      (bytes[0] == 192 && bytes[1] == 168) ||
+      (bytes[0] == 198 && bytes[1] >= 18 && bytes[1] <= 19) ||
+      (bytes[0] == 198 && bytes[1] == 51 && bytes[2] == 100) ||
+      (bytes[0] == 203 && bytes[1] == 0 && bytes[2] == 113);
 }

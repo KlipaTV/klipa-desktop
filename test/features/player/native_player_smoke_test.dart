@@ -20,6 +20,11 @@ void main() {
       final native = nativePlayer! as NativePlayer;
       await native.setProperty('ytdl', 'no');
       await native.setProperty('load-scripts', 'no');
+      await native.setProperty('load-unsafe-playlists', 'no');
+      await native.setProperty('autoload-files', 'no');
+      await native.setProperty('cookies', 'no');
+      await native.setProperty('tls-verify', 'yes');
+      await native.setProperty('network-timeout', '30');
       await player.dispose();
     },
     skip: Platform.isWindows ? false : 'This validates the Windows bundle.',

@@ -278,7 +278,7 @@ Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) async {
 Channel _channel(String id, {String sourceId = 'fixture'}) => Channel(
   id: id,
   name: 'Channel $id',
-  streamUri: Uri.parse('https://192.0.2.1/$id'),
+  streamUri: Uri.parse('https://1.1.1.1/$id'),
   sourceId: sourceId,
   allowsPrivateNetwork: false,
 );

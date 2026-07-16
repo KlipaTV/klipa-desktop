@@ -79,6 +79,11 @@ final class MediaKitVideoPlayerPort implements VideoPlayerPort {
       }
       await nativePlayer.setProperty('ytdl', 'no');
       await nativePlayer.setProperty('load-scripts', 'no');
+      await nativePlayer.setProperty('load-unsafe-playlists', 'no');
+      await nativePlayer.setProperty('autoload-files', 'no');
+      await nativePlayer.setProperty('cookies', 'no');
+      await nativePlayer.setProperty('tls-verify', 'yes');
+      await nativePlayer.setProperty('network-timeout', '30');
       _hardened = true;
     }
     await _player.open(
