@@ -53,4 +53,20 @@ void main() {
       ),
     );
   });
+
+  test('downloads a provider guide through the same bounded client', () async {
+    server.listen((request) async {
+      request.response
+        ..headers.contentType = ContentType('application', 'xml')
+        ..write('<tv></tv>');
+      await request.response.close();
+    });
+
+    final bytes = await BoundedHttpClient().getGuide(
+      Uri.parse('http://127.0.0.1:${server.port}/guide.xml'),
+      allowPrivateNetwork: true,
+    );
+
+    expect(String.fromCharCodes(bytes), '<tv></tv>');
+  });
 }

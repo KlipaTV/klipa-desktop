@@ -13,13 +13,30 @@ class PlaylistDownloadException implements Exception {
   String toString() => message;
 }
 
+class GuideDownloadException implements Exception {
+  const GuideDownloadException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+class _BoundedDownloadException implements Exception {
+  const _BoundedDownloadException(this.message);
+
+  final String message;
+}
+
 class BoundedHttpClient {
   BoundedHttpClient({NetworkPolicy networkPolicy = const NetworkPolicy()})
     : _networkPolicy = networkPolicy;
 
   static const int maxBytes = 25 * 1024 * 1024;
+  static const int maxGuideBytes = 32 * 1024 * 1024;
   static const int maxRedirects = 5;
   static const Duration totalTimeout = Duration(seconds: 60);
+  static const Duration guideTotalTimeout = Duration(seconds: 120);
 
   final NetworkPolicy _networkPolicy;
 
@@ -27,17 +44,15 @@ class BoundedHttpClient {
     Uri initialUri, {
     required bool allowPrivateNetwork,
   }) async {
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 10)
-      ..idleTimeout = const Duration(seconds: 5)
-      ..userAgent = 'KlipaPlayer/0.1';
-
     try {
-      return await _get(
-        client,
+      return await _download(
         initialUri,
         allowPrivateNetwork: allowPrivateNetwork,
+        byteLimit: maxBytes,
+        resourceName: 'playlist',
       ).timeout(totalTimeout);
+    } on _BoundedDownloadException catch (error) {
+      throw PlaylistDownloadException(error.message);
     } on TimeoutException {
       throw const PlaylistDownloadException('The playlist request timed out.');
     } on NetworkPolicyException catch (error) {
@@ -50,6 +65,55 @@ class BoundedHttpClient {
       throw const PlaylistDownloadException(
         'The playlist server did not present a trusted TLS certificate.',
       );
+    }
+  }
+
+  Future<Uint8List> getGuide(
+    Uri initialUri, {
+    required bool allowPrivateNetwork,
+  }) async {
+    try {
+      return await _download(
+        initialUri,
+        allowPrivateNetwork: allowPrivateNetwork,
+        byteLimit: maxGuideBytes,
+        resourceName: 'guide',
+      ).timeout(guideTotalTimeout);
+    } on _BoundedDownloadException catch (error) {
+      throw GuideDownloadException(error.message);
+    } on TimeoutException {
+      throw const GuideDownloadException('The guide request timed out.');
+    } on NetworkPolicyException catch (error) {
+      throw GuideDownloadException(error.message);
+    } on SocketException {
+      throw const GuideDownloadException(
+        'The guide host could not be reached.',
+      );
+    } on HandshakeException {
+      throw const GuideDownloadException(
+        'The guide server did not present a trusted TLS certificate.',
+      );
+    }
+  }
+
+  Future<Uint8List> _download(
+    Uri initialUri, {
+    required bool allowPrivateNetwork,
+    required int byteLimit,
+    required String resourceName,
+  }) async {
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 10)
+      ..idleTimeout = const Duration(seconds: 5)
+      ..userAgent = 'KlipaPlayer/0.1';
+    try {
+      return await _get(
+        client,
+        initialUri,
+        allowPrivateNetwork: allowPrivateNetwork,
+        byteLimit: byteLimit,
+        resourceName: resourceName,
+      );
     } finally {
       client.close(force: true);
     }
@@ -59,6 +123,8 @@ class BoundedHttpClient {
     HttpClient client,
     Uri initialUri, {
     required bool allowPrivateNetwork,
+    required int byteLimit,
+    required String resourceName,
   }) async {
     var uri = initialUri;
     for (var redirects = 0; redirects <= maxRedirects; redirects++) {
@@ -76,21 +142,21 @@ class BoundedHttpClient {
       if (_isRedirect(response.statusCode)) {
         if (redirects == maxRedirects) {
           await response.drain<void>();
-          throw const PlaylistDownloadException(
-            'The playlist redirected too many times.',
+          throw _BoundedDownloadException(
+            'The $resourceName redirected too many times.',
           );
         }
         final location = response.headers.value(HttpHeaders.locationHeader);
         await response.drain<void>();
         if (location == null) {
-          throw const PlaylistDownloadException(
-            'The server returned an invalid redirect.',
+          throw _BoundedDownloadException(
+            'The $resourceName server returned an invalid redirect.',
           );
         }
         final next = uri.resolve(location);
         if (uri.scheme == 'https' && next.scheme != 'https') {
-          throw const PlaylistDownloadException(
-            'A secure playlist cannot redirect to an insecure address.',
+          throw _BoundedDownloadException(
+            'A secure $resourceName cannot redirect to an insecure address.',
           );
         }
         uri = next;
@@ -99,23 +165,23 @@ class BoundedHttpClient {
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await response.drain<void>();
-        throw PlaylistDownloadException(
-          'The playlist server returned HTTP ${response.statusCode}.',
+        throw _BoundedDownloadException(
+          'The $resourceName server returned HTTP ${response.statusCode}.',
         );
       }
       final declaredLength = response.contentLength;
-      if (declaredLength > maxBytes) {
+      if (declaredLength > byteLimit) {
         await response.drain<void>();
-        throw const PlaylistDownloadException(
-          'The playlist exceeds the 25 MiB limit.',
+        throw _BoundedDownloadException(
+          'The $resourceName exceeds the ${byteLimit ~/ (1024 * 1024)} MiB limit.',
         );
       }
       final contentType = response.headers.contentType?.mimeType.toLowerCase();
       if (contentType == 'text/html' ||
           contentType == 'application/xhtml+xml') {
         await response.drain<void>();
-        throw const PlaylistDownloadException(
-          'The address returned a web page instead of a playlist.',
+        throw _BoundedDownloadException(
+          'The address returned a web page instead of a $resourceName.',
         );
       }
 
@@ -123,17 +189,17 @@ class BoundedHttpClient {
       var count = 0;
       await for (final chunk in response) {
         count += chunk.length;
-        if (count > maxBytes) {
-          throw const PlaylistDownloadException(
-            'The playlist exceeds the 25 MiB limit.',
+        if (count > byteLimit) {
+          throw _BoundedDownloadException(
+            'The $resourceName exceeds the ${byteLimit ~/ (1024 * 1024)} MiB limit.',
           );
         }
         builder.add(chunk);
       }
       return builder.takeBytes();
     }
-    throw const PlaylistDownloadException(
-      'The playlist could not be downloaded.',
+    throw _BoundedDownloadException(
+      'The $resourceName could not be downloaded.',
     );
   }
 

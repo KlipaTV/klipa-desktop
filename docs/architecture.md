@@ -67,7 +67,9 @@ Install and application startup do not perform network requests. The runtime
 contains no Klipa API client, guide proxy, telemetry sender, remote logger, or
 automatic update checker. Playlist, guide, artwork, and media requests are
 allowed only toward user-configured provider locations after the relevant user
-action. A promotional Klipa link, if added later, must be an explicit action
+action. Xtream XMLTV is derived from the saved provider origin; M3U XMLTV
+requires an explicit URL and is never guessed or discovered. A promotional
+Klipa link, if added later, must be an explicit action
 that opens the system browser and must not become an in-app service dependency.
 
 Favorite state is represented in UI memory only by non-secret source/channel
