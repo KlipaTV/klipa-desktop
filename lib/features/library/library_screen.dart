@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_theme.dart';
 import '../../domain/channel.dart';
+import '../../domain/channel_schedule.dart';
 import '../../domain/library_source.dart';
 import '../../domain/playlist_source.dart';
 import '../player/player_pane.dart';
@@ -937,6 +938,7 @@ class _ChannelBrowser extends StatelessWidget {
                     final channel = channels[index];
                     return _ChannelTile(
                       channel: channel,
+                      schedule: state.scheduleFor(channel),
                       selected:
                           channel.id == state.selectedChannel?.id &&
                           channel.sourceId == state.selectedChannel?.sourceId,
@@ -956,6 +958,7 @@ class _ChannelBrowser extends StatelessWidget {
 class _ChannelTile extends StatelessWidget {
   const _ChannelTile({
     required this.channel,
+    required this.schedule,
     required this.selected,
     required this.favorite,
     required this.onPressed,
@@ -963,6 +966,7 @@ class _ChannelTile extends StatelessWidget {
   });
 
   final Channel channel;
+  final ChannelSchedule? schedule;
   final bool selected;
   final bool favorite;
   final VoidCallback onPressed;
@@ -1016,16 +1020,17 @@ class _ChannelTile extends StatelessWidget {
                             : FontWeight.w500,
                       ),
                     ),
-                    if (channel.group case final group?) ...[
+                    if (schedule?.current?.title ?? channel.group
+                        case final subtitle?) ...[
                       const SizedBox(height: 2),
                       Text(
-                        group.toUpperCase(),
+                        subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: KlipaColors.foregroundDim,
                           fontSize: 10,
-                          letterSpacing: 0.5,
+                          letterSpacing: schedule?.current == null ? 0.5 : 0,
                         ),
                       ),
                     ],

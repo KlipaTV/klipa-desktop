@@ -31,8 +31,8 @@ no remote or publishing step.
 
 - The native Windows debug and release executables and plugin bundles compile
   successfully.
-- The native Windows profile bundle compiles with the provider-direct XMLTV
-  core and all 92 Windows tests pass against its packaged native libraries.
+- The native Windows profile bundle compiles with provider-direct XMLTV
+  refresh and all 96 Windows tests pass against its packaged native libraries.
 - Static analysis completes with no issues.
 - A DPAPI round trip seals and restores random bytes for the current user.
 - A SQLite3MultipleCiphers database reopens with its key, rejects an unkeyed

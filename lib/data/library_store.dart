@@ -9,9 +9,11 @@ import '../core/security/dpapi_secret_protector.dart';
 import '../core/security/secret_protector.dart';
 import '../domain/channel.dart';
 import '../domain/channel_identity.dart';
+import '../domain/channel_schedule.dart';
 import '../domain/library_navigation.dart';
 import '../domain/library_source.dart';
 import '../domain/playlist_source.dart';
+import '../domain/programme.dart';
 import 'database_key_store.dart';
 import 'encrypted_library_database.dart';
 import 'linux_database_key_store.dart';
@@ -21,6 +23,7 @@ class LibrarySnapshot {
     required this.sources,
     required this.channels,
     this.favoriteChannels = const {},
+    this.schedules = const {},
     this.navigation = const LibraryNavigation.empty(),
   });
 
@@ -28,11 +31,13 @@ class LibrarySnapshot {
     : sources = const [],
       channels = const [],
       favoriteChannels = const {},
+      schedules = const {},
       navigation = const LibraryNavigation.empty();
 
   final List<LibrarySource> sources;
   final List<Channel> channels;
   final Set<ChannelIdentity> favoriteChannels;
+  final Map<ChannelIdentity, ChannelSchedule> schedules;
   final LibraryNavigation navigation;
 }
 
@@ -73,6 +78,17 @@ abstract interface class LibraryStore {
   });
 
   Future<void> saveNavigation(LibraryNavigation navigation);
+}
+
+abstract interface class EpgLibraryStore {
+  Future<Map<ChannelIdentity, ChannelSchedule>> replaceProgrammeSnapshot({
+    required String sourceId,
+    required List<Programme> programmes,
+    required DateTime refreshedAt,
+    required DateTime expiresAt,
+  });
+
+  Future<Map<ChannelIdentity, ChannelSchedule>> loadNowNext(DateTime nowUtc);
 }
 
 /// Keeps non-Windows development and widget tests independent of DPAPI.
@@ -118,7 +134,7 @@ final class DisabledLibraryStore implements LibraryStore {
   Future<void> saveNavigation(LibraryNavigation navigation) async {}
 }
 
-final class EncryptedLibraryStore implements LibraryStore {
+final class EncryptedLibraryStore implements LibraryStore, EpgLibraryStore {
   EncryptedLibraryStore({
     Future<Directory> Function()? rootDirectory,
     SecretProtector protector = const DpapiSecretProtector(),
@@ -174,6 +190,58 @@ final class EncryptedLibraryStore implements LibraryStore {
           key,
         ),
       );
+    } finally {
+      key?.fillRange(0, key.length, 0);
+    }
+  }
+
+  @override
+  Future<Map<ChannelIdentity, ChannelSchedule>> replaceProgrammeSnapshot({
+    required String sourceId,
+    required List<Programme> programmes,
+    required DateTime refreshedAt,
+    required DateTime expiresAt,
+  }) async {
+    final paths = await _paths();
+    final protector = _protector;
+    final key = await _linuxKey(paths);
+    try {
+      return await Isolate.run(() async {
+        final database = await _openEncryptedLibrary(paths, protector, key);
+        try {
+          database.replaceProgrammeSnapshot(
+            sourceId: sourceId,
+            programmes: programmes,
+            refreshedAt: refreshedAt,
+            expiresAt: expiresAt,
+          );
+          return database.loadNowNext(nowUtc: refreshedAt);
+        } finally {
+          database.close();
+        }
+      });
+    } finally {
+      key?.fillRange(0, key.length, 0);
+    }
+  }
+
+  @override
+  Future<Map<ChannelIdentity, ChannelSchedule>> loadNowNext(
+    DateTime nowUtc,
+  ) async {
+    final paths = await _paths();
+    if (!await File(paths.databasePath).exists()) return const {};
+    final protector = _protector;
+    final key = await _linuxKey(paths);
+    try {
+      return await Isolate.run(() async {
+        final database = await _openEncryptedLibrary(paths, protector, key);
+        try {
+          return database.loadNowNext(nowUtc: nowUtc);
+        } finally {
+          database.close();
+        }
+      });
     } finally {
       key?.fillRange(0, key.length, 0);
     }
@@ -339,6 +407,7 @@ Future<LibrarySnapshot> _loadEncryptedLibrary(
       sources: sources,
       channels: channels,
       favoriteChannels: Set.unmodifiable(database.loadFavoriteChannels()),
+      schedules: database.loadNowNext(nowUtc: DateTime.now().toUtc()),
       navigation: _decodeNavigation(
         database.readAppSetting(_libraryNavigationKey),
         sources: sources,

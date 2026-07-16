@@ -1,5 +1,6 @@
 import '../../domain/channel.dart';
 import '../../domain/channel_identity.dart';
+import '../../domain/channel_schedule.dart';
 import '../../domain/library_source.dart';
 
 class LibraryState {
@@ -7,6 +8,7 @@ class LibraryState {
     this.sources = const [],
     this.channels = const [],
     this.favoriteChannels = const {},
+    this.schedules = const {},
     this.groups = const [],
     this.selectedChannel,
     this.lastChannelIdentity,
@@ -25,6 +27,7 @@ class LibraryState {
   final List<LibrarySource> sources;
   final List<Channel> channels;
   final Set<ChannelIdentity> favoriteChannels;
+  final Map<ChannelIdentity, ChannelSchedule> schedules;
   final List<String> groups;
   final Channel? selectedChannel;
   final ChannelIdentity? lastChannelIdentity;
@@ -64,6 +67,9 @@ class LibraryState {
     channelId: channel.id,
   ));
 
+  ChannelSchedule? scheduleFor(Channel channel) =>
+      schedules[(sourceId: channel.sourceId, channelId: channel.id)];
+
   Channel? get resumeChannel {
     final identity = lastChannelIdentity;
     if (identity == null) return null;
@@ -95,6 +101,7 @@ class LibraryState {
     List<LibrarySource>? sources,
     List<Channel>? channels,
     Set<ChannelIdentity>? favoriteChannels,
+    Map<ChannelIdentity, ChannelSchedule>? schedules,
     List<String>? groups,
     Channel? selectedChannel,
     bool clearSelection = false,
@@ -118,6 +125,7 @@ class LibraryState {
     sources: sources ?? this.sources,
     channels: channels ?? this.channels,
     favoriteChannels: favoriteChannels ?? this.favoriteChannels,
+    schedules: schedules ?? this.schedules,
     groups: groups ?? this.groups,
     selectedChannel: clearSelection
         ? null

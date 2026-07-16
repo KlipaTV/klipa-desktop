@@ -39,8 +39,9 @@ Private developer alpha:
 - Encrypted last source/group/channel state with stale-identity validation and
   an explicit one-click Resume action that never autoplays on startup
 - Provider guide IDs, provider-direct bounded XMLTV retrieval, a plain/gzip
-  parser, and atomic encrypted now/next snapshots are implemented; source-form,
-  refresh-controller, and UI wiring are still in progress
+  parser, atomic encrypted now/next snapshots, Xtream import/refresh integration,
+  and compact current-programme labels are implemented; the explicit M3U guide
+  field is still in progress
 - Runtime networking has no Klipa service dependency: install and startup make
   no Klipa request, and provider data is never routed through Klipa
 - Confirmed reset and missing/corrupt-key recovery are wired; broader

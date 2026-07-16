@@ -6,15 +6,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/security/sensitive_data_redactor.dart';
 import '../../data/encrypted_library_database.dart';
 import '../../data/library_store.dart';
+import '../../data/local_epg_service.dart';
 import '../../data/playlist_import_service.dart';
 import '../../domain/channel.dart';
 import '../../domain/channel_identity.dart';
+import '../../domain/channel_schedule.dart';
 import '../../domain/library_navigation.dart';
 import '../../domain/library_source.dart';
+import '../../domain/playlist_source.dart';
 import 'library_state.dart';
 
 final playlistImportServiceProvider = Provider<PlaylistImportService>(
   (ref) => PlaylistImportService(),
+);
+
+final localEpgServiceProvider = Provider<LocalEpgService>(
+  (ref) => LocalEpgService(),
 );
 
 final libraryStoreProvider = Provider<LibraryStore>(
@@ -193,8 +200,13 @@ class LibraryController extends Notifier<LibraryState> {
         username: access.username,
         password: access.password,
       );
+      final schedules = await _refreshGuide(
+        result.source,
+        username: access.username,
+        password: access.password,
+      );
       if (_disposed) return;
-      _publishSourceSnapshot(result, verb: 'Refreshed');
+      _publishSourceSnapshot(result, verb: 'Refreshed', schedules: schedules);
     } on Object catch (error) {
       _failOperation(error);
     }
@@ -249,6 +261,10 @@ class LibraryController extends Notifier<LibraryState> {
           state.favoriteChannels.where(
             (favorite) => favorite.sourceId != sourceId,
           ),
+        ),
+        schedules: Map.unmodifiable(
+          Map<ChannelIdentity, ChannelSchedule>.of(state.schedules)
+            ..removeWhere((identity, _) => identity.sourceId == sourceId),
         ),
         clearSelection: selectedWasDeleted,
         clearLastChannel: lastChannelWasDeleted,
@@ -330,9 +346,14 @@ class LibraryController extends Notifier<LibraryState> {
         username: username,
         password: password,
       );
+      final schedules = await _refreshGuide(
+        result.source,
+        username: username,
+        password: password,
+      );
       if (_disposed) return;
 
-      _publishSourceSnapshot(result, verb: 'Imported');
+      _publishSourceSnapshot(result, verb: 'Imported', schedules: schedules);
     } on Object catch (error) {
       _failOperation(error);
     }
@@ -341,6 +362,7 @@ class LibraryController extends Notifier<LibraryState> {
   void _publishSourceSnapshot(
     PlaylistImportResult result, {
     required String verb,
+    Map<ChannelIdentity, ChannelSchedule>? schedules,
   }) {
     final otherChannels = state.channels
         .where((channel) => channel.sourceId != result.source.id)
@@ -403,6 +425,7 @@ class LibraryController extends Notifier<LibraryState> {
       sources: List.unmodifiable(sources),
       channels: List.unmodifiable(channels),
       favoriteChannels: Set.unmodifiable(favorites),
+      schedules: schedules ?? state.schedules,
       groups: LibraryState.deriveGroups(channels),
       selectedChannel: refreshedSelection,
       clearSelection: selectedId != null && refreshedSelection == null,
@@ -424,6 +447,7 @@ class LibraryController extends Notifier<LibraryState> {
         sources: List.unmodifiable(snapshot.sources),
         channels: List.unmodifiable(channels),
         favoriteChannels: Set.unmodifiable(snapshot.favoriteChannels),
+        schedules: Map.unmodifiable(snapshot.schedules),
         selectedSourceId: snapshot.navigation.selectedSourceId,
         selectedGroup: snapshot.navigation.selectedGroup,
         lastChannelIdentity: snapshot.navigation.lastChannel,
@@ -439,6 +463,36 @@ class LibraryController extends Notifier<LibraryState> {
         recoveryRequired: true,
         error: const SensitiveDataRedactor().text(error.toString()),
       );
+    }
+  }
+
+  Future<Map<ChannelIdentity, ChannelSchedule>?> _refreshGuide(
+    PlaylistSource source, {
+    String? username,
+    String? password,
+  }) async {
+    final store = _store;
+    if (source.kind != PlaylistSourceKind.xtream || store is! EpgLibraryStore) {
+      return null;
+    }
+    final epgStore = store as EpgLibraryStore;
+    try {
+      final guide = await ref
+          .read(localEpgServiceProvider)
+          .refresh(
+            source: source,
+            nowUtc: DateTime.now().toUtc(),
+            username: username,
+            password: password,
+          );
+      return epgStore.replaceProgrammeSnapshot(
+        sourceId: source.id,
+        programmes: guide.programmes,
+        refreshedAt: guide.refreshedAt,
+        expiresAt: guide.expiresAt,
+      );
+    } on Object {
+      return null;
     }
   }
 

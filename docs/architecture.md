@@ -61,6 +61,12 @@ complete replacement transaction second, and publishes the new UI snapshot
 last; any failure leaves the prior playable snapshot and stable selection
 untouched.
 
+Guide refresh follows the same commit-before-publish rule. Xtream XMLTV is
+downloaded directly from the saved provider, parsed off the UI isolate, and
+atomically committed before schedules are published. Failure leaves playback
+and the previous unexpired schedule usable. Startup reads the encrypted cache
+only and never refreshes over the network.
+
 ## Runtime network boundary
 
 Install and application startup do not perform network requests. The runtime

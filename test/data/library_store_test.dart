@@ -8,6 +8,7 @@ import 'package:klipa_player_windows/data/library_store.dart';
 import 'package:klipa_player_windows/domain/channel.dart';
 import 'package:klipa_player_windows/domain/library_navigation.dart';
 import 'package:klipa_player_windows/domain/playlist_source.dart';
+import 'package:klipa_player_windows/domain/programme.dart';
 
 void main() {
   late Directory temporaryDirectory;
@@ -105,6 +106,44 @@ void main() {
     restored = await _store(temporaryDirectory).load();
     expect(restored.favoriteChannels, isEmpty);
   });
+
+  test(
+    'programme snapshots restore as local exact-ID now and next data',
+    () async {
+      final now = DateTime.now().toUtc();
+      final channel = Channel(
+        id: 'channel-1',
+        name: 'News',
+        streamUri: Uri.parse('https://stream.invalid/live'),
+        sourceId: 'source-1',
+        allowsPrivateNetwork: false,
+        guideId: 'provider.news',
+      );
+      final store = _store(temporaryDirectory);
+      await store.replaceSourceSnapshot(
+        source: _source(location: 'https://provider.invalid'),
+        channels: [channel],
+      );
+
+      await store.replaceProgrammeSnapshot(
+        sourceId: 'source-1',
+        refreshedAt: now,
+        expiresAt: now.add(const Duration(hours: 6)),
+        programmes: [
+          Programme(
+            sourceId: 'source-1',
+            guideId: 'provider.news',
+            title: 'Current news',
+            startUtc: now.subtract(const Duration(minutes: 10)),
+            endUtc: now.add(const Duration(minutes: 20)),
+          ),
+        ],
+      );
+
+      final restored = await _store(temporaryDirectory).load();
+      expect(restored.schedules.values.single.current?.title, 'Current news');
+    },
+  );
 
   test(
     'restores only valid library navigation without autoplay state',
