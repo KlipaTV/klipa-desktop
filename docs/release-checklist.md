@@ -43,8 +43,7 @@ and artifacts under `dist` are local and ignored by Git.
   store, its thumbprint, and an approved HTTPS RFC 3161 timestamp URL.
 - Optional Linux signing-key fingerprint and, if using APT, a separately signed
   repository-metadata workflow.
-- A monitored private security-reporting address to replace the placeholder in
-  `SECURITY.md` and package metadata.
+- `hello@klipa.tv` is the monitored private security and package contact.
 - Final first-party source-license posture and Klipa trademark approval.
 - Explicit approval before configuring a remote, pushing, uploading artifacts,
   opening a public repository, or creating store/repository listings.

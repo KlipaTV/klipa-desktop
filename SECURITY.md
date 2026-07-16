@@ -1,14 +1,15 @@
 # Security policy
 
-This repository is still private local development and has no public security
-intake yet. A private security contact must be configured before publication.
+The source repository remains private. Report suspected security issues
+privately to `hello@klipa.tv`; do not disclose them in public channels.
 
 Do not put credentials, tokenized URLs, provider hostnames, private IPs,
 subscription details, or unredacted diagnostics in an issue or discussion.
 
 ## Supported versions
 
-No released version is supported yet.
+The latest 0.1.x desktop release is supported. Older preview builds should be
+upgraded before reporting a security issue.
 
 ## Security invariants
 
