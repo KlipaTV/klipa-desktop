@@ -54,6 +54,10 @@ Private testing release candidate:
   Debian/Ubuntu package (about 9.7 MiB) build locally
 - Real Windows and Linux install, clean-start, zero-TCP, and uninstall smoke
   tests pass; neither installer adds an updater, service, or scheduled task
+- Release tooling generates a 123-component CycloneDX SBOM, exact native hashes
+  and versions, license notices, and a high/critical vulnerability gate
+- Deterministic release fuzzing covers M3U, XMLTV, and Xtream inputs; optional
+  Windows Authenticode and Linux detached-signature paths keep keys external
 - No remote configured and no public artifact
 
 The Windows toolchain uses Flutter 3.44.6 stable, Visual Studio Build Tools
@@ -110,7 +114,9 @@ See [the complete specification](docs/spec.md), [product boundary](docs/product.
 [architecture](docs/architecture.md), [security model](docs/security-model.md),
 [native validation record](docs/native-validation.md), and
 [dependency inventory](docs/dependencies.md). Private installer workflows are
-documented in [packaging](docs/packaging.md).
+documented in [packaging](docs/packaging.md), with reproducible SBOM and native
+hash generation in [supply-chain evidence](docs/supply-chain.md). The exact
+private-to-public gates are tracked in the [release checklist](docs/release-checklist.md).
 
 ## License and branding
 

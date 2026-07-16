@@ -15,7 +15,7 @@ manifests, segments, subtitles, and decoder input are all untrusted.
 | M3U parsing | Background isolate; 25 MiB input, 64 KiB line, 8 KiB field and 100,000 channel limits; binary/NUL rejection; non-HTTP(S) streams skipped |
 | XMLTV parsing/cache | Background event parser; 32 MiB compressed and 256 MiB decompressed limits; 500,000 retained-programme cap and bounded time window; strict UTF-8, nesting and field limits; DTD/entities rejected; explicit timezone conversion; exact provider guide-ID matching; atomic encrypted replacement preserves the last unexpired snapshot |
 | Playlist directives | Only User-Agent, Referer and Origin are accepted; CR/LF values and privileged headers are dropped |
-| Playback | At most one native player; teardown precedes replacement; stale events are rejected; first-media readiness is bounded and retryable; protocol allowlist is TCP, TLS, HTTP, HTTPS and crypto; libmpv config/scripts and URL extractors are disabled; no local file protocol; native errors are replaced with a generic user message |
+| Playback | At most one native player; teardown precedes replacement; stale events are rejected; first-media readiness is bounded and retryable; protocol allowlist is TCP, TLS, HTTP, HTTPS and crypto; libmpv config/scripts, URL extractors, unsafe playlists, cookies, and external-file autoload are disabled; TLS verification is forced; network operations use a 30-second timeout; no local file protocol; native errors are replaced with a generic user message |
 | Remote artwork | Disabled. The alpha renders local initials, so an imported logo cannot trigger a nested request |
 | Diagnostics | Common credentials, secret fields and complete URL paths/query/fragment data are redacted; no telemetry or remote logging |
 | Local storage | Desktop imports, favorites, bounded navigation, provider guide IDs, optional M3U guide URLs, and programme snapshots are saved in SQLite3MultipleCiphers; UI state receives source summaries and stable identities without locations or credentials; restored navigation is validated and never autoplays; refresh reads secrets transiently and publishes only after an atomic replacement succeeds; schema v4 preserves stable favorites and the last valid EPG snapshot; confirmed delete cascades all source data; a random 256-bit key is sealed with Windows DPAPI or Linux Secret Service; there is no plaintext fallback; tests scan the database, live WAL and SHM for seeded secrets and cover wrong/missing keys plus reset primitives |
@@ -28,7 +28,7 @@ heartbeat, remote configuration, guide proxy, or background updater is present.
 
 ## Native validation completed
 
-The private Windows build was validated locally on 2026-07-15 with Flutter
+The private Windows build was validated locally on 2026-07-16 with Flutter
 3.44.6, Dart 3.12.2, Visual Studio Build Tools 2022 17.14.36 and Windows SDK
 10.0.26100. Debug and release bundles compiled, static analysis was clean,
 DPAPI sealed and restored a random key for the current Windows user, the keyed
@@ -39,9 +39,9 @@ MPEG-TS channel played in the embedded player; unavailable entries failed with
 a generic retryable message that did not expose native or provider details. See
 [native-validation.md](native-validation.md).
 
-## Distribution blockers
+## Remaining public distribution blockers
 
-Encrypted persistence is active in the private alpha. Do not distribute a
+Encrypted persistence is active in the private release candidate. Do not distribute a
 binary until all blockers below close.
 
 1. Close the media subresource policy gap. libmpv resolves HLS/DASH manifests,
@@ -50,10 +50,13 @@ binary until all blockers below close.
    loopback, link-local or private addresses.
 2. Close the DNS time-of-check/time-of-use gap between app validation and
    libmpv resolution. A hostile hostname could change answers after validation.
-3. Inventory and license-check every native binary and codec in the release
-   bundle, record hashes, and establish a patch/update response window.
-4. Fuzz the M3U and Xtream parsers and synthetic corrupt-media corpus under
-   release builds.
+3. The release tooling now records every native file hash/version, the locked
+   source SBOM, dynamic Linux dependencies, and Flutter notices. Complete the
+   Windows libmpv/FFmpeg codec and license provenance review and establish a
+   patch/update response window; the bundled DLL identifies as mpv 0.36.
+4. Deterministic release fuzzing covers M3U, XMLTV, and Xtream parsing. Add a
+   synthetic corrupt-media corpus against the native decoder on the supported
+   GPU/OS matrix.
 5. Extend seeded-secret scanning to any future crash dumps and diagnostic logs.
    Transactional schema migration, confirmed reset/recovery, awaited player
    teardown, and database/WAL/SHM scanning are covered.

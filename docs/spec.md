@@ -936,7 +936,7 @@ written reason.
 | Default logo cache | ≤ 200 MB with LRU eviction |
 | Background processes/services | 0 |
 | Native player instances | 1 maximum |
-| Direct runtime package dependencies | ≤ 12 |
+| Direct runtime package dependencies | Target ≤ 14; every package justified |
 
 Provider latency is reported separately from app overhead. A slow or failing
 internet provider must not be represented as an app-performance regression.
@@ -970,14 +970,16 @@ For a protected version tag:
 1. Check out the exact tag in a clean Windows runner.
 2. Restore the pinned Flutter/toolchain and locked dependencies.
 3. Run all CI plus Windows integration smoke tests.
-4. Build release x64 binaries and MSIX.
+4. Build release x64 binaries, the per-user Windows setup/portable archive,
+   and the Debian/Ubuntu package. MSIX is a later Store-specific option.
 5. Generate `THIRD_PARTY_NOTICES`, SBOM, SHA-256 checksums, and build provenance.
 6. Sign artifacts when an approved production signing route exists.
-7. Publish a GitHub draft release for manual verification.
+7. Stage artifacts privately for manual verification; publishing requires a
+   separate explicit approval.
 8. Test clean install, upgrade from the previous supported version, playback,
-   and uninstall on clean Windows 10 and 11 VMs.
-9. Submit the verified MSIX to the Microsoft Store and then publish GitHub
-   release notes.
+   and uninstall on clean Windows 10/11 and supported Debian/Ubuntu VMs.
+9. Publish only the approved signed artifacts. A Microsoft Store submission is
+   optional after a Store identity and MSIX workflow exist.
 
 Never publish a production MSIX signed only with a self-signed test
 certificate. Microsoft Store distribution is preferred for mainstream users
@@ -989,10 +991,12 @@ download as the default path.
 ### 12.3 Distribution order
 
 1. Private/local developer builds.
-2. GitHub pre-releases for technical alpha testers.
-3. Microsoft Store stable MSIX as the main install path.
-4. GitHub stable ZIP plus source, checksums, SBOM, and notices.
-5. WinGet manifest only after a stable signed package or Store identity exists.
+2. Privately shared signed release candidates for technical testers.
+3. Approved GitHub pre-releases with Windows setup/ZIP, Linux package,
+   checksums, SBOM, and notices.
+4. Optional Microsoft Store stable MSIX after a Store identity exists.
+5. WinGet/APT manifests only after stable signed packages and repository
+   identities exist.
 
 The app must not implement its own privileged updater service.
 

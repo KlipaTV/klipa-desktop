@@ -31,8 +31,8 @@ no remote or publishing step.
 
 - The native Windows debug and release executables and plugin bundles compile
   successfully.
-- The native Windows profile bundle compiles with provider-direct XMLTV
-  refresh and all 96 Windows tests pass against its packaged native libraries.
+- The native Windows release bundle compiles with provider-direct XMLTV
+  refresh and all 99 Windows tests pass against its packaged native libraries.
 - Static analysis completes with no issues.
 - A DPAPI round trip seals and restores random bytes for the current user.
 - A SQLite3MultipleCiphers database reopens with its key, rejects an unkeyed
@@ -65,7 +65,15 @@ no remote or publishing step.
   discards stale identities, leaves the player stopped, and opens the exact
   surviving source/channel pair only after an explicit Resume click.
 - The bundled native media backend loads and disposes while scripts, URL
-  extractors, and non-required protocols stay disabled.
+  extractors, unsafe playlists, cookies, external-file autoload, and
+  non-required protocols stay disabled. TLS verification and the 30-second
+  native network timeout are accepted by the bundled Windows libmpv.
+- A compiled release fuzz executable safely rejects or bounds 20,000
+  deterministic M3U/XMLTV mutations and 1,000 randomized Xtream payloads.
+- Local release evidence contains a 123-component CycloneDX source SBOM,
+  hashes and versions for every native bundle file, Linux dynamic links, exact
+  Flutter notices, and a current package scan with no high or critical match.
+  The opaque Windows libmpv/FFmpeg DLL remains a separate review item.
 - Deterministic lifecycle tests cover first-media timeout and retry, a hung open
   command, teardown-before-replacement, and rejection of stale completion and
   error events during rapid channel changes. Native failures are mapped to a
@@ -97,5 +105,5 @@ no remote or publishing step.
 - Automated secret scanning of future crash dumps and application diagnostics.
 - Nested media request and DNS-rebinding controls or a documented constrained
   architecture that closes those gaps.
-- Release-mode fuzzing, exact native binary hashes, codec/license inventory,
-  SBOM, signing and clean-machine packaging tests.
+- Corrupt-media fuzzing, complete Windows codec/license provenance, production
+  signing, and clean-machine packaging tests.

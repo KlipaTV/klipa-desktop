@@ -29,6 +29,10 @@ UninstallDisplayIcon={app}\klipa_player.exe
 CloseApplications=yes
 RestartApplications=no
 ChangesEnvironment=no
+#ifdef Signing
+SignTool=klipa
+SignedUninstaller=yes
+#endif
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

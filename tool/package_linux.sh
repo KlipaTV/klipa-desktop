@@ -38,4 +38,13 @@ package="$dist/klipa-player_${version}_amd64.deb"
 dpkg-deb --root-owner-group --build "$stage" "$package"
 dpkg-deb --info "$package"
 rm -rf -- "$stage"
+if [[ -n "${SIGNING_KEY:-}" ]]; then
+  command -v gpg >/dev/null || {
+    echo "SIGNING_KEY was set but gpg is unavailable." >&2
+    exit 1
+  }
+  gpg --batch --yes --local-user "$SIGNING_KEY" --armor --detach-sign \
+    --output "$package.asc" "$package"
+  gpg --verify "$package.asc" "$package"
+fi
 echo "Linux package: $package"
