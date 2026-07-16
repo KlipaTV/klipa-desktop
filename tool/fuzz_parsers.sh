@@ -2,7 +2,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-dart="${DART:-/home/user/flutter/bin/dart}"
+dart="${DART:-dart}"
 output="$root/build/security/klipa_parser_fuzz"
 iterations="${FUZZ_ITERATIONS:-20000}"
 

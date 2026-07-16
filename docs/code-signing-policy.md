@@ -19,18 +19,22 @@ from this repository.
 Klipa is a solo-maintainer project. Roles are documented here so SignPath's
 per-release approval workflow is unambiguous.
 
-- **Authors / Committers** — `@KlipaTV`
-  ([github.com/KlipaTV](https://github.com/KlipaTV)).
-  All direct commits to `main` are made by the maintainer.
-- **Reviewers** — `@KlipaTV`. Every pull request from an external
-  contributor must be reviewed by the maintainer before merge. No PR may be
-  self-merged by an external contributor.
-- **Approvers** — `@KlipaTV`. Every SignPath signing request must be
-  manually approved in the SignPath web UI by the maintainer before the
-  certificate is unlocked. No automatic signing is enabled.
+- **Authors / Committers** —
+  [KlipaTV maintainers](https://github.com/orgs/KlipaTV/people?query=role%3Aowner).
+  All direct commits to `main` are made by a maintainer.
+- **Reviewers** —
+  [KlipaTV maintainers](https://github.com/orgs/KlipaTV/people?query=role%3Aowner).
+  Every pull request from an external contributor must be reviewed by a
+  maintainer before merge. No PR may be self-merged by an external
+  contributor.
+- **Approvers** —
+  [KlipaTV maintainers](https://github.com/orgs/KlipaTV/people?query=role%3Aowner).
+  Every SignPath signing request must be manually approved in the SignPath
+  web UI by a maintainer before the certificate is unlocked. No automatic
+  signing is enabled.
 
-Each role is held by the maintainer until a second team member is added. At
-that point this section will be updated to name them and the three-role
+Each role is held by the maintainer team until a second team member is added.
+At that point this section will be updated to name them and the three-role
 separation will become real.
 
 ## Build provenance
