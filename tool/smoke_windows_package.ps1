@@ -6,6 +6,7 @@ if (-not (Test-Path -LiteralPath $source)) { throw 'Windows installer is missing
 $localSetup = Join-Path $env:TEMP 'KlipaPlayer-Setup-x64.exe'
 $target = Join-Path $env:TEMP 'KlipaPlayerInstallSmoke'
 Copy-Item -LiteralPath $source -Destination $localSetup -Force
+$app = $null
 if (Test-Path -LiteralPath $target) {
   $resolved = [IO.Path]::GetFullPath($target)
   $tempRoot = [IO.Path]::GetFullPath($env:TEMP)
@@ -37,6 +38,8 @@ try {
   if ($uninstall.ExitCode -ne 0) { throw "Uninstaller exit $($uninstall.ExitCode)." }
   Write-Host 'Windows install, clean startup, zero-network, and uninstall smoke passed.'
 } finally {
-  Get-Process klipa_player -ErrorAction SilentlyContinue | Stop-Process -Force
+  if ($null -ne $app -and -not $app.HasExited) {
+    Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
+  }
   Remove-Item -LiteralPath $localSetup -Force -ErrorAction SilentlyContinue
 }

@@ -22,7 +22,7 @@ if (-not (Test-Path -LiteralPath $flutter)) {
 New-Item -ItemType Directory -Path $mirror -Force | Out-Null
 
 & robocopy $source $mirror /MIR /R:2 /W:1 /NJH /NJS /NFL /NDL /NP `
-  /XD .git .dart_tool .idea build ephemeral `
+  /XD .git .dart_tool .idea build dist ephemeral failures `
   /XF .flutter-plugins-dependencies '*.iml'
 $copyExitCode = $LASTEXITCODE
 if ($copyExitCode -gt 7) {

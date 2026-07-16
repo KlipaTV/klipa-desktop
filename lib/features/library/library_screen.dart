@@ -232,7 +232,7 @@ class _Onboarding extends StatelessWidget {
                 SizedBox(width: 7),
                 Flexible(
                   child: Text(
-                    'Your library is encrypted on this PC. No telemetry is sent.',
+                    'Your library is encrypted on this desktop. No telemetry is sent.',
                     style: TextStyle(
                       color: KlipaColors.foregroundDim,
                       fontSize: 12,

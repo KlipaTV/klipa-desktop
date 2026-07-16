@@ -15,7 +15,7 @@ model are desktop-native.
 
 ## Current status
 
-Private developer alpha:
+Private testing release candidate:
 
 - Native Windows and Linux Flutter runners in one local Git repository
 - Klipa desktop shell, bounded M3U import, search and single-player vertical slice
@@ -44,12 +44,16 @@ Private developer alpha:
   are implemented
 - Runtime networking has no Klipa service dependency: install and startup make
   no Klipa request, and provider data is never routed through Klipa
-- Confirmed reset and missing/corrupt-key recovery are wired; broader
-  distribution security gates remain open
+- Confirmed reset and missing/corrupt-key recovery are wired; public
+  distribution security and signing gates remain open
 - Native Windows debug build, DPAPI, encrypted database and libmpv smoke tests pass
 - Native release build and an authorized private MPEG-TS playback smoke pass
 - Native Linux release bundle builds at about 29 MiB before packaging; local
   files use the same maintained picker on Windows and Linux
+- A no-admin Windows installer (about 26 MiB), Windows portable archive, and
+  Debian/Ubuntu package (about 9.7 MiB) build locally
+- Real Windows and Linux install, clean-start, zero-TCP, and uninstall smoke
+  tests pass; neither installer adds an updater, service, or scheduled task
 - No remote configured and no public artifact
 
 The Windows toolchain uses Flutter 3.44.6 stable, Visual Studio Build Tools

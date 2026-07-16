@@ -38,6 +38,9 @@ the distribution's GTK, libmpv, and libsecret packages rather than embedding a
 second codec stack. The keyring service supplied by the desktop environment is
 used only to protect the random local database key.
 
+The build removes its temporary staging tree after a successful package, so
+`dist/linux` contains only the installable artifact.
+
 The smoke scripts install to a temporary/per-user location, launch with an
 empty profile, assert that clean startup opens zero TCP connections, and
 uninstall cleanly.
