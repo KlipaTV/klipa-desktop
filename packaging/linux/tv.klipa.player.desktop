@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Klipa Player
+Comment=Lightweight local-first IPTV player
+Exec=/opt/klipa-player/klipa_player %U
+Icon=tv.klipa.player
+Terminal=false
+Categories=AudioVideo;Video;Player;
+Keywords=IPTV;M3U;XMLTV;live television;
+StartupNotify=true
+StartupWMClass=tv.klipa.player

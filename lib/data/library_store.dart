@@ -144,7 +144,7 @@ final class EncryptedLibraryStore implements LibraryStore, EpgLibraryStore {
     SecretProtector protector = const DpapiSecretProtector(),
     LinuxDatabaseKeyStore? linuxKeyStore,
     bool useLinuxKeyring = true,
-  }) : _rootDirectory = rootDirectory ?? getApplicationCacheDirectory,
+  }) : _rootDirectory = rootDirectory ?? _defaultLibraryDirectory,
        _protector = protector,
        _linuxKeyStore = linuxKeyStore ?? LinuxDatabaseKeyStore(),
        _useLinuxKeyring = useLinuxKeyring;
@@ -360,6 +360,10 @@ final class EncryptedLibraryStore implements LibraryStore, EpgLibraryStore {
     );
   }
 }
+
+Future<Directory> _defaultLibraryDirectory() => Platform.isLinux
+    ? getApplicationSupportDirectory()
+    : getApplicationCacheDirectory();
 
 class _LibraryPaths {
   const _LibraryPaths({required this.databasePath, required this.keyPath});

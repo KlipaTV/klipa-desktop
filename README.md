@@ -105,7 +105,8 @@ scope.
 See [the complete specification](docs/spec.md), [product boundary](docs/product.md),
 [architecture](docs/architecture.md), [security model](docs/security-model.md),
 [native validation record](docs/native-validation.md), and
-[dependency inventory](docs/dependencies.md).
+[dependency inventory](docs/dependencies.md). Private installer workflows are
+documented in [packaging](docs/packaging.md).
 
 ## License and branding
 

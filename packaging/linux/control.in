@@ -1,0 +1,11 @@
+Package: klipa-player
+Version: @VERSION@
+Section: video
+Priority: optional
+Architecture: amd64
+Installed-Size: @INSTALLED_SIZE@
+Maintainer: Klipa Project <security@klipa.invalid>
+Depends: libgtk-3-0 | libgtk-3-0t64, libmpv2, libsecret-1-0
+Description: Lightweight local-first IPTV player
+ Bring your own M3U, M3U8, or Xtream-compatible provider. Klipa Player
+ includes no channels, accounts, telemetry, background service, or guide proxy.
