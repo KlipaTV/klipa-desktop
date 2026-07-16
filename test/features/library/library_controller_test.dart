@@ -450,6 +450,7 @@ final class _FakeLibraryStore implements LibraryStore {
     required List<Channel> channels,
     String? username,
     String? password,
+    String? guideLocation,
   }) async {
     saveCount++;
     saveStarted = true;

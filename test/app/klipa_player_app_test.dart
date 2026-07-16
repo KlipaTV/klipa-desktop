@@ -34,6 +34,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('playlist-url-field')), findsOneWidget);
+      expect(find.byKey(const Key('guide-url-field')), findsOneWidget);
       expect(
         find.text('Allow local/private network addresses'),
         findsOneWidget,

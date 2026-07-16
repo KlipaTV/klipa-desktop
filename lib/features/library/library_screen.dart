@@ -1254,6 +1254,7 @@ Future<void> _showUrlDialog(
   await controller.importUrl(
     request.url,
     allowPrivateNetwork: request.allowPrivateNetwork,
+    guideUrl: request.guideUrl,
   );
 }
 
@@ -1278,10 +1279,12 @@ class _UrlImportRequest {
   const _UrlImportRequest({
     required this.url,
     required this.allowPrivateNetwork,
+    this.guideUrl,
   });
 
   final String url;
   final bool allowPrivateNetwork;
+  final String? guideUrl;
 }
 
 class _UrlImportDialog extends StatefulWidget {
@@ -1293,11 +1296,13 @@ class _UrlImportDialog extends StatefulWidget {
 
 class _UrlImportDialogState extends State<_UrlImportDialog> {
   final _controller = TextEditingController();
+  final _guideController = TextEditingController();
   var _allowPrivateNetwork = false;
 
   @override
   void dispose() {
     _controller.dispose();
+    _guideController.dispose();
     super.dispose();
   }
 
@@ -1323,6 +1328,16 @@ class _UrlImportDialogState extends State<_UrlImportDialog> {
             decoration: const InputDecoration(
               labelText: 'Playlist address',
               hintText: 'https://provider.example/playlist.m3u',
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            key: const Key('guide-url-field'),
+            controller: _guideController,
+            keyboardType: TextInputType.url,
+            decoration: const InputDecoration(
+              labelText: 'XMLTV guide address (optional)',
+              hintText: 'https://provider.example/guide.xml',
             ),
           ),
           const SizedBox(height: 10),
@@ -1354,7 +1369,13 @@ class _UrlImportDialogState extends State<_UrlImportDialog> {
     if (value.isEmpty) return;
     Navigator.pop(
       context,
-      _UrlImportRequest(url: value, allowPrivateNetwork: _allowPrivateNetwork),
+      _UrlImportRequest(
+        url: value,
+        guideUrl: _guideController.text.trim().isEmpty
+            ? null
+            : _guideController.text.trim(),
+        allowPrivateNetwork: _allowPrivateNetwork,
+      ),
     );
   }
 }

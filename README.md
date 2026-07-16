@@ -40,8 +40,8 @@ Private developer alpha:
   an explicit one-click Resume action that never autoplays on startup
 - Provider guide IDs, provider-direct bounded XMLTV retrieval, a plain/gzip
   parser, atomic encrypted now/next snapshots, Xtream import/refresh integration,
-  and compact current-programme labels are implemented; the explicit M3U guide
-  field is still in progress
+  an optional encrypted M3U guide address, and compact current-programme labels
+  are implemented
 - Runtime networking has no Klipa service dependency: install and startup make
   no Klipa request, and provider data is never routed through Klipa
 - Confirmed reset and missing/corrupt-key recovery are wired; broader

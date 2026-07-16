@@ -101,6 +101,7 @@ void main() {
       source: source,
       username: 'private-user',
       password: 'private-password',
+      guideLocation: 'https://provider.invalid/guide?token=guide-secret',
       channels: [
         _channel(
           name: 'News',
@@ -120,6 +121,7 @@ void main() {
     expect(sourceSecret.location, source.location);
     expect(sourceSecret.username, 'private-user');
     expect(sourceSecret.password, 'private-password');
+    expect(sourceSecret.guideLocation, contains('guide-secret'));
     final channelSecret = database.readChannelSecret(
       sourceId: 'source-1',
       channelId: 'channel-1',

@@ -67,11 +67,13 @@ class StoredSourceSecret {
     required this.location,
     required this.username,
     required this.password,
+    required this.guideLocation,
   });
 
   final String location;
   final String? username;
   final String? password;
+  final String? guideLocation;
 }
 
 class StoredChannelSecret {
@@ -89,7 +91,7 @@ class StoredChannelSecret {
 class EncryptedLibraryDatabase {
   EncryptedLibraryDatabase._(this._database);
 
-  static const int schemaVersion = 3;
+  static const int schemaVersion = 4;
   static const int maxSources = 20;
   static const int maxChannelsPerSource = 100000;
   static const int maxProgrammesPerSource = 500000;
@@ -191,6 +193,8 @@ class EncryptedLibraryDatabase {
             _migrateV1ToV2(database);
           case 2:
             _migrateV2ToV3(database);
+          case 3:
+            _migrateV3ToV4(database);
           default:
             throw LibraryMigrationException(
               'No migration exists from schema version $current.',
@@ -319,6 +323,12 @@ class EncryptedLibraryDatabase {
       ''');
   }
 
+  static void _migrateV3ToV4(Database database) {
+    database.execute(
+      'ALTER TABLE source_secrets ADD COLUMN guide_location TEXT',
+    );
+  }
+
   int get currentSchemaVersion => int.parse(
     _database
             .select(
@@ -343,6 +353,7 @@ class EncryptedLibraryDatabase {
     required Iterable<Channel> channels,
     String? username,
     String? password,
+    String? guideLocation,
   }) {
     _database.execute('BEGIN IMMEDIATE');
     try {
@@ -384,14 +395,16 @@ class EncryptedLibraryDatabase {
         )
         ..execute(
           '''
-          INSERT INTO source_secrets (source_id, location, username, password)
-          VALUES (?, ?, ?, ?)
+          INSERT INTO source_secrets (
+            source_id, location, username, password, guide_location
+          ) VALUES (?, ?, ?, ?, ?)
           ON CONFLICT(source_id) DO UPDATE SET
             location = excluded.location,
             username = excluded.username,
-            password = excluded.password
+            password = excluded.password,
+            guide_location = excluded.guide_location
           ''',
-          [source.id, source.location, username, password],
+          [source.id, source.location, username, password, guideLocation],
         )
         ..execute('''
           CREATE TEMP TABLE IF NOT EXISTS refresh_channel_ids (
@@ -759,7 +772,7 @@ class EncryptedLibraryDatabase {
     final row = _database
         .select(
           '''
-          SELECT location, username, password
+          SELECT location, username, password, guide_location
           FROM source_secrets WHERE source_id = ?
           ''',
           [sourceId],
@@ -770,6 +783,7 @@ class EncryptedLibraryDatabase {
       location: row['location'] as String,
       username: row['username'] as String?,
       password: row['password'] as String?,
+      guideLocation: row['guide_location'] as String?,
     );
   }
 

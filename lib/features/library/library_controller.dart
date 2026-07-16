@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/security/network_policy.dart';
 import '../../core/security/sensitive_data_redactor.dart';
 import '../../data/encrypted_library_database.dart';
 import '../../data/library_store.dart';
@@ -54,14 +55,27 @@ class LibraryController extends Notifier<LibraryState> {
   Future<void> importUrl(
     String value, {
     required bool allowPrivateNetwork,
+    String? guideUrl,
   }) async {
     final uri = Uri.tryParse(value.trim());
     if (uri == null) {
       state = state.copyWith(error: 'Enter a valid playlist address.');
       return;
     }
+    final normalizedGuide = guideUrl?.trim();
+    if (normalizedGuide != null && normalizedGuide.isNotEmpty) {
+      final guideUri = Uri.tryParse(normalizedGuide);
+      try {
+        if (guideUri == null) throw const FormatException();
+        const NetworkPolicy().validateHttpUriShape(guideUri);
+      } on Object {
+        state = state.copyWith(error: 'Enter a valid XMLTV guide address.');
+        return;
+      }
+    }
     await _import(
       () => _importer.fromUrl(uri, allowPrivateNetwork: allowPrivateNetwork),
+      guideLocation: normalizedGuide?.isEmpty ?? true ? null : normalizedGuide,
     );
   }
 
@@ -199,11 +213,13 @@ class LibraryController extends Notifier<LibraryState> {
         channels: result.channels,
         username: access.username,
         password: access.password,
+        guideLocation: access.guideLocation,
       );
       final schedules = await _refreshGuide(
         result.source,
         username: access.username,
         password: access.password,
+        guideLocation: access.guideLocation,
       );
       if (_disposed) return;
       _publishSourceSnapshot(result, verb: 'Refreshed', schedules: schedules);
@@ -328,6 +344,7 @@ class LibraryController extends Notifier<LibraryState> {
     Future<PlaylistImportResult?> Function() operation, {
     String? username,
     String? password,
+    String? guideLocation,
   }) async {
     if (_operationInProgress) return;
     _startOperation();
@@ -345,11 +362,13 @@ class LibraryController extends Notifier<LibraryState> {
         channels: result.channels,
         username: username,
         password: password,
+        guideLocation: guideLocation,
       );
       final schedules = await _refreshGuide(
         result.source,
         username: username,
         password: password,
+        guideLocation: guideLocation,
       );
       if (_disposed) return;
 
@@ -470,9 +489,11 @@ class LibraryController extends Notifier<LibraryState> {
     PlaylistSource source, {
     String? username,
     String? password,
+    String? guideLocation,
   }) async {
     final store = _store;
-    if (source.kind != PlaylistSourceKind.xtream || store is! EpgLibraryStore) {
+    if (source.kind != PlaylistSourceKind.xtream && guideLocation == null ||
+        store is! EpgLibraryStore) {
       return null;
     }
     final epgStore = store as EpgLibraryStore;
@@ -484,6 +505,9 @@ class LibraryController extends Notifier<LibraryState> {
             nowUtc: DateTime.now().toUtc(),
             username: username,
             password: password,
+            attachedGuideUri: guideLocation == null
+                ? null
+                : Uri.parse(guideLocation),
           );
       return epgStore.replaceProgrammeSnapshot(
         sourceId: source.id,

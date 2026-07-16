@@ -38,7 +38,7 @@ no remote or publishing step.
 - A SQLite3MultipleCiphers database reopens with its key, rejects an unkeyed
   SQLite connection, and does not expose a seeded marker in the closed database
   bytes.
-- Schema v3 migrates from the legacy metadata schema, writes 10,000-channel
+- Schema v4 migrates from the legacy metadata schema, writes 10,000-channel
   snapshots through prepared statements, rolls back interrupted refreshes,
   preserves stable favorites, and keeps seeded secrets absent from the live
   database, WAL and SHM files.

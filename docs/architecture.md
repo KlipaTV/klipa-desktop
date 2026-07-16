@@ -41,7 +41,7 @@ these are implemented and tested:
 6. Tests showing secrets are absent from database bytes and diagnostics.
 
 The key-protection and encrypted-database primitives are wired into the Windows
-runtime. Schema v3 uses explicit transactional migration, separates list
+runtime. Schema v4 uses explicit transactional migration, separates list
 metadata from source and channel secrets, replaces source snapshots atomically,
 preserves stable favorites, and stores provider guide identity plus bounded EPG
 snapshots. Programme replacement is transactional, so a failed refresh retains

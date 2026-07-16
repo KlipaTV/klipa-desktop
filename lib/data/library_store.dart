@@ -46,11 +46,13 @@ class SourceRefreshAccess {
     required this.source,
     required this.username,
     required this.password,
+    this.guideLocation,
   });
 
   final PlaylistSource source;
   final String? username;
   final String? password;
+  final String? guideLocation;
 }
 
 abstract interface class LibraryStore {
@@ -61,6 +63,7 @@ abstract interface class LibraryStore {
     required List<Channel> channels,
     String? username,
     String? password,
+    String? guideLocation,
   });
 
   Future<void> reset();
@@ -105,6 +108,7 @@ final class DisabledLibraryStore implements LibraryStore {
     required List<Channel> channels,
     String? username,
     String? password,
+    String? guideLocation,
   }) async {}
 
   @override
@@ -174,6 +178,7 @@ final class EncryptedLibraryStore implements LibraryStore, EpgLibraryStore {
     required List<Channel> channels,
     String? username,
     String? password,
+    String? guideLocation,
   }) async {
     final paths = await _paths();
     final protector = _protector;
@@ -187,6 +192,7 @@ final class EncryptedLibraryStore implements LibraryStore, EpgLibraryStore {
           channels,
           username,
           password,
+          guideLocation,
           key,
         ),
       );
@@ -434,6 +440,7 @@ Future<void> _replaceEncryptedSource(
   List<Channel> channels,
   String? username,
   String? password,
+  String? guideLocation,
   Uint8List? key,
 ) async {
   EncryptedLibraryDatabase? database;
@@ -444,6 +451,7 @@ Future<void> _replaceEncryptedSource(
       channels: channels,
       username: username,
       password: password,
+      guideLocation: guideLocation,
     );
   } finally {
     database?.close();
@@ -487,6 +495,7 @@ Future<SourceRefreshAccess?> _readSourceRefreshAccess(
       ),
       username: secret.username,
       password: secret.password,
+      guideLocation: secret.guideLocation,
     );
   } finally {
     database?.close();
