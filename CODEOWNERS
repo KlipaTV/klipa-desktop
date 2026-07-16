@@ -1,0 +1,19 @@
+# CODEOWNERS for Klipa Player desktop
+# Used by GitHub for required Code Owner review on protected branches and by
+# the SignPath release-signing policy (require_code_owner_review: true).
+#
+# Format: <pattern>  <owners>
+# Owners can be individual GitHub users (@user) or organization teams
+# (@org/team). The KlipaTV maintainers team is the only owner for now.
+
+*       @KlipaTV
+
+# SignPath policy files are critical — any change here affects what can be
+# signed. Keep them owned by the same maintainers for now, but when a second
+# team member joins, split this into a separate reviewer group so policy
+# changes can't be self-approved by the same person who wrote them.
+.signpath/        @KlipaTV
+.github/workflows/ @KlipaTV
+docs/code-signing-policy.md @KlipaTV
+LICENSE           @KlipaTV
+TRADEMARKS.md     @KlipaTV
