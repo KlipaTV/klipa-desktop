@@ -121,6 +121,27 @@ documented in [packaging](docs/packaging.md), with reproducible SBOM and native
 hash generation in [supply-chain evidence](docs/supply-chain.md). The exact
 external-distribution gates are tracked in the [release checklist](docs/release-checklist.md).
 
+## Code signing policy
+
+Klipa Player desktop binaries are signed before external distribution through
+a CI-provenance flow managed by SignPath. No binary built on a personal laptop
+is ever signed and shipped.
+
+Free code signing provided by [SignPath.io](https://about.signpath.io),
+certificate by [SignPath Foundation](https://signpath.org).
+
+Team roles:
+
+- Authors/Reviewers: [@KlipaTV](https://github.com/KlipaTV)
+- Approvers: [@KlipaTV](https://github.com/KlipaTV)
+
+Privacy: this program will not transfer any information to other networked
+systems unless specifically requested by the user or the person installing or
+operating it.
+
+Full signing flow, build-provenance requirements, and incident-response
+procedure: see [Code signing policy](docs/code-signing-policy.md).
+
 ## License and branding
 
 The repository and first-party source are private and are not authorized for

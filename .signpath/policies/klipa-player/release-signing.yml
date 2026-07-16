@@ -1,0 +1,34 @@
+# SignPath source/build/signing policy for Klipa Player Windows releases.
+# Path is mandated by SignPath:
+#   .signpath/policies/<project-slug>/<signing-policy-slug>.yml
+# Reference: https://docs.signpath.io/trusted-build-systems/github#define-policies-for-source-code-and-builds
+#
+# These rules are enforced at signing time. If any rule fails, SignPath
+# refuses to release the certificate for that build.
+
+github-policies:
+  runners:
+    # SignPath Foundation OSS certificates require GitHub-hosted runners.
+    require_github_hosted: true
+  build:
+    # Prevent signing artifacts from workflow re-runs. A re-run would be
+    # identified by its branch name (e.g. main) even though it may include
+    # newer commits than the original run — disallow this to keep the
+    # provenance chain clean.
+    disallow_reruns: true
+  branch_rulesets:
+    - condition:
+        rules:
+          # main and release/* branches must not accept force pushes.
+          - block_force_pushes: true
+          # All merges to protected branches must come from a reviewed PR.
+          # Solo-maintainer: one approval is the maintainer's own review;
+          # SignPath still verifies the ruleset exists and is enforced.
+          - require_pull_request:
+              min_required_approvals: 1
+              require_code_owner_review: true
+              dismiss_stale_reviews_on_push: true
+              require_last_push_approval: true
+              require_review_thread_resolution: true
+        allow_bypass_actors: false
+        enforced_from: EARLIEST
