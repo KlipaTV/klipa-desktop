@@ -60,7 +60,7 @@ MPEG-TS channel played in the embedded player; unavailable entries failed with
 a generic retryable message that did not expose native or provider details. See
 [native-validation.md](native-validation.md).
 
-## Remaining public distribution blockers
+## Remaining external distribution blockers
 
 Encrypted persistence is active in the private release candidate. Do not distribute a
 binary until all blockers below close.
@@ -75,7 +75,7 @@ binary until all blockers below close.
 3. Extend seeded-secret scanning to any future crash dumps and diagnostic logs.
    Transactional schema migration, confirmed reset/recovery, awaited player
    teardown, and database/WAL/SHM scanning are covered.
-4. Configure a private security intake before making the repository public.
+4. Configure a private security intake before distributing builds externally.
 
 ## Explicit non-goals
 

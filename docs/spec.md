@@ -1,12 +1,12 @@
-# Klipa Player for Windows — product and technical specification
+# Klipa Player for Desktop — product and technical specification
 
-**Status:** Draft for implementation
+**Status:** Private release candidate
 
 **Product:** Klipa Player
 
-**Public repository:** `klipa-player-windows`
+**Private repository:** `klipa-desktop`
 
-**Platforms:** Windows 11 and Windows 10 22H2, x64
+**Platforms:** Windows 11, Windows 10 22H2, and supported Debian/Ubuntu, x64
 
 **Document owner:** Klipa
 
@@ -14,40 +14,41 @@
 
 ## 1. Executive summary
 
-Klipa Player is a free, open-source, local-first IPTV player for Windows. It
+Klipa Player is a free, privately developed, local-first IPTV player for
+Windows and Linux. It
 lets people bring their own M3U/M3U8 playlist or Xtream-compatible login,
 browse live channels, see local now/next guide data, and start playback with as
 little ceremony as possible.
 
 The player has two jobs, in this order:
 
-1. Be a small, trustworthy Windows IPTV player that people willingly use and
+1. Be a small, trustworthy desktop IPTV player that people willingly use and
    recommend.
 2. Introduce those users to the full Klipa mobile and Android TV app without
    turning the Windows player into an advertisement.
 
-The Windows player is a separate public product, not a new target inside the
-existing private Klipa repository. It will live in a new repository with a
-clean history. Selected concepts and code may be moved only after ownership,
-license, secret, and platform reviews. Private infrastructure, credentials,
-mobile store tooling, internal documentation, and Git history must never be
-copied into the public repository.
+The desktop player is a separate private product, not a new target inside the
+Klipa mobile repository. It lives in an independent repository with its own
+history and has no source or runtime dependency on the mobile app. Concepts and
+code may cross repository boundaries only after ownership, license, secret, and
+platform reviews. Private infrastructure, credentials, store tooling, and
+unrelated history must not cross those boundaries.
 
 The v1 product is intentionally live-TV-only. It does not include VOD, series,
 multiview, recording, cloud sync, pairing, reminders, or accounts. Those
-boundaries keep the player fast, make the open-source code understandable, and
+boundaries keep the player fast, make the codebase understandable, and
 leave the mobile/TV app with a clear richer-product story.
 
 ## 2. Product definition
 
 ### 2.1 Positioning
 
-> A fast, open-source IPTV player for Windows. Bring your own M3U or Xtream
+> A fast, local-first IPTV player for Windows and Linux. Bring your own M3U or Xtream
 > login. No channels, no account, no ads, and no tracking.
 
 Short store description:
 
-> Open-source M3U and Xtream live TV player. Local-first, ad-free, and built by
+> Lightweight M3U and Xtream live TV player. Local-first, ad-free, and built by
 > Klipa.
 
 ### 2.2 Product principles
@@ -68,21 +69,20 @@ Short store description:
 6. **Modern means stable and small.** Use current stable releases and native
    capabilities with a strict dependency budget. Do not use preview frameworks,
    an embedded web application, or abstraction layers without a concrete need.
-7. **Open in practice.** A public license, reproducible build instructions,
-   issue tracker, security policy, dependency notices, and releasable CI are
-   part of the product.
+7. **Transparent in practice.** Reproducible internal builds, a security policy,
+   dependency notices, privacy documentation, and releasable CI are part of the
+   product even while the source remains private.
 8. **No content business.** Klipa supplies software, not channels, playlists,
    provider recommendations, or access to third-party media.
 
 ### 2.3 Goals
 
 - Make the Klipa name discoverable among Windows and IPTV users.
-- Earn trust through useful open-source software and transparent privacy.
+- Earn trust through useful software and transparent privacy.
 - Send qualified, user-initiated traffic to the Klipa mobile/TV app.
 - Reuse proven Klipa parsing and playback knowledge without exposing or
   coupling the private mobile repository.
-- Keep the product maintainable by one primary developer plus community
-  contributors.
+- Keep the product maintainable by a small Klipa team.
 
 ### 2.4 Non-goals
 
@@ -90,7 +90,7 @@ Short store description:
 - Bundling, selling, discovering, ranking, or recommending IPTV providers or
   channels.
 - Circumventing DRM, geo-restrictions, provider limits, or access controls.
-- Supporting Windows 8 or older, macOS, or Linux in v1.
+- Supporting Windows 8 or older or macOS in v1.
 - Supporting VOD, films, series, catch-up, timeshift, DVR, downloads, or
   recording in v1.
 - Multiview, casting, phone-to-PC pairing, cloud sync, remote control, plugins,
@@ -108,8 +108,8 @@ Short store description:
   learning a complex media player.
 - A user with an Xtream-compatible server, username, and password who wants a
   clear login flow and a searchable live-channel list.
-- A technical or privacy-conscious user who prefers inspectable open-source
-  software with no account and no telemetry.
+- A technical or privacy-conscious user who wants clear network boundaries,
+  no account, and no telemetry.
 - An existing Klipa user who wants a simple desktop companion without syncing
   their library to a Klipa server.
 
@@ -125,8 +125,9 @@ Short store description:
   exit full screen without a mouse.
 - As a privacy-conscious user, I can see exactly what leaves my PC and can use
   the player without sending data to Klipa.
-- As a contributor, I can clone the public repository on Windows, run tests,
-  build a release, and understand the feature boundaries from the README.
+- As an authorized developer, I can clone the private repository, run tests,
+  build releases for Windows and Linux, and understand the boundaries from the
+  README.
 
 ### 3.3 Canonical first-run journey
 
@@ -146,14 +147,13 @@ Short store description:
 
 ## 4. Scope by release
 
-### 4.1 Phase 0 — feasibility and public-repo foundation
+### 4.1 Phase 0 — feasibility and private-repo foundation
 
 Phase 0 must complete before product implementation is treated as committed.
 
-- Create a new empty public repository with no shared history from the private
-  Klipa repository.
-- Reserve the `Klipa Player` product identity in Microsoft Partner Center and
-  confirm the public repository name.
+- Create a separate private repository with an independently reviewable history.
+- Confirm the `Klipa Player` desktop product identity and private repository
+  boundary.
 - Complete a Windows playback spike using Flutter and the candidate
   `media_kit`/libmpv stack on Intel, AMD, and NVIDIA hardware.
 - Prove the selected stack stays within the section 11 size, startup, memory,
@@ -170,15 +170,14 @@ Phase 0 must complete before product implementation is treated as committed.
   diagnostic output.
 - Decide the exact Windows build floor supported by the selected Flutter and
   native playback versions.
-- Establish the clean-source extraction process and scan every proposed file
-  for credentials, private hosts, internal endpoints, and private comments.
-- Add the license, trademark policy, code of conduct, contributing guide,
-  security policy, and support boundaries before accepting outside
-  contributions.
+- Scan every proposed file for credentials, private hosts, internal endpoints,
+  and private comments before it crosses a repository boundary.
+- Maintain license, trademark, security, support, and dependency documentation
+  before any external distribution.
 
 Exit criterion: a clean CI build plays the fixture streams on the hardware
-matrix, the dependency audit has no unresolved release blocker, and no private
-repository material exists in public Git history.
+matrix, the dependency audit has no unresolved release blocker, and repository
+boundaries contain only their intended material.
 
 ### 4.2 v0.1 — developer alpha
 
@@ -192,10 +191,10 @@ repository material exists in public Git history.
 - Redacted diagnostics suitable for GitHub issue reports.
 - Unit, widget, and Windows build CI.
 
-The alpha may be distributed through GitHub pre-releases to technical testers.
+The alpha may be shared privately with explicitly approved technical testers.
 It is not marketed as the stable consumer release.
 
-### 4.3 v0.5 — public beta
+### 4.3 v0.5 — private beta
 
 - Favorites and stable identity across source refreshes.
 - Local XMLTV download, parse, cache, and now/next display.
@@ -210,8 +209,8 @@ It is not marketed as the stable consumer release.
 ### 4.4 v1.0 — stable launch
 
 - Microsoft Store MSIX as the primary consumer distribution.
-- GitHub release with source, checksums, SBOM, and a ZIP build for technical
-  users.
+- Approved desktop downloads with checksums, SBOM, and portable builds where
+  appropriate. Source publication is not required.
 - Store listing, privacy page, screenshots, support page, and legal disclaimer.
 - Crash-free clean-install, upgrade, and uninstall validation.
 - All release acceptance criteria in section 15 passing.
@@ -413,7 +412,7 @@ create a runtime dependency on the mobile repository.
   weights used.
 - Preserve Klipa's 6/10/16 px radius scale, subtle low-alpha dividers, indigo
   focus/selection, logo fallback treatment, LIVE badge, error language, and
-  brand gradient. Revalidate contrast in the public repo rather than assuming a
+  brand gradient. Revalidate contrast in this repository rather than assuming a
   copied token remains accessible in a new composition.
 - Use compact desktop density: channel rows target 56 px, toolbars 44–48 px,
   and panes use restrained 12/16 px spacing. Avoid enlarged mobile cards,
@@ -477,8 +476,8 @@ The player may promote the mobile/TV app in exactly these non-blocking places:
 1. A secondary **Klipa on phone and TV** link below the primary import actions
    on first run.
 2. A compact footer link in the source/group rail after import.
-3. The About screen, alongside an equally visible link to the source code.
-4. The Windows landing page and repository README.
+3. The About screen, alongside equally visible privacy and license information.
+4. The desktop landing page and product documentation.
 
 The app shall not show promotional modals, timed nags, interstitials, autoplayed
 media, notification ads, or repeated dismissal state. Promotion must never
@@ -513,7 +512,7 @@ Primary product signal:
 Acquisition and trust signals:
 
 - Microsoft Store acquisitions and rating.
-- GitHub release downloads, stars, contributors, and issue resolution time.
+- Desktop download counts and support issue resolution time.
 - Ratio of actionable bug reports to release downloads.
 - Organic backlinks and visits to `klipa.tv/windows/`.
 
@@ -651,21 +650,22 @@ Security scope is realistic rather than theatrical:
 - Codec patent and binary redistribution review is a release gate independent
   of the application source license.
 
-## 9. Open-source and repository policy
+## 9. Private repository and distribution policy
 
 ### 9.1 Repository boundary
 
-The public repository starts empty. Do not fork, filter, or publish the private
-Klipa repository.
+The desktop repository remains private and independent. Do not publish it, its
+history, or material from sibling Klipa repositories without explicit owner
+approval and a fresh legal and secret review.
 
-Allowed to move after review:
+Allowed to move between private repositories after review:
 
 - Playlist parsing algorithms and their synthetic tests.
 - Input normalization and credential-redaction helpers.
 - Domain models needed by the Windows scope.
 - The playback port abstraction and Windows-safe media-engine integration.
-- Selected generic design tokens and original brand assets approved for public
-  distribution.
+- Selected generic design tokens and original brand assets approved for the
+  desktop product.
 
 Requires rewrite or Windows-specific replacement:
 
@@ -686,30 +686,26 @@ Never move:
   projects, signing material, backend pairing code, or production configuration.
 - Generated files that embed absolute paths or machine/user information.
 
-Every moved file receives a manual review plus automated secret scan before its
-first public commit. The initial commit is made only from an allowlisted staging
-directory.
+Every moved file receives a manual review plus an automated secret scan before
+its first commit in the destination repository.
 
 ### 9.2 License and trademark
 
-- Application source code: **Apache License 2.0**, subject to final dependency
-  and ownership review.
+- First-party application source remains private and is not authorized for
+  redistribution. Its final external license is an owner/legal decision.
 - Third-party code and binaries retain their own licenses and appear in
   `THIRD_PARTY_NOTICES.md` and the in-app Licenses screen.
-- The Klipa name and logo are not granted for arbitrary derivative branding by
-  the Apache license. Add `TRADEMARKS.md` covering nominative use, screenshots,
-  unmodified redistribution, and the rename requirement for forks.
-- All source required to build the published application, except standard
-  toolchains and signing secrets, must be in the public repository.
-- Use Developer Certificate of Origin sign-off rather than a custom CLA at
-  launch.
+- The Klipa name and logo require separate approval; `TRADEMARKS.md` records the
+  provisional policy for future review.
+- External binary distribution requires a complete corresponding internal
+  build record, notices, SBOM, checksums, and all license obligations to be met.
 
 This section is a product decision, not legal advice. Resolve any ownership,
 codec, trademark, or distribution uncertainty before publication.
 
-### 9.3 Community baseline
+### 9.3 Repository baseline
 
-The first public version includes:
+The private repository includes:
 
 - `README.md` with product boundary, screenshots, no-content disclaimer, build
   instructions, privacy summary, mobile link, and roadmap.
@@ -832,7 +828,7 @@ Rules:
 ### 10.4 Proposed repository layout
 
 ```text
-klipa-player-windows/
+klipa-desktop/
   .github/
     ISSUE_TEMPLATE/
     workflows/
@@ -1004,8 +1000,8 @@ download as the default path.
 
 1. Private/local developer builds.
 2. Privately shared signed release candidates for technical testers.
-3. Approved GitHub pre-releases with Windows setup/ZIP, Linux package,
-   checksums, SBOM, and notices.
+3. Approved private or first-party website downloads with Windows setup/ZIP,
+   Linux package, checksums, SBOM, and notices.
 4. Optional Microsoft Store stable MSIX after a Store identity exists.
 5. WinGet/APT manifests only after stable signed packages and repository
    identities exist.
@@ -1066,7 +1062,7 @@ Minimum v1 validation:
 
 ### Workstream A — foundation
 
-- Create public repo and governance files.
+- Maintain the private repository and governance files.
 - Pin Flutter/toolchain and establish Windows CI.
 - Generate Windows runner, product identity, icons, and window lifecycle.
 - Complete media, binary-license, and secret-extraction spikes.
@@ -1149,17 +1145,18 @@ v1 is ready only when all of the following are true:
 - Full screen restores the correct monitor and previous window bounds.
 - The media engine fully tears down after repeated channel changes and app exit.
 
-### Open source and distribution
+### Private source and distribution
 
-- A contributor can build the tagged release from the public instructions on a
-  clean Windows machine.
-- Public history contains no file or commit derived from private history beyond
-  the reviewed, owned source intentionally introduced in clean commits.
-- License, trademark, contribution, security, support, privacy, and no-content
-  documents are published.
+- An authorized developer can build the tagged release from internal
+  instructions on clean Windows and Linux machines.
+- Repository history contains no material that belongs to another Klipa
+  repository beyond intentionally reviewed and transferred source.
+- License, trademark, security, support, privacy, and no-content documents are
+  approved for the chosen distribution audience.
 - Microsoft Store certification passes, the store package is installable without
   admin rights, and updates preserve user data.
-- GitHub artifacts match published checksums and include the SBOM/notices.
+- Distributed artifacts match published checksums and include the required
+  SBOM/notices.
 
 ### Promotion
 
@@ -1175,9 +1172,9 @@ v1 is ready only when all of the following are true:
 |---|---|---|
 | Windows native media package regresses or becomes unmaintained | Build or playback failures | Phase 0 spike, pin exact artifacts, keep playback port replaceable, maintain a direct-libmpv fallback decision |
 | Bundled codec/native license differs from Dart wrapper license | Distribution or legal blocker | Audit exact release binaries and build flags; ship notices/SBOM; block release on uncertainty |
-| Private Klipa data leaks into public history | Security and reputation damage | Empty repo, allowlisted extraction, no history transfer, manual review, secret scan before first commit |
-| Open-source scope grows into a second full Klipa app | Maintenance burden and weak mobile differentiation | Live-only v1, explicit non-goals, require a spec change for deferred features |
-| Promotion makes the player feel like adware | Trust and adoption loss | Standalone value, four quiet surfaces only, no nags/telemetry, source link equally visible |
+| Private Klipa data crosses repository boundaries | Security and reputation damage | Allowlisted transfer, manual review, and secret scan before the first destination commit |
+| Desktop scope grows into a second full Klipa app | Maintenance burden and weak mobile differentiation | Live-only v1, explicit non-goals, require a spec change for deferred features |
+| Promotion makes the player feel like adware | Trust and adoption loss | Standalone value, four quiet surfaces only, no nags/telemetry, privacy information equally visible |
 | Provider behavior is inconsistent and flaky | High support load | Precise errors, atomic cache, bounded retries, redacted diagnostics, documented compatibility tiers |
 | Store review associates the app with unlicensed content | Launch delay or removal | No bundled content/providers, clear BYO/legal copy, current policy review, useful standalone experience |
 | Windows 10 is aging while users still depend on it | Expanding compatibility cost | Windows 11 primary; Windows 10 22H2 compatibility tested and bounded; review support each major release |
@@ -1189,7 +1186,7 @@ v1 is ready only when all of the following are true:
 
 Decided:
 
-- Separate new public repository with clean history.
+- Separate private repository with independent history.
 - Current stable Flutter desktop UI, Riverpod, modular media_kit, direct SQLite,
   a small Windows FFI layer, and a replaceable libmpv-backed playback port.
 - No embedded web UI, preview framework, ORM, second state framework, plugin
@@ -1200,8 +1197,8 @@ Decided:
 - M3U/M3U8, Xtream live, favorites, local now/next EPG.
 - Local-first with no account, analytics SDK, remote crash reporter, or Klipa EPG
   service.
-- Apache-2.0 application source, pending final ownership/dependency review, plus
-  a separate trademark policy.
+- Private first-party source with external licensing deferred to an explicit
+  owner/legal decision, plus a separate trademark policy.
 - Microsoft Store MSIX as the primary stable install path.
 - Promotion is user-initiated, non-modal, and aggregate-only for attribution.
 
@@ -1213,13 +1210,12 @@ Revisit after Phase 0 evidence:
 - Production signing route for direct GitHub binaries.
 - ARM64 timing.
 
-Do not begin until the owner chooses:
+Required before external publication or broad distribution:
 
-- Final public GitHub organization/repository slug.
+- Approved distribution destinations and whether source will remain private.
 - Final Partner Center publisher identity and product-name reservation.
 - Security contact address.
-- Whether Apache-2.0 and the proposed trademark terms match the desired fork and
-  branding policy.
+- Final first-party source license and trademark terms.
 
 ## 18. Primary references
 

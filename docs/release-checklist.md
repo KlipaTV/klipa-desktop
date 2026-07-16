@@ -1,4 +1,4 @@
-# Private-to-public release checklist
+# External distribution release checklist
 
 This checklist does not authorize publishing. Every artifact remains local
 until the owner explicitly approves a release destination and audience.
@@ -45,6 +45,6 @@ and artifacts under `dist` are local and ignored by Git.
   repository-metadata workflow.
 - A monitored private security-reporting address to replace the placeholder in
   `SECURITY.md` and package metadata.
-- Final Apache-2.0 and Klipa trademark approval.
+- Final first-party source-license posture and Klipa trademark approval.
 - Explicit approval before configuring a remote, pushing, uploading artifacts,
   opening a public repository, or creating store/repository listings.

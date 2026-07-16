@@ -4,7 +4,7 @@
 > Private local development. Do not publish, push to a public remote, submit to
 > a store, or distribute binaries yet.
 
-Klipa Player is a lightweight, open-source, local-first IPTV player for
+Klipa Player is a lightweight, privately developed, local-first IPTV player for
 Windows and Linux. It is designed for people who bring their own M3U/M3U8 playlist or
 Xtream-compatible login. It includes no channels, subscriptions, ads, accounts,
 or telemetry.
@@ -47,7 +47,7 @@ Private testing release candidate:
   are implemented
 - Runtime networking has no Klipa service dependency: install and startup make
   no Klipa request, and provider data is never routed through Klipa
-- Confirmed reset and missing/corrupt-key recovery are wired; public
+- Confirmed reset and missing/corrupt-key recovery are wired; external
   distribution security and signing gates remain open
 - Native Windows debug build, DPAPI, encrypted database and libmpv smoke tests pass
 - Native release build and an authorized private MPEG-TS playback smoke pass
@@ -119,10 +119,12 @@ See [the complete specification](docs/spec.md), [product boundary](docs/product.
 [dependency inventory](docs/dependencies.md). Private installer workflows are
 documented in [packaging](docs/packaging.md), with reproducible SBOM and native
 hash generation in [supply-chain evidence](docs/supply-chain.md). The exact
-private-to-public gates are tracked in the [release checklist](docs/release-checklist.md).
+external-distribution gates are tracked in the [release checklist](docs/release-checklist.md).
 
 ## License and branding
 
-Source is provisionally licensed under Apache-2.0 for local development. The
-Klipa name and logo are governed separately by [TRADEMARKS.md](TRADEMARKS.md).
-Both are explicit pre-public review gates.
+The repository and first-party source are private and are not authorized for
+redistribution. The existing license and trademark files are provisional legal
+review inputs, not permission to publish the repository or binaries. Licensing,
+branding, and third-party redistribution terms are explicit gates before any
+external release.

@@ -42,7 +42,7 @@ scan does not clear an opaque libmpv/FFmpeg DLL.
 
 ## Review gates
 
-Before public distribution, review and archive the generated evidence with the
+Before external distribution, review and archive the generated evidence with the
 signed artifacts. Confirm that no binary is marked non-redistributable, retain
 the corresponding source offer and license texts where LGPL/GPL requires them,
 and record the precise mpv/FFmpeg build configuration. Re-run the inventory for
