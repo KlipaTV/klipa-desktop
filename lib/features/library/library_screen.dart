@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_theme.dart';
 import '../../domain/channel.dart';
@@ -23,6 +24,7 @@ class LibraryScreen extends ConsumerStatefulWidget {
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   final _searchFocus = FocusNode(debugLabel: 'channel-search');
   final _playerController = PlayerPaneController();
+  var _fullscreen = false;
 
   @override
   void dispose() {
@@ -85,16 +87,24 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   onRefreshSource: (source) =>
                       unawaited(controller.refreshSource(source.id)),
                   onDeleteSource: (source) => _deleteSource(source, controller),
+                  fullscreen: _fullscreen,
+                  onFullscreenChanged: (fullscreen) {
+                    if (mounted) setState(() => _fullscreen = fullscreen);
+                  },
                 ),
               if (state.isImporting || state.isResetting)
-                const Positioned.fill(
+                Positioned.fill(
                   child: IgnorePointer(
-                    child: ColoredBox(color: Color(0x45000000)),
+                    child: _OperationOverlay(
+                      message: state.isResetting
+                          ? 'Resetting app data…'
+                          : state.operationMessage ?? 'Working…',
+                    ),
                   ),
                 ),
               if (state.message != null || state.error != null)
                 Positioned(
-                  left: 88,
+                  left: _fullscreen ? 16 : 88,
                   right: 16,
                   bottom: 16,
                   child: _Notice(
@@ -271,6 +281,8 @@ class _DesktopLibrary extends StatelessWidget {
     required this.onRenameSource,
     required this.onRefreshSource,
     required this.onDeleteSource,
+    required this.fullscreen,
+    required this.onFullscreenChanged,
   });
 
   final LibraryState state;
@@ -281,6 +293,8 @@ class _DesktopLibrary extends StatelessWidget {
   final ValueChanged<LibrarySource> onRenameSource;
   final ValueChanged<LibrarySource> onRefreshSource;
   final ValueChanged<LibrarySource> onDeleteSource;
+  final bool fullscreen;
+  final ValueChanged<bool> onFullscreenChanged;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -289,28 +303,30 @@ class _DesktopLibrary extends StatelessWidget {
       final compact = constraints.maxWidth < 980;
       return Row(
         children: [
-          _SourceRail(
-            state: state,
-            controller: controller,
-            expanded: expandedSources,
-            onReset: onReset,
-            onRenameSource: onRenameSource,
-            onRefreshSource: onRefreshSource,
-            onDeleteSource: onDeleteSource,
-          ),
-          SizedBox(
-            width: compact ? 280 : 340,
-            child: _ChannelBrowser(
+          if (!fullscreen) ...[
+            _SourceRail(
               state: state,
               controller: controller,
-              searchFocus: searchFocus,
-              showSourceFilter: !expandedSources,
+              expanded: expandedSources,
+              onReset: onReset,
               onRenameSource: onRenameSource,
               onRefreshSource: onRefreshSource,
               onDeleteSource: onDeleteSource,
             ),
-          ),
-          const VerticalDivider(width: 1),
+            SizedBox(
+              width: compact ? 280 : 340,
+              child: _ChannelBrowser(
+                state: state,
+                controller: controller,
+                searchFocus: searchFocus,
+                showSourceFilter: !expandedSources,
+                onRenameSource: onRenameSource,
+                onRefreshSource: onRefreshSource,
+                onDeleteSource: onDeleteSource,
+              ),
+            ),
+            const VerticalDivider(width: 1),
+          ],
           Expanded(
             child: PlayerPane(
               channel: state.selectedChannel,
@@ -319,6 +335,7 @@ class _DesktopLibrary extends StatelessWidget {
                   ? null
                   : () => controller.select(state.resumeChannel!),
               controller: playerController,
+              onFullscreenChanged: onFullscreenChanged,
             ),
           ),
         ],
@@ -474,28 +491,44 @@ class _SourceRail extends StatelessWidget {
           ],
         ),
       ),
-      const Padding(
-        padding: EdgeInsets.fromLTRB(16, 5, 16, 14),
-        child: Row(
-          children: [
-            Icon(
-              Icons.phone_android_rounded,
-              size: 16,
-              color: KlipaColors.foregroundDim,
-            ),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Klipa on phone & TV',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: KlipaColors.foregroundDim,
-                  fontSize: 11,
-                ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(8, 1, 8, 8),
+        child: Tooltip(
+          message: 'Open klipa.tv in your browser',
+          child: InkWell(
+            key: const Key('open-klipa-website-expanded'),
+            borderRadius: BorderRadius.circular(7),
+            onTap: () => _openKlipaWebsite(context),
+            child: const Padding(
+              padding: EdgeInsets.fromLTRB(8, 8, 8, 7),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.phone_android_rounded,
+                    size: 16,
+                    color: KlipaColors.foregroundDim,
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Klipa on phone & TV',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: KlipaColors.foregroundDim,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.open_in_new_rounded,
+                    size: 13,
+                    color: KlipaColors.foregroundDim,
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     ],
@@ -535,17 +568,13 @@ class _SourceRail extends StatelessWidget {
         icon: Icons.delete_outline_rounded,
         onPressed: onReset,
       ),
-      const Padding(
-        padding: EdgeInsets.fromLTRB(8, 10, 8, 16),
-        child: Tooltip(
-          message: 'Klipa for mobile',
-          child: Icon(
-            Icons.phone_android_rounded,
-            size: 19,
-            color: KlipaColors.foregroundDim,
-          ),
-        ),
+      _RailButton(
+        key: const Key('open-klipa-website-compact'),
+        tooltip: 'Open klipa.tv for phone & TV',
+        icon: Icons.phone_android_rounded,
+        onPressed: () => _openKlipaWebsite(context),
       ),
+      const SizedBox(height: 8),
     ],
   );
 }
@@ -696,6 +725,7 @@ class _RailButton extends StatelessWidget {
     required this.icon,
     this.selected = false,
     this.onPressed,
+    super.key,
   });
 
   final String tooltip;
@@ -1078,7 +1108,44 @@ class _ChannelTile extends StatelessWidget {
   );
 }
 
-class _Notice extends StatelessWidget {
+class _OperationOverlay extends StatelessWidget {
+  const _OperationOverlay({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+    color: const Color(0x66000000),
+    child: Center(
+      child: Material(
+        elevation: 12,
+        color: KlipaColors.inkRaised,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 14),
+              Text(
+                message,
+                key: const Key('operation-message'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _Notice extends StatefulWidget {
   const _Notice({
     required this.message,
     required this.isError,
@@ -1094,34 +1161,112 @@ class _Notice extends StatelessWidget {
   final VoidCallback? onAction;
 
   @override
+  State<_Notice> createState() => _NoticeState();
+}
+
+class _NoticeState extends State<_Notice> with SingleTickerProviderStateMixin {
+  static const _visibleDuration = Duration(seconds: 3);
+  late final AnimationController _countdown;
+
+  @override
+  void initState() {
+    super.initState();
+    _countdown = AnimationController(vsync: this, duration: _visibleDuration);
+    _countdown.addStatusListener(_onCountdownStatus);
+    _syncCountdown();
+  }
+
+  void _onCountdownStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed && mounted) widget.onDismiss();
+  }
+
+  @override
+  void didUpdateWidget(_Notice oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.message != widget.message ||
+        oldWidget.isError != widget.isError) {
+      _syncCountdown();
+    }
+  }
+
+  void _syncCountdown() {
+    _countdown.stop();
+    _countdown.reset();
+    if (widget.isError) return;
+    unawaited(_countdown.forward());
+  }
+
+  @override
+  void dispose() {
+    _countdown.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => Material(
     elevation: 8,
-    color: isError ? const Color(0xFF3B2024) : KlipaColors.inkHover,
+    color: widget.isError ? const Color(0xFF3B2024) : KlipaColors.inkHover,
     borderRadius: BorderRadius.circular(8),
-    child: Padding(
-      padding: const EdgeInsets.only(left: 14),
-      child: Row(
-        children: [
-          Icon(
-            isError ? Icons.error_outline_rounded : Icons.check_circle_outline,
-            color: isError
-                ? Theme.of(context).colorScheme.error
-                : KlipaColors.success,
-            size: 19,
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 14),
+          child: Row(
+            children: [
+              Icon(
+                widget.isError
+                    ? Icons.error_outline_rounded
+                    : Icons.check_circle_outline,
+                color: widget.isError
+                    ? Theme.of(context).colorScheme.error
+                    : KlipaColors.success,
+                size: 19,
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Text(widget.message, maxLines: 3)),
+              if (widget.actionLabel case final label?)
+                TextButton(onPressed: widget.onAction, child: Text(label)),
+              IconButton(
+                tooltip: 'Dismiss',
+                onPressed: widget.onDismiss,
+                icon: const Icon(Icons.close_rounded, size: 18),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(child: Text(message, maxLines: 3)),
-          if (actionLabel case final label?)
-            TextButton(onPressed: onAction, child: Text(label)),
-          IconButton(
-            tooltip: 'Dismiss',
-            onPressed: onDismiss,
-            icon: const Icon(Icons.close_rounded, size: 18),
+        ),
+        if (!widget.isError)
+          AnimatedBuilder(
+            animation: _countdown,
+            builder: (context, _) => LinearProgressIndicator(
+              key: const Key('notice-countdown'),
+              value: 1 - _countdown.value,
+              minHeight: 3,
+              color: KlipaColors.indigo,
+              backgroundColor: Colors.transparent,
+            ),
           ),
-        ],
-      ),
+      ],
     ),
   );
+}
+
+Future<void> _openKlipaWebsite(BuildContext context) async {
+  var opened = false;
+  try {
+    opened = await launchUrl(
+      Uri.parse('https://klipa.tv'),
+      mode: LaunchMode.externalApplication,
+    );
+  } on Object {
+    // The same user-facing fallback covers missing browser integrations.
+  }
+  if (!opened && context.mounted) {
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(const SnackBar(content: Text('Could not open klipa.tv.')));
+  }
 }
 
 Future<bool?> _showResetDialog(BuildContext context) => showDialog<bool>(

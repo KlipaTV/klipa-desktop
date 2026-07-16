@@ -19,6 +19,7 @@ class LibraryState {
     this.isLoading = false,
     this.isImporting = false,
     this.isResetting = false,
+    this.operationMessage,
     this.recoveryRequired = false,
     this.message,
     this.error,
@@ -38,6 +39,7 @@ class LibraryState {
   final bool isLoading;
   final bool isImporting;
   final bool isResetting;
+  final String? operationMessage;
   final bool recoveryRequired;
   final String? message;
   final String? error;
@@ -116,6 +118,8 @@ class LibraryState {
     bool? isLoading,
     bool? isImporting,
     bool? isResetting,
+    String? operationMessage,
+    bool clearOperationMessage = false,
     bool? recoveryRequired,
     String? message,
     bool clearMessage = false,
@@ -142,6 +146,9 @@ class LibraryState {
     isLoading: isLoading ?? this.isLoading,
     isImporting: isImporting ?? this.isImporting,
     isResetting: isResetting ?? this.isResetting,
+    operationMessage: clearOperationMessage
+        ? null
+        : operationMessage ?? this.operationMessage,
     recoveryRequired: recoveryRequired ?? this.recoveryRequired,
     message: clearMessage ? null : message ?? this.message,
     error: clearError ? null : error ?? this.error,

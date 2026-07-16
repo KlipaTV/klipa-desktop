@@ -29,6 +29,7 @@ class PlayerPane extends StatefulWidget {
     required this.channel,
     this.resumeChannel,
     this.onResume,
+    this.onFullscreenChanged,
     this.controller,
     this.windowController = const MethodChannelAppWindowController(),
     this.playerFactory = createMediaKitVideoPlayerPort,
@@ -41,6 +42,7 @@ class PlayerPane extends StatefulWidget {
   final Channel? channel;
   final Channel? resumeChannel;
   final VoidCallback? onResume;
+  final ValueChanged<bool>? onFullscreenChanged;
   final PlayerPaneController? controller;
   final AppWindowController windowController;
   final VideoPlayerPortFactory playerFactory;
@@ -391,6 +393,7 @@ class _PlayerPaneState extends State<PlayerPane> {
       final fullscreen = await widget.windowController.setFullscreen(enabled);
       if (!mounted) return;
       setState(() => _fullscreen = fullscreen);
+      widget.onFullscreenChanged?.call(fullscreen);
     } on Object {
       if (!mounted) return;
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -418,7 +421,10 @@ class _PlayerPaneState extends State<PlayerPane> {
     unawaited(_bufferingSubscription?.cancel());
     unawaited(_player?.dispose());
     _player = null;
-    if (_fullscreen) unawaited(widget.windowController.setFullscreen(false));
+    if (_fullscreen) {
+      widget.onFullscreenChanged?.call(false);
+      unawaited(widget.windowController.setFullscreen(false));
+    }
     _focusNode.dispose();
     super.dispose();
   }

@@ -56,6 +56,7 @@ void main() {
     tester,
   ) async {
     final windowController = _FakeWindowController();
+    final fullscreenChanges = <bool>[];
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData.dark(),
@@ -63,6 +64,7 @@ void main() {
           body: PlayerPane(
             channel: _blockedFixtureChannel(),
             windowController: windowController,
+            onFullscreenChanged: fullscreenChanges.add,
           ),
         ),
       ),
@@ -73,16 +75,19 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
     await tester.pump();
     expect(windowController.requests, [true]);
+    expect(fullscreenChanges, [true]);
     expect(find.byTooltip('Exit full screen'), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
     expect(windowController.requests, [true, false]);
+    expect(fullscreenChanges, [true, false]);
     expect(find.byTooltip('Enter full screen'), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.f11);
     await tester.pump();
     expect(windowController.requests, [true, false, true]);
+    expect(fullscreenChanges, [true, false, true]);
   });
 }
 

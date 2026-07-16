@@ -25,6 +25,96 @@ void main() {
     expect(find.textContaining('No telemetry is sent'), findsOneWidget);
   });
 
+  testWidgets('channel import displays an explicit progress message', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          libraryControllerProvider.overrideWith(
+            _ImportingFixtureController.new,
+          ),
+        ],
+        child: const KlipaPlayerApp(),
+      ),
+    );
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('Signing in and importing channels…'), findsOneWidget);
+  });
+
+  testWidgets('success notice counts down for three seconds then disappears', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          libraryControllerProvider.overrideWith(_NoticeFixtureController.new),
+        ],
+        child: const KlipaPlayerApp(),
+      ),
+    );
+
+    expect(find.text('Imported 42 channels.'), findsOneWidget);
+    expect(find.byKey(const Key('notice-countdown')), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Imported 42 channels.'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 1100));
+    await tester.pump();
+    expect(find.text('Imported 42 channels.'), findsNothing);
+  });
+
+  testWidgets('full screen hides and restores the library chrome', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1440, 900);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const windowChannel = MethodChannel('dev.klipa.player/window');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(windowChannel, (call) async {
+          if (call.method == 'setFullscreen') return call.arguments as bool;
+          if (call.method == 'isFullscreen') return false;
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(windowChannel, null),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          libraryControllerProvider.overrideWith(
+            _FullscreenFixtureController.new,
+          ),
+        ],
+        child: const KlipaPlayerApp(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byKey(const Key('source-all')), findsOneWidget);
+    expect(
+      find.byKey(const Key('open-klipa-website-expanded')),
+      findsOneWidget,
+    );
+
+    await tester.tapAt(const Offset(1000, 400));
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.pump();
+
+    expect(find.byKey(const Key('source-all')), findsNothing);
+    expect(find.byTooltip('Exit full screen'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(find.byKey(const Key('source-all')), findsOneWidget);
+  });
+
   testWidgets(
     'playlist URL dialog requires an explicit private-network opt-in',
     (tester) async {
@@ -170,7 +260,7 @@ void main() {
     expect(find.textContaining('cannot be undone'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('confirm-reset-app-data')));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     expect(_RecoveryFixtureController.resetCalls, 1);
     expect(find.text('App data was reset.'), findsOneWidget);
@@ -251,6 +341,37 @@ final class _CategoryFixtureController extends LibraryController {
     channels: [_channel('News One', 'News'), _channel('Sports One', 'Sports')],
     groups: const ['News', 'Sports'],
   );
+}
+
+final class _ImportingFixtureController extends LibraryController {
+  @override
+  LibraryState build() => const LibraryState(
+    isImporting: true,
+    operationMessage: 'Signing in and importing channels…',
+  );
+}
+
+final class _NoticeFixtureController extends LibraryController {
+  @override
+  LibraryState build() => const LibraryState(message: 'Imported 42 channels.');
+}
+
+final class _FullscreenFixtureController extends LibraryController {
+  @override
+  LibraryState build() {
+    final channel = Channel(
+      id: 'fullscreen',
+      name: 'Fullscreen fixture',
+      streamUri: Uri.parse('http://127.0.0.1/stream'),
+      sourceId: 'fixture',
+      allowsPrivateNetwork: false,
+    );
+    return LibraryState(
+      sources: [_librarySource('fixture')],
+      channels: [channel],
+      selectedChannel: channel,
+    );
+  }
 }
 
 final class _RecoveryFixtureController extends LibraryController {

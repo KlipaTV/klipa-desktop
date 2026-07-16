@@ -75,12 +75,16 @@ class LibraryController extends Notifier<LibraryState> {
     }
     await _import(
       () => _importer.fromUrl(uri, allowPrivateNetwork: allowPrivateNetwork),
+      operationMessage: 'Importing channels…',
       guideLocation: normalizedGuide?.isEmpty ?? true ? null : normalizedGuide,
     );
   }
 
   Future<void> importFile() async {
-    await _import(_importer.fromFilePicker);
+    await _import(
+      _importer.fromFilePicker,
+      operationMessage: 'Importing channels…',
+    );
   }
 
   Future<void> importXtream({
@@ -101,6 +105,7 @@ class LibraryController extends Notifier<LibraryState> {
         password: password,
         allowPrivateNetwork: allowPrivateNetwork,
       ),
+      operationMessage: 'Signing in and importing channels…',
       username: username.trim(),
       password: password,
     );
@@ -196,7 +201,7 @@ class LibraryController extends Notifier<LibraryState> {
 
   Future<void> refreshSource(String sourceId) async {
     if (_operationInProgress) return;
-    _startOperation();
+    _startOperation('Refreshing channels…');
     try {
       await _navigationWrites;
       final access = await _store.readSourceRefreshAccess(sourceId);
@@ -235,7 +240,7 @@ class LibraryController extends Notifier<LibraryState> {
       return;
     }
     if (_operationInProgress) return;
-    _startOperation();
+    _startOperation('Renaming source…');
     try {
       await _navigationWrites;
       await _store.renameSource(sourceId: sourceId, name: normalized);
@@ -246,6 +251,7 @@ class LibraryController extends Notifier<LibraryState> {
             source.id == sourceId ? source.copyWith(name: normalized) : source,
         ]),
         isImporting: false,
+        clearOperationMessage: true,
         message: 'Renamed source.',
       );
     } on Object catch (error) {
@@ -255,7 +261,7 @@ class LibraryController extends Notifier<LibraryState> {
 
   Future<void> deleteSource(String sourceId) async {
     if (_operationInProgress) return;
-    _startOperation();
+    _startOperation('Deleting source…');
     try {
       await _navigationWrites;
       await _store.deleteSource(sourceId);
@@ -287,6 +293,7 @@ class LibraryController extends Notifier<LibraryState> {
         clearSource: sourceFilterWasDeleted,
         clearGroup: sourceFilterWasDeleted,
         isImporting: false,
+        clearOperationMessage: true,
         message: 'Deleted source.',
       );
       _queueNavigationSave();
@@ -301,9 +308,10 @@ class LibraryController extends Notifier<LibraryState> {
       state.isResetting ||
       _favoriteWrites.isNotEmpty;
 
-  void _startOperation() {
+  void _startOperation(String operationMessage) {
     state = state.copyWith(
       isImporting: true,
+      operationMessage: operationMessage,
       clearError: true,
       clearMessage: true,
     );
@@ -313,6 +321,7 @@ class LibraryController extends Notifier<LibraryState> {
     if (_disposed) return;
     state = state.copyWith(
       isImporting: false,
+      clearOperationMessage: true,
       error: const SensitiveDataRedactor().text(error.toString()),
     );
   }
@@ -342,17 +351,18 @@ class LibraryController extends Notifier<LibraryState> {
 
   Future<void> _import(
     Future<PlaylistImportResult?> Function() operation, {
+    required String operationMessage,
     String? username,
     String? password,
     String? guideLocation,
   }) async {
     if (_operationInProgress) return;
-    _startOperation();
+    _startOperation(operationMessage);
     try {
       final result = await operation();
       if (_disposed) return;
       if (result == null) {
-        state = state.copyWith(isImporting: false);
+        state = state.copyWith(isImporting: false, clearOperationMessage: true);
         return;
       }
 
@@ -451,6 +461,7 @@ class LibraryController extends Notifier<LibraryState> {
       clearLastChannel: !keepLastChannel,
       clearGroup: !keepSelectedGroup,
       isImporting: false,
+      clearOperationMessage: true,
       message: '$verb ${result.channels.length} channels.$warningSuffix',
     );
     _queueNavigationSave();
