@@ -78,6 +78,13 @@ requires an explicit URL and is never guessed or discovered. A promotional
 Klipa link, if added later, must be an explicit action
 that opens the system browser and must not become an in-app service dependency.
 
+The bounded Dart client validates every app-managed destination and redirect.
+Playback is the deliberate exception: after top-level validation, libmpv may
+follow HLS/DASH redirects, manifests, segments, and later DNS answers itself.
+Every import path therefore requires the user to trust that source to select
+media network destinations. Returned media and metadata remain untrusted. v1
+does not add a local validating proxy or OS network sandbox.
+
 Favorite state is represented in UI memory only by non-secret source/channel
 identities. A toggle is committed through the encrypted store before it is
 published to the UI. Refresh prunes favorites only when their stable channel

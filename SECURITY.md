@@ -19,4 +19,4 @@ No released version is supported yet.
 - Native media and database artifacts are inventoried before distribution.
 
 See [docs/security-model.md](docs/security-model.md) for the enforced controls,
-known subresource/DNS gaps, and pre-distribution blockers.
+accepted lightweight playback trust boundary, and pre-distribution blockers.

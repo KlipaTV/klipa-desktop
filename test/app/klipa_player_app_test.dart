@@ -43,8 +43,28 @@ void main() {
         find.byType(CheckboxListTile),
       );
       expect(checkbox.value, isFalse);
+      expect(
+        find.textContaining('does not proxy or validate every nested'),
+        findsOneWidget,
+      );
     },
   );
+
+  testWidgets('local playlist import explains the network trust boundary', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_testApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('open-local-playlist')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Open trusted playlist?'), findsOneWidget);
+    expect(
+      find.textContaining('does not proxy or validate every nested'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('confirm-local-playlist')), findsOneWidget);
+  });
 
   testWidgets('Xtream login keeps credentials in separate secure fields', (
     tester,
@@ -63,6 +83,10 @@ void main() {
     expect(password.autocorrect, isFalse);
     expect(password.enableSuggestions, isFalse);
     expect(find.textContaining('HTTP exposes the login'), findsOneWidget);
+    expect(
+      find.textContaining('does not proxy or validate every nested'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('category filter narrows the visible channel list', (

@@ -22,10 +22,6 @@ and artifacts under `dist` are local and ignored by Git.
 
 ## Engineering gates still open
 
-- Choose and enforce an HLS/DASH subresource policy. libmpv can follow manifest
-  references and repeat DNS resolution outside the app's validator. Disabling
-  all references closes the path but removes required adaptive-stream support;
-  a validating proxy or OS network sandbox adds weight and complexity.
 - Replace or independently rebuild and license-review the Windows libmpv DLL.
   The latest `media_kit_libs_windows_video` package currently supplies a DLL
   whose embedded version is `v0.36.0-403-g652a1dd907`.
@@ -33,6 +29,13 @@ and artifacts under `dist` are local and ignored by Git.
   AMD, and NVIDIA matrix, including HLS and MPEG-TS.
 - Validate install and upgrade on clean Windows 10/11 and supported
   Debian/Ubuntu VMs rather than only the development host.
+
+## Accepted product security decision
+
+- Keep HLS/DASH support and trust each user-added provider or local playlist to
+  choose playback network destinations. Import UI discloses that libmpv may
+  follow nested media references outside the app validator. Media and metadata
+  remain untrusted input; a validating proxy/sandbox is outside lightweight v1.
 
 ## Owner-provided release inputs
 

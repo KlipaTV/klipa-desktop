@@ -550,9 +550,14 @@ Guardrails:
 - Use the operating system TLS verifier. There is no "ignore certificate
   errors" setting.
 - A user-entered source may target a private/LAN host after a clear per-source
-  confirmation. Automatically discovered nested URLs do not inherit that trust:
-  loopback, link-local, private, and multicast logo/EPG destinations are blocked
+  confirmation. App-managed redirects and guide destinations are revalidated;
+  loopback, link-local, private, and multicast destinations remain blocked
   unless the user explicitly enables local-network access for that source.
+- Require a clear warning before every remote URL, Xtream, or local-playlist
+  import that the source is trusted to choose playback network destinations.
+  libmpv follows HLS/DASH redirects, manifests, and segments outside the app's
+  destination validator. Keep that residual risk explicit; do not claim DNS
+  pinning or nested-request isolation.
 - Limit playlist/XMLTV response bytes, decompressed bytes, entry count, metadata
   field lengths, redirect count, request duration, logo bytes, logo dimensions,
   and disk-cache size.
@@ -601,7 +606,8 @@ regression fixture for the case.
 | Attack surface | Plausible attack | Required control |
 |---|---|---|
 | M3U/Xtream/XMLTV text | Oversized input, decompression/entity bomb, parser crash, malicious metadata | Byte/entry/string/depth limits, no DTD/entities, isolate parsing, escaped text, fuzz and adversarial fixtures |
-| Hostile provider or redirect | Credential/header exfiltration, HTTPS downgrade, LAN request, endless response | Scheme/origin/IP checks on every hop, header allowlist, no TLS bypass, time/byte/redirect caps, per-source LAN capability |
+| Hostile provider or app-managed redirect | Credential/header exfiltration, HTTPS downgrade, LAN request, endless response | Scheme/origin/IP checks on every app-managed hop, header allowlist, no TLS bypass, time/byte/redirect caps, per-source LAN capability |
+| HLS/DASH nested media request | Manifest or DNS answer directs libmpv to an unintended host | Import-time trusted-source warning, top-level validation, narrow protocols and disabled scripts/helpers; provider destination trust is an explicit lightweight-v1 limitation |
 | Channel media bitstream | Native decoder/libmpv/FFmpeg memory-safety bug | Current pinned native builds, narrow protocols/options, no scripts/helpers, prompt dependency updates, hardened release compiler flags |
 | Channel logo | LAN GET/CSRF, image bomb, decoder bug, disk exhaustion | Private-IP policy, lazy fetch, content/byte/pixel/time caps, bounded LRU cache, current image decoders |
 | Local file/activation | Path or command-line injection, unintended file read | Structured Windows activation, canonical paths, extension/content validation, never invoke a shell |
@@ -618,6 +624,11 @@ Security scope is realistic rather than theatrical:
   current and tightly configured. A custom sandboxed player process is not built
   without evidence that its IPC and lifecycle complexity buys a necessary risk
   reduction.
+- The configured provider or local playlist is trusted to select media network
+  destinations, while every returned byte and metadata field remains untrusted
+  input. A validating media proxy is intentionally outside v1 because its HTTP,
+  range, redirect, manifest-rewrite, and lifecycle machinery would materially
+  increase weight and failure surface.
 - Use one audited SQLite encryption implementation with a random database key
   sealed by DPAPI. Do not invent per-field cryptography. This is simpler and
   safer than trying to classify thousands of M3U stream URLs, many of which
@@ -905,9 +916,10 @@ permits.
 ### 10.7 Network behavior
 
 - No network request on a clean first launch.
-- Import contacts only the user-entered provider and metadata hosts referenced
-  by its responses.
-- EPG contacts only the configured provider URL.
+- Import contacts only the user-entered provider and policy-valid redirects.
+  Playback may additionally contact media hosts selected by a trusted HLS/DASH
+  source; these libmpv requests are outside the app-managed validator.
+- EPG contacts only the configured provider URL and policy-valid redirects.
 - Logos load only when their rows become visible and respect cache/network
   limits.
 - Klipa is contacted only after the user activates a Klipa link or manually
@@ -1116,9 +1128,11 @@ v1 is ready only when all of the following are true:
   clicks a Klipa link or requests an update check.
 - TLS errors cannot be bypassed in settings.
 - Import, EPG, logo, redirect, and cache limits have automated tests.
-- Public-source nested requests cannot reach loopback/private/link-local hosts
-  without the explicit per-source LAN capability; DNS and every redirect hop
-  are covered by tests.
+- App-managed import, EPG, and redirect requests cannot reach
+  loopback/private/link-local hosts without the explicit per-source LAN
+  capability; their DNS answers and every redirect hop are covered by tests.
+- Every import path discloses that libmpv HLS/DASH subrequests and later DNS
+  resolution are not isolated by those app-managed destination controls.
 - XML entities/DTD, unapproved request headers and stream protocols, libmpv
   scripts/config/helpers, and shell execution remain disabled in the release
   bundle.

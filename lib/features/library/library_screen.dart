@@ -38,7 +38,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyO, control: true): () {
-          unawaited(controller.importFile());
+          unawaited(_showLocalPlaylistWarning(context, controller));
         },
         const SingleActivator(
           LogicalKeyboardKey.keyO,
@@ -71,6 +71,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   isImporting: state.isImporting,
                   recoveryRequired: state.recoveryRequired,
                   onReset: () => _confirmAndReset(controller),
+                  onImportFile: () =>
+                      _showLocalPlaylistWarning(context, controller),
                 )
               else
                 _DesktopLibrary(
@@ -152,12 +154,14 @@ class _Onboarding extends StatelessWidget {
     required this.isImporting,
     required this.recoveryRequired,
     required this.onReset,
+    required this.onImportFile,
   });
 
   final LibraryController controller;
   final bool isImporting;
   final bool recoveryRequired;
   final VoidCallback onReset;
+  final VoidCallback onImportFile;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -202,7 +206,7 @@ class _Onboarding extends StatelessWidget {
                   width: 210,
                   child: OutlinedButton.icon(
                     key: const Key('open-local-playlist'),
-                    onPressed: isImporting ? null : controller.importFile,
+                    onPressed: isImporting ? null : onImportFile,
                     icon: const Icon(Icons.folder_open_rounded),
                     label: const Text('Open local M3U'),
                   ),
@@ -444,7 +448,9 @@ class _SourceRail extends StatelessWidget {
             _SmallRailButton(
               tooltip: 'Add local playlist',
               icon: Icons.playlist_add_rounded,
-              onPressed: state.isImporting ? null : controller.importFile,
+              onPressed: state.isImporting
+                  ? null
+                  : () => _showLocalPlaylistWarning(context, controller),
             ),
             _SmallRailButton(
               tooltip: 'Add playlist URL',
@@ -512,7 +518,7 @@ class _SourceRail extends StatelessWidget {
       _RailButton(
         tooltip: 'Add local playlist',
         icon: Icons.playlist_add_rounded,
-        onPressed: controller.importFile,
+        onPressed: () => _showLocalPlaylistWarning(context, controller),
       ),
       _RailButton(
         tooltip: 'Add playlist URL',
@@ -1242,6 +1248,34 @@ class _BrandMark extends StatelessWidget {
   );
 }
 
+Future<void> _showLocalPlaylistWarning(
+  BuildContext context,
+  LibraryController controller,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Open trusted playlist?'),
+      content: const SizedBox(
+        width: 500,
+        child: _ProviderTrustNotice(key: Key('local-playlist-trust-warning')),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const Key('confirm-local-playlist'),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Choose file'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true) await controller.importFile();
+}
+
 Future<void> _showUrlDialog(
   BuildContext context,
   LibraryController controller,
@@ -1311,48 +1345,52 @@ class _UrlImportDialogState extends State<_UrlImportDialog> {
     title: const Text('Add playlist URL'),
     content: SizedBox(
       width: 500,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'The address is fetched directly by this app. HTTPS is recommended.',
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            key: const Key('playlist-url-field'),
-            controller: _controller,
-            autofocus: true,
-            keyboardType: TextInputType.url,
-            onSubmitted: (_) => _submit(),
-            decoration: const InputDecoration(
-              labelText: 'Playlist address',
-              hintText: 'https://provider.example/playlist.m3u',
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'The address is fetched directly by this app. HTTPS is recommended.',
             ),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            key: const Key('guide-url-field'),
-            controller: _guideController,
-            keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: 'XMLTV guide address (optional)',
-              hintText: 'https://provider.example/guide.xml',
+            const SizedBox(height: 10),
+            const _ProviderTrustNotice(),
+            const SizedBox(height: 16),
+            TextField(
+              key: const Key('playlist-url-field'),
+              controller: _controller,
+              autofocus: true,
+              keyboardType: TextInputType.url,
+              onSubmitted: (_) => _submit(),
+              decoration: const InputDecoration(
+                labelText: 'Playlist address',
+                hintText: 'https://provider.example/playlist.m3u',
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          CheckboxListTile(
-            value: _allowPrivateNetwork,
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            title: const Text('Allow local/private network addresses'),
-            subtitle: const Text(
-              'Only enable this for a trusted provider or a server on your LAN.',
+            const SizedBox(height: 10),
+            TextField(
+              key: const Key('guide-url-field'),
+              controller: _guideController,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                labelText: 'XMLTV guide address (optional)',
+                hintText: 'https://provider.example/guide.xml',
+              ),
             ),
-            onChanged: (value) =>
-                setState(() => _allowPrivateNetwork = value ?? false),
-          ),
-        ],
+            const SizedBox(height: 10),
+            CheckboxListTile(
+              value: _allowPrivateNetwork,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: const Text('Allow local/private network addresses'),
+              subtitle: const Text(
+                'Only enable this for a trusted provider or a server on your LAN.',
+              ),
+              onChanged: (value) =>
+                  setState(() => _allowPrivateNetwork = value ?? false),
+            ),
+          ],
+        ),
       ),
     ),
     actions: [
@@ -1431,6 +1469,8 @@ class _XtreamImportDialogState extends State<_XtreamImportDialog> {
             const Text(
               'Enter the login issued by a provider you are authorized to use.',
             ),
+            const SizedBox(height: 10),
+            const _ProviderTrustNotice(),
             const SizedBox(height: 10),
             const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1527,4 +1567,25 @@ class _XtreamImportDialogState extends State<_XtreamImportDialog> {
     _passwordController.clear();
     Navigator.pop(context, request);
   }
+}
+
+class _ProviderTrustNotice extends StatelessWidget {
+  const _ProviderTrustNotice({super.key});
+
+  @override
+  Widget build(BuildContext context) => const Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Icon(Icons.security_rounded, size: 18, color: KlipaColors.warning),
+      SizedBox(width: 8),
+      Expanded(
+        child: Text(
+          'Only continue with a source you trust. HLS/DASH streams can send '
+          'the player to additional hosts; Klipa does not proxy or validate '
+          'every nested media request.',
+          style: TextStyle(color: KlipaColors.foregroundDim, fontSize: 12),
+        ),
+      ),
+    ],
+  );
 }

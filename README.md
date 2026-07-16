@@ -27,6 +27,9 @@ Private testing release candidate:
 - Race-safe channel replacement behind a small playback port, with teardown-first
   switching, bounded readiness, retry, and generic user-facing native errors
 - Strict HTTP(S), redirect, size, header, protocol and private-network controls
+- Import-time disclosure that HLS/DASH sources may choose nested media hosts;
+  the lightweight player trusts each user-added source for destinations while
+  continuing to treat its metadata and media as untrusted input
 - Versioned SQLite3MultipleCiphers schema, atomic snapshot writes, Windows
   DPAPI and Linux Secret Service key-sealing, reset primitives, and
   database/WAL/SHM leak tests

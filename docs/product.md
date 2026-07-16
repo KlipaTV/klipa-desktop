@@ -27,9 +27,16 @@ media resumes only after an explicit user click.
 ## Security boundary
 
 User-entered provider content is untrusted. The app applies byte, entry, line,
-redirect, timeout, scheme, header, and nested-LAN limits before parsing or
-fetching. It never executes playlist content, loads libmpv scripts, disables TLS
-verification, or forwards arbitrary headers.
+redirect, timeout, scheme, header, and private-network limits to its own import
+and guide requests before parsing or fetching. It never executes playlist
+content, loads libmpv scripts, disables TLS verification, or forwards arbitrary
+headers.
+
+The lightweight v1 player trusts each user-added provider or local playlist to
+choose media network destinations. libmpv may follow HLS/DASH references and
+repeat DNS resolution outside the app validator, so every import path discloses
+that limitation. A source is trusted for destinations, while its metadata and
+media bytes remain untrusted input.
 
 The native decoder remains the largest attack surface. Native media artifacts
 must be pinned, inventoried, and reviewed before any binary is distributed.
