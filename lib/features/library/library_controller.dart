@@ -8,6 +8,7 @@ import '../../data/encrypted_library_database.dart';
 import '../../data/library_store.dart';
 import '../../data/playlist_import_service.dart';
 import '../../domain/channel.dart';
+import '../../domain/channel_identity.dart';
 import '../../domain/library_source.dart';
 import 'library_state.dart';
 
@@ -26,6 +27,7 @@ final libraryControllerProvider =
 
 class LibraryController extends Notifier<LibraryState> {
   var _disposed = false;
+  final _favoriteWrites = <ChannelIdentity>{};
 
   PlaylistImportService get _importer =>
       ref.read(playlistImportServiceProvider);
@@ -103,6 +105,39 @@ class LibraryController extends Notifier<LibraryState> {
       clearSource: sourceId == null,
       clearGroup: !keepGroup,
     );
+  }
+
+  void setFavoritesOnly(bool value) {
+    state = state.copyWith(favoritesOnly: value);
+  }
+
+  Future<void> toggleFavorite(Channel channel) async {
+    if (_operationInProgress) return;
+    final identity = (sourceId: channel.sourceId, channelId: channel.id);
+    if (!_favoriteWrites.add(identity)) return;
+    final favorite = !state.favoriteChannels.contains(identity);
+    try {
+      await _store.setFavorite(
+        sourceId: identity.sourceId,
+        channelId: identity.channelId,
+        favorite: favorite,
+      );
+      if (_disposed) return;
+      final favorites = state.favoriteChannels.toSet();
+      favorite ? favorites.add(identity) : favorites.remove(identity);
+      state = state.copyWith(
+        favoriteChannels: Set.unmodifiable(favorites),
+        clearError: true,
+      );
+    } on Object catch (error) {
+      if (_disposed) return;
+      state = state.copyWith(
+        error: const SensitiveDataRedactor().text(error.toString()),
+        clearMessage: true,
+      );
+    } finally {
+      _favoriteWrites.remove(identity);
+    }
   }
 
   void select(Channel channel) {
@@ -195,6 +230,11 @@ class LibraryController extends Notifier<LibraryState> {
         ),
         channels: List.unmodifiable(channels),
         groups: LibraryState.deriveGroups(channels),
+        favoriteChannels: Set.unmodifiable(
+          state.favoriteChannels.where(
+            (favorite) => favorite.sourceId != sourceId,
+          ),
+        ),
         clearSelection: selectedWasDeleted,
         clearSource: sourceFilterWasDeleted,
         clearGroup: sourceFilterWasDeleted,
@@ -207,7 +247,10 @@ class LibraryController extends Notifier<LibraryState> {
   }
 
   bool get _operationInProgress =>
-      state.isLoading || state.isImporting || state.isResetting;
+      state.isLoading ||
+      state.isImporting ||
+      state.isResetting ||
+      _favoriteWrites.isNotEmpty;
 
   void _startOperation() {
     state = state.copyWith(
@@ -291,6 +334,14 @@ class LibraryController extends Notifier<LibraryState> {
         .toList();
     final channels = [...otherChannels, ...result.channels]
       ..sort((left, right) => left.name.compareTo(right.name));
+    final refreshedChannelIds = {
+      for (final channel in result.channels) channel.id,
+    };
+    final favorites = state.favoriteChannels.where(
+      (favorite) =>
+          favorite.sourceId != result.source.id ||
+          refreshedChannelIds.contains(favorite.channelId),
+    );
     final source = LibrarySource.fromImported(
       result.source,
       refreshedAt: DateTime.now().toUtc(),
@@ -327,6 +378,7 @@ class LibraryController extends Notifier<LibraryState> {
     state = state.copyWith(
       sources: List.unmodifiable(sources),
       channels: List.unmodifiable(channels),
+      favoriteChannels: Set.unmodifiable(favorites),
       groups: LibraryState.deriveGroups(channels),
       selectedChannel: refreshedSelection,
       clearSelection: selectedId != null && refreshedSelection == null,
@@ -345,6 +397,7 @@ class LibraryController extends Notifier<LibraryState> {
       state = state.copyWith(
         sources: List.unmodifiable(snapshot.sources),
         channels: List.unmodifiable(channels),
+        favoriteChannels: Set.unmodifiable(snapshot.favoriteChannels),
         groups: LibraryState.deriveGroups(channels),
         isLoading: false,
         recoveryRequired: false,

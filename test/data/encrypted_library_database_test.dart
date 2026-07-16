@@ -156,6 +156,9 @@ void main() {
     var summary = database.loadChannelSummaries().single;
     expect(summary.name, 'Working snapshot');
     expect(summary.isFavorite, isTrue);
+    expect(database.loadFavoriteChannels(), {
+      (sourceId: source.id, channelId: 'channel-1'),
+    });
     expect(
       database
           .readChannelSecret(sourceId: source.id, channelId: 'channel-1')!

@@ -76,6 +76,35 @@ void main() {
     expect(await temporaryDirectory.list().toList(), isEmpty);
   });
 
+  test('favorite toggles persist without exposing channel secrets', () async {
+    final store = _store(temporaryDirectory);
+    await store.replaceSourceSnapshot(
+      source: _source(location: 'https://provider.invalid/list'),
+      channels: [
+        _channel(streamUri: Uri.parse('https://stream.invalid/private-live')),
+      ],
+    );
+
+    await store.setFavorite(
+      sourceId: 'source-1',
+      channelId: 'channel-1',
+      favorite: true,
+    );
+
+    var restored = await _store(temporaryDirectory).load();
+    expect(restored.favoriteChannels, {
+      (sourceId: 'source-1', channelId: 'channel-1'),
+    });
+
+    await store.setFavorite(
+      sourceId: 'source-1',
+      channelId: 'channel-1',
+      favorite: false,
+    );
+    restored = await _store(temporaryDirectory).load();
+    expect(restored.favoriteChannels, isEmpty);
+  });
+
   test('reset deletes the database, sidecars, key, and pending key', () async {
     final store = _store(temporaryDirectory);
     await store.replaceSourceSnapshot(
@@ -120,6 +149,7 @@ void main() {
       final deleted = await store.load();
       expect(deleted.sources, isEmpty);
       expect(deleted.channels, isEmpty);
+      expect(deleted.favoriteChannels, isEmpty);
       expect(await store.readSourceRefreshAccess('source-1'), isNull);
     },
   );

@@ -6,6 +6,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 import '../core/security/network_policy.dart';
 import '../domain/channel.dart';
+import '../domain/channel_identity.dart';
 import '../domain/playlist_source.dart';
 
 class LibraryDatabaseException implements Exception {
@@ -487,6 +488,18 @@ class EncryptedLibraryDatabase {
       ''')
       .map(_channelFromRow)
       .toList(growable: false);
+
+  Set<ChannelIdentity> loadFavoriteChannels() => {
+    for (final row in _database.select('''
+      SELECT source_id, channel_id
+      FROM favorites
+      ORDER BY source_id, channel_id
+    '''))
+      (
+        sourceId: row['source_id'] as String,
+        channelId: row['channel_id'] as String,
+      ),
+  };
 
   Channel _channelFromRow(Row row) {
     final streamUri = Uri.parse(row['stream_uri'] as String);

@@ -6,18 +6,27 @@ import 'package:path_provider/path_provider.dart';
 import '../core/security/dpapi_secret_protector.dart';
 import '../core/security/secret_protector.dart';
 import '../domain/channel.dart';
+import '../domain/channel_identity.dart';
 import '../domain/library_source.dart';
 import '../domain/playlist_source.dart';
 import 'database_key_store.dart';
 import 'encrypted_library_database.dart';
 
 class LibrarySnapshot {
-  const LibrarySnapshot({required this.sources, required this.channels});
+  const LibrarySnapshot({
+    required this.sources,
+    required this.channels,
+    this.favoriteChannels = const {},
+  });
 
-  const LibrarySnapshot.empty() : sources = const [], channels = const [];
+  const LibrarySnapshot.empty()
+    : sources = const [],
+      channels = const [],
+      favoriteChannels = const {};
 
   final List<LibrarySource> sources;
   final List<Channel> channels;
+  final Set<ChannelIdentity> favoriteChannels;
 }
 
 class SourceRefreshAccess {
@@ -49,6 +58,12 @@ abstract interface class LibraryStore {
   Future<void> renameSource({required String sourceId, required String name});
 
   Future<void> deleteSource(String sourceId);
+
+  Future<void> setFavorite({
+    required String sourceId,
+    required String channelId,
+    required bool favorite,
+  });
 }
 
 /// Keeps non-Windows development and widget tests independent of DPAPI.
@@ -82,6 +97,13 @@ final class DisabledLibraryStore implements LibraryStore {
 
   @override
   Future<void> deleteSource(String sourceId) async {}
+
+  @override
+  Future<void> setFavorite({
+    required String sourceId,
+    required String channelId,
+    required bool favorite,
+  }) async {}
 }
 
 final class EncryptedLibraryStore implements LibraryStore {
@@ -160,6 +182,25 @@ final class EncryptedLibraryStore implements LibraryStore {
     await Isolate.run(() => _deleteEncryptedSource(paths, protector, sourceId));
   }
 
+  @override
+  Future<void> setFavorite({
+    required String sourceId,
+    required String channelId,
+    required bool favorite,
+  }) async {
+    final paths = await _paths();
+    final protector = _protector;
+    await Isolate.run(
+      () => _setEncryptedFavorite(
+        paths,
+        protector,
+        sourceId,
+        channelId,
+        favorite,
+      ),
+    );
+  }
+
   Future<_LibraryPaths> _paths() async {
     final root = await _rootDirectory();
     final separator = Platform.pathSeparator;
@@ -215,6 +256,7 @@ Future<LibrarySnapshot> _loadEncryptedLibrary(
         ),
       ),
       channels: List.unmodifiable(database.loadChannels()),
+      favoriteChannels: Set.unmodifiable(database.loadFavoriteChannels()),
     );
   } on DatabaseKeyException {
     rethrow;
@@ -317,6 +359,26 @@ Future<void> _deleteEncryptedSource(
   try {
     database = await _openEncryptedLibrary(paths, protector);
     database.deleteSource(sourceId);
+  } finally {
+    database?.close();
+  }
+}
+
+Future<void> _setEncryptedFavorite(
+  _LibraryPaths paths,
+  SecretProtector protector,
+  String sourceId,
+  String channelId,
+  bool favorite,
+) async {
+  EncryptedLibraryDatabase? database;
+  try {
+    database = await _openEncryptedLibrary(paths, protector);
+    database.setFavorite(
+      sourceId: sourceId,
+      channelId: channelId,
+      favorite: favorite,
+    );
   } finally {
     database?.close();
   }

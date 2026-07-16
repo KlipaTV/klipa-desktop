@@ -33,6 +33,8 @@ Private developer alpha:
   save leaves the previous working snapshot active
 - Stable multi-source identities, source/group filtering, rename, confirmed
   delete, and atomic refresh with `Ctrl+R`
+- Encrypted per-channel favorites with responsive row toggles and a composable
+  favorites-only filter; stable favorites survive source refresh
 - Confirmed reset and missing/corrupt-key recovery are wired; broader
   distribution security gates remain open
 - Native Windows debug build, DPAPI, encrypted database and libmpv smoke tests pass

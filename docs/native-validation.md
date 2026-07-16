@@ -51,6 +51,9 @@ no remote or publishing step.
   Stable-identity refresh, rename and confirmed cascading delete are covered;
   failed download/parse/save paths retain the prior source snapshot, and a
   surviving channel selection is rebound to the refreshed channel object.
+- Favorite toggles are encrypted, publish only after storage succeeds, compose
+  with source/category/search filters, survive stable refresh identities, and
+  are removed by source/channel cascades.
 - The bundled native media backend loads and disposes while scripts, URL
   extractors, and non-required protocols stay disabled.
 - Deterministic lifecycle tests cover first-media timeout and retry, a hung open
@@ -65,7 +68,8 @@ no remote or publishing step.
 - Widget and platform tests cover separate masked Xtream credentials, live-only
   endpoint selection, same-origin M3U compatibility mapping restricted to live
   IDs, background-isolate playlist parsing, bounded M3U/Xtream input,
-  source/category/search filtering, compact and expanded source management,
+  source/category/search/favorites filtering, compact and expanded source
+  management,
   private-network opt-in, URL path/query redaction,
   playback control states, and focus-scoped single-letter shortcuts.
 - An authorized private, multi-thousand-channel catalog imported through the

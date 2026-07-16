@@ -90,6 +90,36 @@ void main() {
     expect(find.text('1/2'), findsOneWidget);
   });
 
+  testWidgets('favorite toggles and favorites-only filtering compose', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          libraryStoreProvider.overrideWithValue(const DisabledLibraryStore()),
+          libraryControllerProvider.overrideWith(
+            _CategoryFixtureController.new,
+          ),
+        ],
+        child: const KlipaPlayerApp(),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('favorite-fixture-News One')));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Remove from favorites'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('favorites-filter')));
+    await tester.pumpAndSettle();
+    expect(find.text('News One'), findsOneWidget);
+    expect(find.text('Sports One'), findsNothing);
+    expect(find.text('1/2'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('favorite-fixture-News One')));
+    await tester.pumpAndSettle();
+    expect(find.text('No matching channels'), findsOneWidget);
+  });
+
   testWidgets('storage recovery requires an enumerated reset confirmation', (
     tester,
   ) async {

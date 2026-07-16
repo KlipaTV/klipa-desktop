@@ -17,6 +17,7 @@ void main() {
         initial: LibrarySnapshot(
           sources: [_librarySource()],
           channels: [_channel('saved')],
+          favoriteChannels: const {(sourceId: 'source-1', channelId: 'saved')},
         ),
       );
       final container = _container(store: store);
@@ -27,6 +28,7 @@ void main() {
 
       expect(state.sources.single.id, 'source-1');
       expect(state.channels.single.id, 'saved');
+      expect(state.isFavorite(state.channels.single), isTrue);
       expect(state.selectedChannel, isNull);
       expect(state.isLoading, isFalse);
     },
@@ -144,6 +146,9 @@ void main() {
       initial: LibrarySnapshot(
         sources: [_librarySource()],
         channels: [oldChannel],
+        favoriteChannels: {
+          (sourceId: oldChannel.sourceId, channelId: oldChannel.id),
+        },
       ),
       refreshAccess: SourceRefreshAccess(
         source: source,
@@ -172,6 +177,7 @@ void main() {
     final state = container.read(libraryControllerProvider);
     expect(state.selectedChannel?.name, 'Refreshed channel');
     expect(state.selectedChannel?.streamUri.host, 'new-stream.invalid');
+    expect(state.isFavorite(refreshedChannel), isTrue);
     expect(state.sources.single.name, 'Provider');
     expect(store.savedUsername, 'saved-user');
     expect(store.savedPassword, 'saved-password');
@@ -215,6 +221,7 @@ void main() {
       initial: LibrarySnapshot(
         sources: [_librarySource()],
         channels: [_channel('one')],
+        favoriteChannels: const {(sourceId: 'source-1', channelId: 'one')},
       ),
     );
     final container = _container(store: store);
@@ -233,6 +240,70 @@ void main() {
     expect(store.deletedSourceId, 'source-1');
     expect(container.read(libraryControllerProvider).sources, isEmpty);
     expect(container.read(libraryControllerProvider).channels, isEmpty);
+    expect(container.read(libraryControllerProvider).favoriteChannels, isEmpty);
+  });
+
+  test(
+    'favorite changes publish only after encrypted storage succeeds',
+    () async {
+      final favoriteGate = Completer<void>();
+      final channel = _channel('one');
+      final store = _FakeLibraryStore(
+        initial: LibrarySnapshot(
+          sources: [_librarySource()],
+          channels: [channel],
+        ),
+        favoriteGate: favoriteGate,
+      );
+      final container = _container(store: store);
+      addTearDown(container.dispose);
+      await _waitForLoad(container);
+      final controller = container.read(libraryControllerProvider.notifier);
+
+      final toggle = controller.toggleFavorite(channel);
+      await _waitUntil(() => store.favoriteWrites.isNotEmpty);
+      expect(
+        container.read(libraryControllerProvider).isFavorite(channel),
+        isFalse,
+      );
+
+      favoriteGate.complete();
+      await toggle;
+      expect(store.favoriteWrites.single, ('source-1', 'one', true));
+      expect(
+        container.read(libraryControllerProvider).isFavorite(channel),
+        isTrue,
+      );
+
+      await controller.toggleFavorite(channel);
+      expect(store.favoriteWrites.last, ('source-1', 'one', false));
+      expect(
+        container.read(libraryControllerProvider).isFavorite(channel),
+        isFalse,
+      );
+    },
+  );
+
+  test('a failed favorite write leaves the visible state unchanged', () async {
+    final channel = _channel('one');
+    final store = _FakeLibraryStore(
+      initial: LibrarySnapshot(
+        sources: [_librarySource()],
+        channels: [channel],
+      ),
+      favoriteError: Exception('Synthetic favorite failure.'),
+    );
+    final container = _container(store: store);
+    addTearDown(container.dispose);
+    await _waitForLoad(container);
+
+    await container
+        .read(libraryControllerProvider.notifier)
+        .toggleFavorite(channel);
+
+    final state = container.read(libraryControllerProvider);
+    expect(state.isFavorite(channel), isFalse);
+    expect(state.error, contains('Synthetic favorite failure'));
   });
 }
 
@@ -286,6 +357,8 @@ final class _FakeLibraryStore implements LibraryStore {
     this.saveGate,
     this.saveError,
     this.refreshAccess,
+    this.favoriteGate,
+    this.favoriteError,
   });
 
   final LibrarySnapshot initial;
@@ -293,6 +366,8 @@ final class _FakeLibraryStore implements LibraryStore {
   final Completer<void>? saveGate;
   final Exception? saveError;
   final SourceRefreshAccess? refreshAccess;
+  final Completer<void>? favoriteGate;
+  final Exception? favoriteError;
   bool saveStarted = false;
   PlaylistSource? savedSource;
   String? savedUsername;
@@ -301,6 +376,7 @@ final class _FakeLibraryStore implements LibraryStore {
   var resetCount = 0;
   (String, String)? renamed;
   String? deletedSourceId;
+  final favoriteWrites = <(String, String, bool)>[];
 
   @override
   Future<LibrarySnapshot> load() async {
@@ -340,6 +416,17 @@ final class _FakeLibraryStore implements LibraryStore {
   @override
   Future<void> deleteSource(String sourceId) async =>
       deletedSourceId = sourceId;
+
+  @override
+  Future<void> setFavorite({
+    required String sourceId,
+    required String channelId,
+    required bool favorite,
+  }) async {
+    favoriteWrites.add((sourceId, channelId, favorite));
+    await favoriteGate?.future;
+    if (favoriteError case final error?) throw error;
+  }
 }
 
 final class _FakePlaylistImportService extends PlaylistImportService {

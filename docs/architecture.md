@@ -57,3 +57,9 @@ short-lived refresh request only. Refresh downloads and parses first, commits a
 complete replacement transaction second, and publishes the new UI snapshot
 last; any failure leaves the prior playable snapshot and stable selection
 untouched.
+
+Favorite state is represented in UI memory only by non-secret source/channel
+identities. A toggle is committed through the encrypted store before it is
+published to the UI. Refresh prunes favorites only when their stable channel
+identity disappears, while source deletion removes them through the database
+foreign-key cascade.

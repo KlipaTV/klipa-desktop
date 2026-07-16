@@ -55,6 +55,28 @@ void main() {
       'Two Sports',
     ]);
   });
+
+  test('favorites combine with source, category, and search filters', () {
+    final favorite = _channelForSource('One News', 'one', group: 'News');
+    final state = LibraryState(
+      channels: [
+        favorite,
+        _channelForSource('One Sports', 'one', group: 'Sports'),
+        _channelForSource('Two News', 'two', group: 'News'),
+      ],
+      favoriteChannels: const {
+        (sourceId: 'one', channelId: 'One News'),
+        (sourceId: 'two', channelId: 'Two News'),
+      },
+      selectedSourceId: 'one',
+      selectedGroup: 'News',
+      query: 'one',
+      favoritesOnly: true,
+    );
+
+    expect(state.isFavorite(favorite), isTrue);
+    expect(state.visibleChannels, [favorite]);
+  });
 }
 
 Channel _channel(String name, {String? group}) => Channel(

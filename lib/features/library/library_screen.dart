@@ -739,7 +739,8 @@ class _ChannelBrowser extends StatelessWidget {
     final filtered =
         state.query.trim().isNotEmpty ||
         state.selectedGroup != null ||
-        state.selectedSourceId != null;
+        state.selectedSourceId != null ||
+        state.favoritesOnly;
     final managedSource = switch (state.selectedSourceId) {
       final id? => state.sources.where((source) => source.id == id).firstOrNull,
       _ when state.sources.length == 1 => state.sources.single,
@@ -752,13 +753,51 @@ class _ChannelBrowser extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(18, 20, 18, 14),
           child: Row(
             children: [
-              Text('Live TV', style: Theme.of(context).textTheme.headlineSmall),
-              const Spacer(),
+              Expanded(
+                child: Text(
+                  'Live TV',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+              ),
               Text(
                 filtered
                     ? '${channels.length}/${state.channels.length}'
                     : '${state.channels.length}',
                 style: const TextStyle(color: KlipaColors.foregroundDim),
+              ),
+              const SizedBox(width: 7),
+              IconButton(
+                key: const Key('favorites-filter'),
+                tooltip: state.favoritesOnly
+                    ? 'Show all channels'
+                    : 'Show favorites only',
+                isSelected: state.favoritesOnly,
+                constraints: const BoxConstraints.tightFor(
+                  width: 36,
+                  height: 36,
+                ),
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                onPressed: () =>
+                    controller.setFavoritesOnly(!state.favoritesOnly),
+                style: IconButton.styleFrom(
+                  minimumSize: const Size.square(36),
+                  maximumSize: const Size.square(36),
+                  backgroundColor: state.favoritesOnly
+                      ? KlipaColors.indigo.withValues(alpha: 0.18)
+                      : Colors.transparent,
+                  foregroundColor: state.favoritesOnly
+                      ? KlipaColors.indigo
+                      : KlipaColors.foregroundDim,
+                ),
+                icon: Icon(
+                  state.favoritesOnly
+                      ? Icons.star_rounded
+                      : Icons.star_border_rounded,
+                  size: 20,
+                ),
               ),
             ],
           ),
@@ -894,8 +933,13 @@ class _ChannelBrowser extends StatelessWidget {
                     final channel = channels[index];
                     return _ChannelTile(
                       channel: channel,
-                      selected: channel.id == state.selectedChannel?.id,
+                      selected:
+                          channel.id == state.selectedChannel?.id &&
+                          channel.sourceId == state.selectedChannel?.sourceId,
+                      favorite: state.isFavorite(channel),
                       onPressed: () => controller.select(channel),
+                      onToggleFavorite: () =>
+                          unawaited(controller.toggleFavorite(channel)),
                     );
                   },
                 ),
@@ -909,12 +953,16 @@ class _ChannelTile extends StatelessWidget {
   const _ChannelTile({
     required this.channel,
     required this.selected,
+    required this.favorite,
     required this.onPressed,
+    required this.onToggleFavorite,
   });
 
   final Channel channel;
   final bool selected;
+  final bool favorite;
   final VoidCallback onPressed;
+  final VoidCallback onToggleFavorite;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -978,6 +1026,27 @@ class _ChannelTile extends StatelessWidget {
                       ),
                     ],
                   ],
+                ),
+              ),
+              Semantics(
+                button: true,
+                toggled: favorite,
+                label: favorite
+                    ? 'Remove ${channel.name} from favorites'
+                    : 'Add ${channel.name} to favorites',
+                child: IconButton(
+                  key: Key('favorite-${channel.sourceId}-${channel.id}'),
+                  tooltip: favorite
+                      ? 'Remove from favorites'
+                      : 'Add to favorites',
+                  onPressed: onToggleFavorite,
+                  icon: Icon(
+                    favorite ? Icons.star_rounded : Icons.star_border_rounded,
+                    color: favorite
+                        ? KlipaColors.indigo
+                        : KlipaColors.foregroundDim,
+                    size: 19,
+                  ),
                 ),
               ),
               if (selected)
