@@ -10,6 +10,24 @@ $mirror = Join-Path $env:USERPROFILE 'develop\klipa-player-windows-native'
 $bundle = Join-Path $mirror 'build\windows\x64\runner\Release'
 $dist = Join-Path $root 'dist\windows'
 
+function Find-VcRedistCrtDirectory {
+  $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+  if (-not (Test-Path -LiteralPath $vswhere)) { return $null }
+  $vsRoot = & $vswhere -latest -products * -property installationPath 2>$null |
+    Select-Object -First 1
+  if (-not $vsRoot) { return $null }
+  $redist = Join-Path $vsRoot 'VC\Redist\MSVC'
+  if (-not (Test-Path -LiteralPath $redist)) { return $null }
+  $crt = Get-ChildItem -LiteralPath $redist -Directory -ErrorAction SilentlyContinue |
+    Sort-Object Name -Descending |
+    ForEach-Object {
+      Get-ChildItem -Path (Join-Path $_.FullName 'x64') -Directory -Filter 'Microsoft.VC*.CRT' -ErrorAction SilentlyContinue
+    } |
+    Select-Object -First 1
+  if ($null -eq $crt) { return $null }
+  return $crt.FullName
+}
+
 function Find-SignTool {
   $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
   $candidate = Get-ChildItem -LiteralPath $kits -Filter signtool.exe -Recurse -File -ErrorAction SilentlyContinue |
@@ -48,9 +66,14 @@ if (-not (Test-Path -LiteralPath (Join-Path $bundle 'klipa_player.exe'))) {
 }
 
 New-Item -ItemType Directory -Path $dist -Force | Out-Null
+$vcRedistCrt = Find-VcRedistCrtDirectory
 foreach ($runtime in 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') {
   $target = Join-Path $bundle $runtime
-  if (-not (Test-Path -LiteralPath $target)) {
+  if (Test-Path -LiteralPath $target) { continue }
+  if ($vcRedistCrt -and (Test-Path -LiteralPath (Join-Path $vcRedistCrt $runtime))) {
+    Copy-Item -LiteralPath (Join-Path $vcRedistCrt $runtime) -Destination $target
+  } else {
+    Write-Warning "VC++ redistributable directory not found; copying $runtime from System32."
     Copy-Item -LiteralPath (Join-Path $env:WINDIR "System32\$runtime") -Destination $target
   }
 }
@@ -65,7 +88,15 @@ if ($signTool) {
 
 $portable = Join-Path $dist 'KlipaPlayer-Portable-x64.zip'
 if (Test-Path -LiteralPath $portable) { Remove-Item -LiteralPath $portable }
-Compress-Archive -Path (Join-Path $bundle '*') -DestinationPath $portable -CompressionLevel Optimal
+# Ship the LGPL license and third-party notices inside the portable archive so
+# a redistributed ZIP is self-contained, matching the installer.
+$portableInputs = @(Join-Path $bundle '*')
+foreach ($doc in 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md') {
+  $docPath = Join-Path $root $doc
+  if (-not (Test-Path -LiteralPath $docPath)) { throw "Missing license document: $doc" }
+  $portableInputs += $docPath
+}
+Compress-Archive -Path $portableInputs -DestinationPath $portable -CompressionLevel Optimal
 
 $iscc = @(
   (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'),

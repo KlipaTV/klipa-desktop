@@ -108,7 +108,7 @@ class XtreamClient {
 
   Uri normalizeServer(Uri value) {
     const NetworkPolicy().validateHttpUriShape(value);
-    return value.replace(path: '', query: null, fragment: null);
+    return Uri(scheme: value.scheme, host: value.host, port: value.port);
   }
 
   void _validateCredential(String name, String value) {
@@ -149,8 +149,8 @@ class XtreamClient {
   void _validateAccount(Object? response) {
     final root = _asMap(response);
     final userInfo = _asMap(root?['user_info']);
-    final auth = userInfo?['auth']?.toString();
-    if (auth != '1') {
+    final auth = userInfo?['auth']?.toString().toLowerCase();
+    if (auth != '1' && auth != 'true') {
       throw const XtreamException('The provider rejected these credentials.');
     }
 

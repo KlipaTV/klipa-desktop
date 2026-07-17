@@ -29,6 +29,9 @@ UninstallDisplayIcon={app}\klipa_player.exe
 CloseApplications=yes
 RestartApplications=no
 ChangesEnvironment=no
+; Signing is only defined for the local thumbprint-based packaging path.
+; The CI/SignPath release flow signs the finished installer after compilation,
+; so its generated uninstaller (unins000.exe) remains unsigned.
 #ifdef Signing
 SignTool=klipa
 SignedUninstaller=yes
@@ -41,8 +44,17 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked
 
+[InstallDelete]
+; Remove files from previous versions so upgrades cannot load stale plugins
+; or Flutter assets. User data lives outside {app} and is unaffected.
+Type: files; Name: "{app}\*.dll"
+Type: filesandordirs; Name: "{app}\data"
+
 [Files]
 Source: "{#BundleDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\NOTICE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Klipa Player"; Filename: "{app}\klipa_player.exe"

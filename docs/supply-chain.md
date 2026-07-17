@@ -12,9 +12,9 @@ native release bundles, then run:
 ./tool/generate_release_metadata.sh
 ```
 
-Set `WINDOWS_BUNDLE` when the native Windows mirror is not in its default
-location. The command creates ignored, local-only evidence under
-`dist/metadata`:
+Set `WINDOWS_BUNDLE` to the Windows release bundle directory (required, e.g.
+the `build\windows\x64\runner\Release` tree of the native build mirror). The
+command creates ignored, local-only evidence under `dist/metadata`:
 
 - a CycloneDX source SBOM covering the locked Dart/Flutter dependency graph;
 - bundle-level CycloneDX records for both release outputs;

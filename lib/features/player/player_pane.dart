@@ -120,7 +120,9 @@ class _PlayerPaneState extends State<PlayerPane> {
       widget.channelStartTimeout,
       () => _failCurrent(generation, _startTimeoutMessage),
     );
-    _openQueue = _openQueue.then((_) => _performOpen(channel, generation));
+    _openQueue = _settled(
+      _openQueue,
+    ).then((_) => _performOpen(channel, generation));
   }
 
   Future<void> _stopPlayer() {
@@ -136,12 +138,21 @@ class _PlayerPaneState extends State<PlayerPane> {
         _controlsVisible = true;
       });
     }
-    _openQueue = _openQueue.then((_) => _disposeCurrentPlayer());
+    _openQueue = _settled(_openQueue).then((_) => _disposeCurrentPlayer());
     return _openQueue;
+  }
+
+  Future<void> _settled(Future<void> future) async {
+    try {
+      await future;
+    } on Object {
+      // Errors are surfaced where they occur; the queue must keep draining.
+    }
   }
 
   Future<void> _performOpen(Channel channel, int generation) async {
     try {
+      if (!_isCurrent(channel, generation)) return;
       await const NetworkPolicy().validateHttpTarget(
         channel.streamUri,
         allowPrivateNetwork: channel.allowsPrivateNetwork,
@@ -322,10 +333,18 @@ class _PlayerPaneState extends State<PlayerPane> {
     for (final cancellation in subscriptionCancellations) {
       unawaited(cancellation);
     }
-    final disposal = player.dispose();
+    final disposal = _disposePlayer(player);
     _playerDisposal = disposal;
     await disposal;
     if (mounted) setState(() {});
+  }
+
+  Future<void> _disposePlayer(VideoPlayerPort player) async {
+    try {
+      await player.dispose();
+    } on Object {
+      // A failed native teardown must not block later playback.
+    }
   }
 
   Future<void> _disposeCurrentPlayer() async {
@@ -419,11 +438,15 @@ class _PlayerPaneState extends State<PlayerPane> {
     unawaited(_errorSubscription?.cancel());
     unawaited(_playingSubscription?.cancel());
     unawaited(_bufferingSubscription?.cancel());
-    unawaited(_player?.dispose());
+    if (_player case final player?) unawaited(_disposePlayer(player));
     _player = null;
     if (_fullscreen) {
-      widget.onFullscreenChanged?.call(false);
       unawaited(widget.windowController.setFullscreen(false));
+      if (widget.onFullscreenChanged case final onFullscreenChanged?) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => onFullscreenChanged(false),
+        );
+      }
     }
     _focusNode.dispose();
     super.dispose();
@@ -433,9 +456,24 @@ class _PlayerPaneState extends State<PlayerPane> {
   Widget build(BuildContext context) {
     final channel = widget.channel;
     if (channel == null) {
-      return _EmptyPlayer(
-        resumeChannel: widget.resumeChannel,
-        onResume: widget.onResume,
+      return CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyF): _toggleFullscreen,
+          const SingleActivator(LogicalKeyboardKey.f11): _toggleFullscreen,
+          const SingleActivator(LogicalKeyboardKey.escape): _exitFullscreen,
+        },
+        child: Focus(
+          focusNode: _focusNode,
+          autofocus: true,
+          child: Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerDown: (_) => _focusNode.requestFocus(),
+            child: _EmptyPlayer(
+              resumeChannel: widget.resumeChannel,
+              onResume: widget.onResume,
+            ),
+          ),
+        ),
       );
     }
     final controlsVisible = shouldShowPlaybackControls(

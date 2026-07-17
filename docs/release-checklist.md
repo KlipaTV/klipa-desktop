@@ -39,11 +39,16 @@ and artifacts under `dist` are local and ignored by Git.
 
 ## Owner-provided release inputs
 
-- Windows code-signing certificate installed in the current-user certificate
-  store, its thumbprint, and an approved HTTPS RFC 3161 timestamp URL.
+- Windows release signing runs through SignPath in CI (see
+  `docs/code-signing-policy.md`): the `SIGNPATH_API_TOKEN` and
+  `SIGNPATH_ORGANIZATION_ID` repository secrets must be set, and every
+  signing request needs the maintainer's manual approval in the SignPath
+  web UI. A locally installed certificate thumbprint plus an approved HTTPS
+  RFC 3161 timestamp URL remain an optional path for local, non-release
+  packaging only.
 - Optional Linux signing-key fingerprint and, if using APT, a separately signed
   repository-metadata workflow.
 - `hello@klipa.tv` is the monitored private security and package contact.
 - Final first-party source-license posture and Klipa trademark approval.
-- Explicit approval before configuring a remote, pushing, uploading artifacts,
-  opening a public repository, or creating store/repository listings.
+- Explicit approval before pushing a `v*` release tag, uploading artifacts
+  outside the release workflow, or creating store/repository listings.

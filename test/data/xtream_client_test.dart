@@ -97,6 +97,74 @@ http://media.example/custom/$username/$password/42.m3u8
     },
   );
 
+  test('strips pasted query and fragment from the server address', () async {
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode(switch (request.uri.queryParameters['action']) {
+          null => {
+            'user_info': {'auth': 1, 'status': 'Active'},
+          },
+          'get_live_categories' => <Object?>[],
+          'get_live_streams' => [
+            {'stream_id': 42, 'name': 'Fixture News'},
+          ],
+          _ => throw StateError('Unexpected Xtream action'),
+        }),
+      );
+      await request.response.close();
+    });
+
+    final result = await XtreamClient().loadLiveChannels(
+      server: Uri.parse(
+        'http://127.0.0.1:${server.port}/get.php'
+        '?username=stale&password=stale&type=m3u_plus#fragment',
+      ),
+      username: 'fixture-user',
+      password: 'fixture-password',
+      allowPrivateNetwork: true,
+    );
+
+    expect(result.server, Uri.parse('http://127.0.0.1:${server.port}'));
+    final streamUri = result.channels.single.streamUri;
+    expect(streamUri.query, isEmpty);
+    expect(streamUri.fragment, isEmpty);
+    expect(streamUri.pathSegments, [
+      'live',
+      'fixture-user',
+      'fixture-password',
+      '42.ts',
+    ]);
+  });
+
+  test('accepts boolean authentication flags', () async {
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode(switch (request.uri.queryParameters['action']) {
+          null => {
+            'user_info': {'auth': true, 'status': 'Active'},
+          },
+          'get_live_categories' => <Object?>[],
+          'get_live_streams' => [
+            {'stream_id': 7, 'name': 'Fixture News'},
+          ],
+          _ => throw StateError('Unexpected Xtream action'),
+        }),
+      );
+      await request.response.close();
+    });
+
+    final result = await XtreamClient().loadLiveChannels(
+      server: Uri.parse('http://127.0.0.1:${server.port}'),
+      username: 'fixture-user',
+      password: 'fixture-password',
+      allowPrivateNetwork: true,
+    );
+
+    expect(result.channels.single.name, 'Fixture News');
+  });
+
   test('rejects inactive accounts without returning credentials', () async {
     server.listen((request) async {
       request.response.headers.contentType = ContentType.json;

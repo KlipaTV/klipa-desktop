@@ -38,6 +38,72 @@ void main() {
     expect(programme.endUtc, DateTime.utc(2026, 7, 16, 11));
     expect(result.outsideWindowEntries, 1);
     expect(result.skippedEntries, 1);
+    expect(result.truncated, isFalse);
+  });
+
+  test('captures CDATA titles and descriptions', () {
+    final result = parser.parse(
+      _bytes('''<tv>
+  <programme start="20260716100000 Z" stop="20260716110000 Z" channel="one">
+    <title><![CDATA[Morning & News]]></title>
+    <desc><![CDATA[First]]> and <![CDATA[second]]></desc>
+  </programme>
+</tv>'''),
+      sourceId: 'source-1',
+      nowUtc: now,
+    );
+
+    final programme = result.programmes.single;
+    expect(programme.title, 'Morning & News');
+    expect(programme.description, 'First and second');
+  });
+
+  test('accepts truncated timestamps and reads absent zones as UTC', () {
+    final result = parser.parse(
+      _bytes('''<tv>
+  <programme start="20260716100000" stop="202607161130" channel="one">
+    <title>No zone</title>
+  </programme>
+</tv>'''),
+      sourceId: 'source-1',
+      nowUtc: now,
+    );
+
+    final programme = result.programmes.single;
+    expect(programme.startUtc, DateTime.utc(2026, 7, 16, 10));
+    expect(programme.endUtc, DateTime.utc(2026, 7, 16, 11, 30));
+  });
+
+  test('applies negative timestamp offsets', () {
+    final result = parser.parse(
+      _bytes('''<tv>
+  <programme start="20260716060000 -0500" stop="20260716070000 -0500"
+      channel="one">
+    <title>Morning</title>
+  </programme>
+</tv>'''),
+      sourceId: 'source-1',
+      nowUtc: now,
+    );
+
+    final programme = result.programmes.single;
+    expect(programme.startUtc, DateTime.utc(2026, 7, 16, 11));
+    expect(programme.endUtc, DateTime.utc(2026, 7, 16, 12));
+  });
+
+  test('skips programmes with invalid calendar dates', () {
+    final result = parser.parse(
+      _bytes('''<tv>
+  <programme start="20260230100000 Z" stop="20260716110000 Z" channel="one">
+    <title>Bad date</title>
+  </programme>
+</tv>'''),
+      sourceId: 'source-1',
+      nowUtc: now,
+    );
+
+    expect(result.programmes, isEmpty);
+    expect(result.skippedEntries, 1);
   });
 
   test('parses gzip in a background isolate', () async {
@@ -96,27 +162,24 @@ void main() {
     );
   });
 
-  test('enforces programme and nesting limits', () {
+  test('truncates programmes beyond the limit and keeps the guide', () {
     const constrained = XmltvParser(programmeLimit: 1);
     const programme = '''
 <programme start="20260716100000 Z" stop="20260716110000 Z" channel="one">
   <title>Morning</title>
 </programme>''';
-    expect(
-      () => constrained.parse(
-        _bytes('<tv>$programme$programme</tv>'),
-        sourceId: 'source-1',
-        nowUtc: now,
-      ),
-      throwsA(
-        isA<XmltvFormatException>().having(
-          (error) => error.message,
-          'message',
-          contains('500,000'),
-        ),
-      ),
+
+    final result = constrained.parse(
+      _bytes('<tv>$programme$programme</tv>'),
+      sourceId: 'source-1',
+      nowUtc: now,
     );
 
+    expect(result.programmes, hasLength(1));
+    expect(result.truncated, isTrue);
+  });
+
+  test('enforces the nesting limit', () {
     final nested = List.filled(XmltvParser.maxDepth + 1, '<x>').join();
     final unnested = List.filled(XmltvParser.maxDepth + 1, '</x>').join();
     expect(

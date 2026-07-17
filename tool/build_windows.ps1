@@ -10,13 +10,20 @@ $developRoot = [IO.Path]::GetFullPath((Join-Path $env:USERPROFILE 'develop'))
 $mirror = [IO.Path]::GetFullPath(
   (Join-Path $developRoot 'klipa-player-windows-native')
 )
-$flutter = Join-Path $env:USERPROFILE 'develop\flutter\bin\flutter.bat'
+
+# Prefer Flutter from PATH (CI runners, standard installs); fall back to the
+# local development mirror location.
+$flutter = (Get-Command flutter -ErrorAction SilentlyContinue).Source
+$localFlutter = Join-Path $env:USERPROFILE 'develop\flutter\bin\flutter.bat'
+if (-not $flutter -and (Test-Path -LiteralPath $localFlutter)) {
+  $flutter = $localFlutter
+}
 
 if (-not $mirror.StartsWith($developRoot + [IO.Path]::DirectorySeparatorChar)) {
   throw "Refusing to synchronize outside $developRoot"
 }
-if (-not (Test-Path -LiteralPath $flutter)) {
-  throw "Windows Flutter was not found at $flutter"
+if (-not $flutter) {
+  throw "Flutter was not found on PATH or at $localFlutter"
 }
 
 New-Item -ItemType Directory -Path $mirror -Force | Out-Null

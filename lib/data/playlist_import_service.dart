@@ -76,7 +76,12 @@ class PlaylistImportService {
   }) async {
     switch (source.kind) {
       case PlaylistSourceKind.remoteUrl:
-        final uri = Uri.parse(source.location);
+        final uri = Uri.tryParse(source.location);
+        if (uri == null) {
+          throw const PlaylistFormatException(
+            'The saved playlist address is invalid. Re-add this source.',
+          );
+        }
         final bytes = await _httpClient.getPlaylist(
           uri,
           allowPrivateNetwork: source.allowsPrivateNetwork,
@@ -98,8 +103,14 @@ class PlaylistImportService {
             'The saved Xtream login is incomplete. Re-add this source.',
           );
         }
+        final server = Uri.tryParse(source.location);
+        if (server == null) {
+          throw const XtreamException(
+            'The saved Xtream server address is invalid. Re-add this source.',
+          );
+        }
         final imported = await fromXtream(
-          server: Uri.parse(source.location),
+          server: server,
           username: username,
           password: password,
           allowPrivateNetwork: source.allowsPrivateNetwork,

@@ -19,3 +19,7 @@ linter:
     only_throw_errors: true
     prefer_final_locals: true
     unawaited_futures: true
+    # Constructors intentionally expose public parameters while assigning
+    # private fields (a dependency-injection seam); an initializing formal
+    # would rename the public parameter and break call sites.
+    prefer_initializing_formals: false
