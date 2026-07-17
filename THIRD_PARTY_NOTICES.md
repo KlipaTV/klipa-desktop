@@ -8,7 +8,9 @@ Known native review targets include Flutter Engine, media_kit/libmpv/FFmpeg,
 SQLite3MultipleCiphers, and Windows plugin binaries.
 
 The Flutter release bundle contains its generated compressed notice database.
-Linux obtains libmpv from the distribution. The Windows libmpv/FFmpeg build is
-provided by `media_kit_libs_windows_video`; its transitive codec configuration
-and corresponding LGPL/GPL obligations require an independent review before
-public distribution.
+Linux obtains libmpv from the distribution. Windows release builds replace the
+DLL supplied by `media_kit_libs_windows_video` with Klipa's source-built,
+LGPL-profile libmpv/FFmpeg runtime. Its exact licenses, source revisions, build
+patch, toolchain versions, and hashes are bundled under
+`licenses/windows-media`; the corresponding-source archive is retained beside
+the installer and portable ZIP.

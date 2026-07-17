@@ -21,7 +21,7 @@ function Find-SignTool {
 }
 
 $signTool = $null
-$normalizedThumbprint = $SigningThumbprint.Replace(' ', '')
+$normalizedThumbprint = ($SigningThumbprint -replace '\s', '')
 if ($normalizedThumbprint) {
   if ($normalizedThumbprint -notmatch '^[0-9A-Fa-f]{40}$') {
     throw 'SigningThumbprint must be a 40-character certificate thumbprint.'
@@ -96,5 +96,12 @@ if ($signTool) {
   if ($LASTEXITCODE -ne 0) { throw 'Windows installer signature verification failed.' }
 }
 
-Write-Host "Windows installer: $(Join-Path $dist 'KlipaPlayer-Setup-x64.exe')"
+$setup = Join-Path $dist 'KlipaPlayer-Setup-x64.exe'
+$hashLines = foreach ($artifact in @($setup, $portable)) {
+  $hash = (Get-FileHash -LiteralPath $artifact -Algorithm SHA256).Hash.ToLowerInvariant()
+  "$hash *$(Split-Path -Leaf $artifact)"
+}
+$hashLines | Set-Content -LiteralPath (Join-Path $dist 'SHA256SUMS.txt') -Encoding ascii
+
+Write-Host "Windows installer: $setup"
 Write-Host "Portable archive: $portable"

@@ -48,6 +48,8 @@ the corresponding source offer and license texts where LGPL/GPL requires them,
 and record the precise mpv/FFmpeg build configuration. Re-run the inventory for
 every dependency or toolchain update.
 
-Linux deliberately links the distribution's libmpv. Windows currently uses the
-native DLL supplied by `media_kit_libs_windows_video`; its embedded file version
-must be reviewed independently of the Dart package version.
+Linux deliberately links the distribution's libmpv. A Windows release build
+refuses to proceed without the locally built runtime from
+`tool/build_windows_media.sh`, verifies its SHA-256, replaces the package DLL,
+and bundles its license and provenance records. Archive the separately generated
+corresponding-source file beside every distributed Windows release.

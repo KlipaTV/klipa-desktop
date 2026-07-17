@@ -22,9 +22,6 @@ and artifacts under `dist` are local and ignored by Git.
 
 ## Engineering gates still open
 
-- Replace or independently rebuild and license-review the Windows libmpv DLL.
-  The latest `media_kit_libs_windows_video` package currently supplies a DLL
-  whose embedded version is `v0.36.0-403-g652a1dd907`.
 - Run corrupt-media and repeated channel-switch tests on the documented Intel,
   AMD, and NVIDIA matrix, including HLS and MPEG-TS.
 - Validate install and upgrade on clean Windows 10/11 and supported
@@ -47,3 +44,14 @@ and artifacts under `dist` are local and ignored by Git.
 - Final first-party source-license posture and Klipa trademark approval.
 - Explicit approval before configuring a remote, pushing, uploading artifacts,
   opening a public repository, or creating store/repository listings.
+
+## Windows media runtime gate
+
+- Build `libmpv-2.dll` with `tool/build_windows_media.sh --archive-source`.
+- Confirm mpv GPL mode is disabled; FFmpeg is LGPLv3-compatible; GPL, nonfree,
+  Vulkan, and unused scripting/plugin branches are absent from the profile.
+- Verify the staged SHA-256 files, PE import inventory, source revisions,
+  licenses, toolchain versions, and corresponding-source archive.
+- Build and test the release bundle through `tool/build_windows.ps1`; it must
+  reject a missing or hash-mismatched vetted runtime.
+- Preserve the source archive with the signed installer and portable ZIP.
