@@ -38,6 +38,7 @@ class LibraryController extends Notifier<LibraryState> {
   var _disposed = false;
   final _favoriteWrites = <ChannelIdentity>{};
   Future<void> _navigationWrites = Future.value();
+  Future<void> _favoriteWriteChain = Future.value();
 
   PlaylistImportService get _importer =>
       ref.read(playlistImportServiceProvider);
@@ -58,17 +59,14 @@ class LibraryController extends Notifier<LibraryState> {
     String? guideUrl,
   }) async {
     final uri = Uri.tryParse(value.trim());
-    if (uri == null) {
+    if (uri == null || !_isValidHttpShape(uri)) {
       state = state.copyWith(error: 'Enter a valid playlist address.');
       return;
     }
     final normalizedGuide = guideUrl?.trim();
     if (normalizedGuide != null && normalizedGuide.isNotEmpty) {
       final guideUri = Uri.tryParse(normalizedGuide);
-      try {
-        if (guideUri == null) throw const FormatException();
-        const NetworkPolicy().validateHttpUriShape(guideUri);
-      } on Object {
+      if (guideUri == null || !_isValidHttpShape(guideUri)) {
         state = state.copyWith(error: 'Enter a valid XMLTV guide address.');
         return;
       }
@@ -116,11 +114,13 @@ class LibraryController extends Notifier<LibraryState> {
   }
 
   void filterGroup(String? value) {
+    if (state.isResetting) return;
     state = state.copyWith(selectedGroup: value, clearGroup: value == null);
     _queueNavigationSave();
   }
 
   void filterSource(String? sourceId) {
+    if (state.isResetting) return;
     final sourceChannels = sourceId == null
         ? state.channels
         : state.channels
@@ -142,17 +142,23 @@ class LibraryController extends Notifier<LibraryState> {
   }
 
   Future<void> toggleFavorite(Channel channel) async {
-    if (_operationInProgress) return;
     final identity = (sourceId: channel.sourceId, channelId: channel.id);
     if (!_favoriteWrites.add(identity)) return;
-    final favorite = !state.favoriteChannels.contains(identity);
     try {
-      await _navigationWrites;
-      await _store.setFavorite(
-        sourceId: identity.sourceId,
-        channelId: identity.channelId,
-        favorite: favorite,
-      );
+      if (state.isLoading || state.isImporting || state.isResetting) return;
+      final favorite = !state.favoriteChannels.contains(identity);
+      // Serialize the store writes so a burst of toggles across many channels
+      // does not spawn one isolate (and one key derivation) per channel at once.
+      final write = _favoriteWriteChain.then((_) async {
+        await _navigationWrites;
+        await _store.setFavorite(
+          sourceId: identity.sourceId,
+          channelId: identity.channelId,
+          favorite: favorite,
+        );
+      });
+      _favoriteWriteChain = write.then((_) {}, onError: (_) {});
+      await write;
       if (_disposed) return;
       final favorites = state.favoriteChannels.toSet();
       favorite ? favorites.add(identity) : favorites.remove(identity);
@@ -172,6 +178,7 @@ class LibraryController extends Notifier<LibraryState> {
   }
 
   void select(Channel channel) {
+    if (state.isResetting) return;
     state = state.copyWith(
       selectedChannel: channel,
       lastChannelIdentity: (sourceId: channel.sourceId, channelId: channel.id),
@@ -220,14 +227,14 @@ class LibraryController extends Notifier<LibraryState> {
         password: access.password,
         guideLocation: access.guideLocation,
       );
-      final schedules = await _refreshGuide(
+      final guide = await _refreshGuide(
         result.source,
         username: access.username,
         password: access.password,
         guideLocation: access.guideLocation,
       );
       if (_disposed) return;
-      _publishSourceSnapshot(result, verb: 'Refreshed', schedules: schedules);
+      _publishSourceSnapshot(result, verb: 'Refreshed', guide: guide);
     } on Object catch (error) {
       _failOperation(error);
     }
@@ -246,10 +253,10 @@ class LibraryController extends Notifier<LibraryState> {
       await _store.renameSource(sourceId: sourceId, name: normalized);
       if (_disposed) return;
       state = state.copyWith(
-        sources: List.unmodifiable([
+        sources: List.unmodifiable(<LibrarySource>[
           for (final source in state.sources)
             source.id == sourceId ? source.copyWith(name: normalized) : source,
-        ]),
+        ]..sort(_compareSources)),
         isImporting: false,
         clearOperationMessage: true,
         message: 'Renamed source.',
@@ -273,6 +280,16 @@ class LibraryController extends Notifier<LibraryState> {
       final lastChannelWasDeleted =
           state.lastChannelIdentity?.sourceId == sourceId;
       final sourceFilterWasDeleted = state.selectedSourceId == sourceId;
+      final relevantChannels = state.selectedSourceId == null
+          ? channels
+          : channels
+                .where((channel) => channel.sourceId == state.selectedSourceId)
+                .toList(growable: false);
+      final keepSelectedGroup =
+          state.selectedGroup == null ||
+          relevantChannels.any(
+            (channel) => channel.group == state.selectedGroup,
+          );
       state = state.copyWith(
         sources: List.unmodifiable(
           state.sources.where((source) => source.id != sourceId),
@@ -291,7 +308,7 @@ class LibraryController extends Notifier<LibraryState> {
         clearSelection: selectedWasDeleted,
         clearLastChannel: lastChannelWasDeleted,
         clearSource: sourceFilterWasDeleted,
-        clearGroup: sourceFilterWasDeleted,
+        clearGroup: !keepSelectedGroup,
         isImporting: false,
         clearOperationMessage: true,
         message: 'Deleted source.',
@@ -356,7 +373,13 @@ class LibraryController extends Notifier<LibraryState> {
     String? password,
     String? guideLocation,
   }) async {
-    if (_operationInProgress) return;
+    if (_operationInProgress) {
+      state = state.copyWith(
+        error: 'Another operation is in progress.',
+        clearMessage: true,
+      );
+      return;
+    }
     _startOperation(operationMessage);
     try {
       final result = await operation();
@@ -374,7 +397,7 @@ class LibraryController extends Notifier<LibraryState> {
         password: password,
         guideLocation: guideLocation,
       );
-      final schedules = await _refreshGuide(
+      final guide = await _refreshGuide(
         result.source,
         username: username,
         password: password,
@@ -382,7 +405,7 @@ class LibraryController extends Notifier<LibraryState> {
       );
       if (_disposed) return;
 
-      _publishSourceSnapshot(result, verb: 'Imported', schedules: schedules);
+      _publishSourceSnapshot(result, verb: 'Imported', guide: guide);
     } on Object catch (error) {
       _failOperation(error);
     }
@@ -391,7 +414,7 @@ class LibraryController extends Notifier<LibraryState> {
   void _publishSourceSnapshot(
     PlaylistImportResult result, {
     required String verb,
-    Map<ChannelIdentity, ChannelSchedule>? schedules,
+    required _GuideRefresh guide,
   }) {
     final otherChannels = state.channels
         .where((channel) => channel.sourceId != result.source.id)
@@ -444,17 +467,33 @@ class LibraryController extends Notifier<LibraryState> {
     final warningSuffix = result.warnings.isEmpty
         ? ''
         : ' ${result.warnings.length} entries were skipped or limited.';
+    final guideSuffix = guide.error == null
+        ? ''
+        : ' The guide could not be loaded: ${guide.error}';
+    final guideTruncatedSuffix = guide.truncated
+        ? ' The guide was too large and was loaded only in part.'
+        : '';
+    final schedules =
+        guide.schedules ??
+        Map<ChannelIdentity, ChannelSchedule>.unmodifiable(
+          Map<ChannelIdentity, ChannelSchedule>.of(state.schedules)
+            ..removeWhere(
+              (identity, _) =>
+                  identity.sourceId == result.source.id &&
+                  !refreshedChannelIds.contains(identity.channelId),
+            ),
+        );
     final sources = <LibrarySource>[
       ...otherSources,
       previousSource == null
           ? source
           : source.copyWith(name: previousSource.name),
-    ]..sort((left, right) => left.name.compareTo(right.name));
+    ]..sort(_compareSources);
     state = state.copyWith(
       sources: List.unmodifiable(sources),
       channels: List.unmodifiable(channels),
       favoriteChannels: Set.unmodifiable(favorites),
-      schedules: schedules ?? state.schedules,
+      schedules: schedules,
       groups: LibraryState.deriveGroups(channels),
       selectedChannel: refreshedSelection,
       clearSelection: selectedId != null && refreshedSelection == null,
@@ -462,7 +501,9 @@ class LibraryController extends Notifier<LibraryState> {
       clearGroup: !keepSelectedGroup,
       isImporting: false,
       clearOperationMessage: true,
-      message: '$verb ${result.channels.length} channels.$warningSuffix',
+      clearError: true,
+      message: '$verb ${result.channels.length} channels.$warningSuffix'
+          '$guideSuffix$guideTruncatedSuffix',
     );
     _queueNavigationSave();
   }
@@ -473,8 +514,9 @@ class LibraryController extends Notifier<LibraryState> {
       if (_disposed) return;
       final channels = snapshot.channels.toList()
         ..sort((left, right) => left.name.compareTo(right.name));
+      final sources = snapshot.sources.toList()..sort(_compareSources);
       state = state.copyWith(
-        sources: List.unmodifiable(snapshot.sources),
+        sources: List.unmodifiable(sources),
         channels: List.unmodifiable(channels),
         favoriteChannels: Set.unmodifiable(snapshot.favoriteChannels),
         schedules: Map.unmodifiable(snapshot.schedules),
@@ -496,7 +538,7 @@ class LibraryController extends Notifier<LibraryState> {
     }
   }
 
-  Future<Map<ChannelIdentity, ChannelSchedule>?> _refreshGuide(
+  Future<_GuideRefresh> _refreshGuide(
     PlaylistSource source, {
     String? username,
     String? password,
@@ -505,7 +547,7 @@ class LibraryController extends Notifier<LibraryState> {
     final store = _store;
     if (source.kind != PlaylistSourceKind.xtream && guideLocation == null ||
         store is! EpgLibraryStore) {
-      return null;
+      return (schedules: null, error: null, truncated: false);
     }
     final epgStore = store as EpgLibraryStore;
     try {
@@ -520,18 +562,24 @@ class LibraryController extends Notifier<LibraryState> {
                 ? null
                 : Uri.parse(guideLocation),
           );
-      return epgStore.replaceProgrammeSnapshot(
+      final schedules = await epgStore.replaceProgrammeSnapshot(
         sourceId: source.id,
         programmes: guide.programmes,
         refreshedAt: guide.refreshedAt,
         expiresAt: guide.expiresAt,
       );
-    } on Object {
-      return null;
+      return (schedules: schedules, error: null, truncated: guide.truncated);
+    } on Object catch (error) {
+      return (
+        schedules: null,
+        error: const SensitiveDataRedactor().text(error.toString()),
+        truncated: false,
+      );
     }
   }
 
   void _queueNavigationSave() {
+    if (state.isResetting) return;
     final store = _store;
     final navigation = LibraryNavigation(
       selectedSourceId: state.selectedSourceId,
@@ -548,4 +596,24 @@ class LibraryController extends Notifier<LibraryState> {
           );
         });
   }
+
+  bool _isValidHttpShape(Uri uri) {
+    try {
+      const NetworkPolicy().validateHttpUriShape(uri);
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
+  static int _compareSources(LibrarySource left, LibrarySource right) {
+    final byName = left.name.toLowerCase().compareTo(right.name.toLowerCase());
+    return byName != 0 ? byName : left.id.compareTo(right.id);
+  }
 }
+
+typedef _GuideRefresh = ({
+  Map<ChannelIdentity, ChannelSchedule>? schedules,
+  String? error,
+  bool truncated,
+});

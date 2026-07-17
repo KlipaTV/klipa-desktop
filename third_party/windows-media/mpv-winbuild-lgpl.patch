@@ -1,0 +1,237 @@
+diff --git a/packages/ffmpeg.cmake b/packages/ffmpeg.cmake
+index 252c687..6324eb2 100644
+--- a/packages/ffmpeg.cmake
++++ b/packages/ffmpeg.cmake
+@@ -1,7 +1,6 @@
+ ExternalProject_Add(ffmpeg
+     DEPENDS
+         amf-headers
+-        avisynth-headers
+         ${nvcodec_headers}
+         bzip2
+         lame
+@@ -11,9 +10,6 @@ ExternalProject_Add(ffmpeg
+         libsrt
+         libass
+         libbluray
+-        libdvdnav
+-        libdvdread
+-        libmodplug
+         libpng
+         libsoxr
+         libbs2b
+@@ -26,26 +22,14 @@ ExternalProject_Add(ffmpeg
+         opus
+         speex
+         vorbis
+-        x264
+-        ${ffmpeg_x265}
+-        xvidcore
+         libxml2
+         libvpl
+-        libopenmpt
+-        libjxl
+-        shaderc
+-        libplacebo
+         libzvbi
+         libaribcaption
+         aom
+         svtav1
+         dav1d
+-        ${ffmpeg_uavs3d}
+-        ${ffmpeg_davs2}
+-        vapoursynth
+-        rubberband
+         libva
+-        openal-soft
+     GIT_REPOSITORY https://github.com/FFmpeg/FFmpeg.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--sparse --filter=tree:0"
+@@ -59,20 +45,13 @@ ExternalProject_Add(ffmpeg
+         --pkg-config-flags=--static
+         --enable-cross-compile
+         --enable-runtime-cpudetect
+-        --enable-gpl
+         --enable-version3
+-        --enable-avisynth
+-        --enable-vapoursynth
+         --enable-libass
+         --enable-libbluray
+-        --enable-libdvdnav
+-        --enable-libdvdread
+         --enable-libfreetype
+         --enable-libfribidi
+         --enable-libfontconfig
+         --enable-libharfbuzz
+-        --enable-libmodplug
+-        --enable-libopenmpt
+         --enable-libmp3lame
+         --enable-lcms2
+         --enable-libopus
+@@ -80,17 +59,11 @@ ExternalProject_Add(ffmpeg
+         --enable-libspeex
+         --enable-libvorbis
+         --enable-libbs2b
+-        --enable-librubberband
+         --enable-libvpx
+         --enable-libwebp
+-        --enable-libx264
+-        --enable-libx265
+         --enable-libaom
+         --enable-libsvtav1
+         --enable-libdav1d
+-        ${ffmpeg_davs2_cmd}
+-        ${ffmpeg_uavs3d_cmd}
+-        --enable-libxvid
+         --enable-libzimg
+         --enable-openssl
+         --enable-libxml2
+@@ -98,14 +73,12 @@ ExternalProject_Add(ffmpeg
+         --enable-libssh
+         --enable-libsrt
+         --enable-libvpl
+-        --enable-libjxl
+-        --enable-libplacebo
+-        --enable-libshaderc
++        --disable-libplacebo
++        --disable-vulkan
+         --enable-libzvbi
+         --enable-libaribcaption
+         ${ffmpeg_cuda}
+         --enable-amf
+-        --enable-openal
+         --enable-opengl
+         --disable-doc
+         --disable-ffplay
+diff --git a/packages/libplacebo.cmake b/packages/libplacebo.cmake
+index b5797dc..5479f5c 100644
+--- a/packages/libplacebo.cmake
++++ b/packages/libplacebo.cmake
+@@ -2,9 +2,7 @@ get_property(src_glad TARGET glad PROPERTY _EP_SOURCE_DIR)
+ get_property(src_fast_float TARGET fast_float PROPERTY _EP_SOURCE_DIR)
+ ExternalProject_Add(libplacebo
+     DEPENDS
+-        vulkan
+-        shaderc
+         spirv-cross
+         lcms2
+         glad
+         fast_float
+@@ -28,7 +26,9 @@ ExternalProject_Add(libplacebo
+         -Ddebug=true
+         -Db_ndebug=true
+         -Doptimization=3
+-        -Dvulkan-registry='${MINGW_INSTALL_PREFIX}/share/vulkan/registry/vk.xml'
++        -Dvulkan=disabled
++        -Dglslang=disabled
++        -Dshaderc=disabled
+         -Ddemos=false
+     BUILD_COMMAND ${EXEC} ninja -C <BINARY_DIR>
+     INSTALL_COMMAND ${EXEC} ninja -C <BINARY_DIR> install
+diff --git a/packages/spirv-cross.cmake b/packages/spirv-cross.cmake
+index d49b9d3..63f61ba 100644
+--- a/packages/spirv-cross.cmake
++++ b/packages/spirv-cross.cmake
+@@ -5,7 +5,6 @@ ExternalProject_Add(spirv-cross
+     GIT_REMOTE_NAME origin
+     GIT_TAG main
+     UPDATE_COMMAND ""
+-    PATCH_COMMAND ${EXEC} git am --3way ${CMAKE_CURRENT_SOURCE_DIR}/spirv-cross-*.patch
+     CONFIGURE_COMMAND ${EXEC} CONF=1 cmake -H<SOURCE_DIR> -B<BINARY_DIR>
+         -G Ninja
+         -DCMAKE_BUILD_TYPE=Release
+@@ -13,7 +12,8 @@ ExternalProject_Add(spirv-cross
+         -DCMAKE_INSTALL_PREFIX=${MINGW_INSTALL_PREFIX}
+         -DCMAKE_FIND_ROOT_PATH=${MINGW_INSTALL_PREFIX}
+         -DBUILD_SHARED_LIBS=OFF
+-        -DSPIRV_CROSS_SHARED=ON
++        -DSPIRV_CROSS_SHARED=OFF
++        -DSPIRV_CROSS_STATIC=ON
+         -DSPIRV_CROSS_CLI=OFF
+         -DSPIRV_CROSS_ENABLE_TESTS=OFF
+         -DCMAKE_CXX_FLAGS='${CMAKE_CXX_FLAGS} -D__USE_MINGW_ANSI_STDIO'
+@@ -24,7 +24,9 @@ ExternalProject_Add(spirv-cross
+ 
+ ExternalProject_Add_Step(spirv-cross symlink
+     DEPENDEES install
+-    COMMAND ${CMAKE_COMMAND} -E create_symlink ${MINGW_INSTALL_PREFIX}/lib/pkgconfig/spirv-cross-c-shared.pc
++    COMMAND ${CMAKE_COMMAND} -E create_symlink ${MINGW_INSTALL_PREFIX}/lib/pkgconfig/spirv-cross-c.pc
++                                               ${MINGW_INSTALL_PREFIX}/lib/pkgconfig/spirv-cross-c-shared.pc
++    COMMAND ${CMAKE_COMMAND} -E create_symlink ${MINGW_INSTALL_PREFIX}/lib/pkgconfig/spirv-cross-c.pc
+                                                ${MINGW_INSTALL_PREFIX}/lib/pkgconfig/spirv-cross.pc
+ )
+ 
+diff --git a/packages/mpv.cmake b/packages/mpv.cmake
+index 51920c9..b8ec9b1 100644
+--- a/packages/mpv.cmake
++++ b/packages/mpv.cmake
+@@ -6,24 +6,11 @@ ExternalProject_Add(mpv
+         lcms2
+         libarchive
+         libass
+-        libdvdnav
+-        libdvdread
+         libiconv
+         libjpeg
+         libpng
+-        luajit
+-        rubberband
+         uchardet
+-        openal-soft
+-        mujs
+-        vulkan
+-        shaderc
+         libplacebo
+-        spirv-cross
+-        vapoursynth
+-        libsdl2
+-        subrandr
+-        libsixel
+     GIT_REPOSITORY https://github.com/mpv-player/mpv.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--filter=tree:0"
+@@ -40,22 +26,23 @@ ExternalProject_Add(mpv
+         -Db_lto=true
+         ${mpv_lto_mode}
+         -Dlibmpv=true
++        -Dgpl=false
+-        -Dpdf-build=enabled
++        -Dpdf-build=disabled
+-        -Dlua=enabled
+-        -Djavascript=enabled
+-        -Dsdl2-gamepad=enabled
++        -Dlua=disabled
++        -Djavascript=disabled
++        -Dsdl2-gamepad=disabled
+         -Dlibarchive=enabled
+         -Dlibbluray=enabled
+-        -Ddvdnav=enabled
++        -Ddvdnav=disabled
+         -Duchardet=enabled
+-        -Drubberband=enabled
++        -Drubberband=disabled
+         -Dlcms2=enabled
+-        -Dopenal=enabled
+-        -Dspirv-cross=enabled
+-        -Dvulkan=enabled
+-        -Dvapoursynth=enabled
+-        -Dsubrandr=enabled
+-        -Dsixel=enabled
++        -Dopenal=disabled
++        -Dspirv-cross=disabled
++        -Dvulkan=disabled
++        -Dvapoursynth=disabled
++        -Dsubrandr=disabled
++        -Dsixel=disabled
+         ${mpv_gl}
+-        -Dc_args='-Wno-error=int-conversion'
++        -Dc_args='-Wno-error=int-conversion -DEGL_PLATFORM_ANGLE_TYPE_D3D9_ANGLE=0x3207'
+     BUILD_COMMAND ${EXEC} LTO_JOB=1 PDB=1 ninja -C <BINARY_DIR>
+@@ -69,7 +56,6 @@ ExternalProject_Add_Step(mpv copy-binary
+     DEPENDEES strip-binary
+     COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/mpv.exe                           ${CMAKE_CURRENT_BINARY_DIR}/mpv-package/mpv.exe
+     COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/mpv.com                           ${CMAKE_CURRENT_BINARY_DIR}/mpv-package/mpv.com
+-    COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/mpv.pdf                           ${CMAKE_CURRENT_BINARY_DIR}/mpv-package/doc/manual.pdf
+     COMMAND ${CMAKE_COMMAND} -E copy ${MINGW_INSTALL_PREFIX}/etc/fonts/fonts.conf   ${CMAKE_CURRENT_BINARY_DIR}/mpv-package/mpv/fonts.conf
+     ${mpv_copy_debug}
+     COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/libmpv-2.dll          ${CMAKE_CURRENT_BINARY_DIR}/mpv-dev/libmpv-2.dll

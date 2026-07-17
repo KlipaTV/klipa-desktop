@@ -4,7 +4,9 @@ class SensitiveDataRedactor {
   static const String replacement = '<redacted>';
 
   String uri(Uri value) {
-    if (!value.hasAuthority) {
+    // An empty host still reports hasAuthority, but Uri.origin throws on it;
+    // guard so redacting a malformed URL in an error string cannot itself throw.
+    if (!value.hasAuthority || value.host.isEmpty) {
       return '${value.scheme}:$replacement';
     }
 

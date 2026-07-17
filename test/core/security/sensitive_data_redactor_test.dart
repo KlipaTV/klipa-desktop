@@ -28,4 +28,13 @@ void main() {
     expect(result, isNot(contains('path-secret')));
     expect(result, isNot(contains('url-secret')));
   });
+
+  test('does not throw when redacting a host-less URL in an error', () {
+    expect(
+      () => redactor.text('open failed: http://:8080/live/token-secret'),
+      returnsNormally,
+    );
+    final result = redactor.text('open failed: http://:8080/live/token-secret');
+    expect(result, isNot(contains('token-secret')));
+  });
 }

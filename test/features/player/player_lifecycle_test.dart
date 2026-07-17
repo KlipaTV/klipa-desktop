@@ -211,6 +211,78 @@ void main() {
     expect(player.disposeCount, 1);
   });
 
+  testWidgets('a failing player teardown does not block later channels', (
+    tester,
+  ) async {
+    final first = _FakeVideoPlayerPort(
+      'first',
+      disposeError: StateError('native teardown failed'),
+    );
+    final second = _FakeVideoPlayerPort('second');
+    final ports = [first, second];
+    addTearDown(() => Future.wait(ports.map((port) => port.closeStreams())));
+    var factoryIndex = 0;
+
+    await tester.pumpWidget(
+      _testApp(
+        channel: _channel('one'),
+        playerFactory: () => ports[factoryIndex++],
+        channelStartTimeout: const Duration(seconds: 1),
+      ),
+    );
+    await _pumpOpen(tester);
+    expect(first.opened.single.id, 'one');
+
+    await tester.pumpWidget(
+      _testApp(
+        channel: _channel('two'),
+        playerFactory: () => ports[factoryIndex++],
+        channelStartTimeout: const Duration(seconds: 1),
+      ),
+    );
+    await _pumpUntil(tester, () => second.opened.isNotEmpty);
+
+    expect(first.disposeCount, 1);
+    expect(second.opened.single.id, 'two');
+    second.emitPlaying(true);
+    second.emitBuffering(false);
+    await tester.pump(const Duration(milliseconds: 15));
+
+    expect(find.byKey(const ValueKey('fake-video-second')), findsOneWidget);
+    expect(find.text(_timeoutMessage), findsNothing);
+  });
+
+  testWidgets('external stop completes when player disposal fails', (
+    tester,
+  ) async {
+    final player = _FakeVideoPlayerPort(
+      'faulty',
+      disposeError: StateError('native teardown failed'),
+    );
+    final controller = PlayerPaneController();
+    addTearDown(player.closeStreams);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PlayerPane(
+            channel: _channel('one'),
+            controller: controller,
+            playerFactory: () => player,
+            channelStartTimeout: const Duration(seconds: 1),
+          ),
+        ),
+      ),
+    );
+    await _pumpOpen(tester);
+
+    await controller.stop();
+    await tester.pump();
+
+    expect(player.disposeCount, 1);
+    expect(find.byKey(const ValueKey('fake-video-faulty')), findsNothing);
+  });
+
   testWidgets('external stop awaits native player disposal', (tester) async {
     final player = _FakeVideoPlayerPort('reset');
     final controller = PlayerPaneController();
@@ -284,10 +356,11 @@ Channel _channel(String id, {String sourceId = 'fixture'}) => Channel(
 );
 
 final class _FakeVideoPlayerPort implements VideoPlayerPort {
-  _FakeVideoPlayerPort(this.label, {this.openGate});
+  _FakeVideoPlayerPort(this.label, {this.openGate, this.disposeError});
 
   final String label;
   final Completer<void>? openGate;
+  final Error? disposeError;
   final opened = <Channel>[];
   final _errors = StreamController<String>.broadcast(sync: true);
   final _playingChanges = StreamController<bool>.broadcast(sync: true);
@@ -330,7 +403,10 @@ final class _FakeVideoPlayerPort implements VideoPlayerPort {
   Future<void> setVolume(double value) async => volume = value;
 
   @override
-  Future<void> dispose() async => disposeCount++;
+  Future<void> dispose() async {
+    disposeCount++;
+    if (disposeError case final error?) throw error;
+  }
 
   void emitPlaying(bool value) {
     _playing = value;

@@ -326,6 +326,58 @@ void main() {
     expect(find.text('Two Sports'), findsNothing);
     expect(find.text('One News'), findsOneWidget);
   });
+
+  testWidgets('import shortcuts are inert while an operation runs', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          libraryControllerProvider.overrideWith(
+            _ImportingFixtureController.new,
+          ),
+        ],
+        child: const KlipaPlayerApp(),
+      ),
+    );
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyO);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(find.text('Open trusted playlist?'), findsNothing);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyO);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(find.byKey(const Key('playlist-url-field')), findsNothing);
+  });
+
+  testWidgets('the operation overlay blocks pointer input', (tester) async {
+    _BlockedImportFixtureController.selectCount = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          libraryStoreProvider.overrideWithValue(const DisabledLibraryStore()),
+          libraryControllerProvider.overrideWith(
+            _BlockedImportFixtureController.new,
+          ),
+        ],
+        child: const KlipaPlayerApp(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Importing channels…'), findsOneWidget);
+    await tester.tap(find.text('News One'), warnIfMissed: false);
+    await tester.pump();
+
+    expect(_BlockedImportFixtureController.selectCount, 0);
+  });
 }
 
 Widget _testApp() => ProviderScope(
@@ -349,6 +401,23 @@ final class _ImportingFixtureController extends LibraryController {
     isImporting: true,
     operationMessage: 'Signing in and importing channels…',
   );
+}
+
+final class _BlockedImportFixtureController extends LibraryController {
+  static var selectCount = 0;
+
+  @override
+  LibraryState build() => LibraryState(
+    channels: [_channel('News One', 'News'), _channel('Sports One', 'Sports')],
+    groups: const ['News', 'Sports'],
+    isImporting: true,
+    operationMessage: 'Importing channels…',
+  );
+
+  @override
+  void select(Channel channel) {
+    selectCount++;
+  }
 }
 
 final class _NoticeFixtureController extends LibraryController {

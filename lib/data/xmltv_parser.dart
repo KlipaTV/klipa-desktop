@@ -21,11 +21,13 @@ class XmltvParseResult {
     required this.programmes,
     required this.skippedEntries,
     required this.outsideWindowEntries,
+    required this.truncated,
   });
 
   final List<Programme> programmes;
   final int skippedEntries;
   final int outsideWindowEntries;
+  final bool truncated;
 }
 
 class XmltvParser {
@@ -92,6 +94,7 @@ class XmltvParser {
     final programmes = <Programme>[];
     var skipped = 0;
     var outsideWindow = 0;
+    var truncated = false;
     var depth = 0;
     var programmeDepth = 0;
     var captureDepth = 0;
@@ -120,12 +123,9 @@ class XmltvParser {
         } else if (!current.endUtc!.isAfter(windowStart) ||
             !current.startUtc!.isBefore(windowEnd)) {
           outsideWindow++;
+        } else if (programmes.length >= programmeLimit) {
+          truncated = true;
         } else {
-          if (programmes.length >= programmeLimit) {
-            throw const XmltvFormatException(
-              'The XMLTV guide exceeds the 500,000 programme limit.',
-            );
-          }
           programmes.add(
             Programme(
               sourceId: sourceId,
@@ -139,6 +139,19 @@ class XmltvParser {
         }
         pending = null;
         programmeDepth = 0;
+      }
+    }
+
+    void captureText(String value) {
+      if (capture != null && pending != null && !pending!.invalid) {
+        if (capture!.length + value.length > maxFieldLength) {
+          pending!.invalid = true;
+          capture = null;
+          captureName = null;
+          captureDepth = 0;
+        } else {
+          capture!.write(value);
+        }
       }
     }
 
@@ -184,16 +197,9 @@ class XmltvParser {
               depth--;
             }
           case XmlTextEvent():
-            if (capture != null && pending != null && !pending!.invalid) {
-              if (capture!.length + event.value.length > maxFieldLength) {
-                pending!.invalid = true;
-                capture = null;
-                captureName = null;
-                captureDepth = 0;
-              } else {
-                capture!.write(event.value);
-              }
-            }
+            captureText(event.value);
+          case XmlCDATAEvent():
+            captureText(event.value);
           case XmlEndElementEvent():
             finishElement(event.name);
             depth--;
@@ -205,13 +211,14 @@ class XmltvParser {
           default:
             break;
         }
+        if (truncated) break;
       }
     } on XmltvFormatException {
       rethrow;
     } on Object {
       throw const XmltvFormatException('The XMLTV guide is malformed.');
     }
-    if (depth != 0 || pending != null) {
+    if (!truncated && (depth != 0 || pending != null)) {
       throw const XmltvFormatException('The XMLTV guide is malformed.');
     }
 
@@ -223,6 +230,7 @@ class XmltvParser {
       programmes: List.unmodifiable(programmes),
       skippedEntries: skipped,
       outsideWindowEntries: outsideWindow,
+      truncated: truncated,
     );
   }
 
@@ -273,15 +281,15 @@ class XmltvParser {
   static DateTime? _parseTimestamp(String? value) {
     if (value == null) return null;
     final match = RegExp(
-      r'^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s*(Z|[+-]\d{4})$',
+      r'^(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?\s*(Z|[+-]\d{4})?$',
     ).firstMatch(value.trim());
     if (match == null) return null;
     final year = int.parse(match.group(1)!);
     final month = int.parse(match.group(2)!);
     final day = int.parse(match.group(3)!);
-    final hour = int.parse(match.group(4)!);
-    final minute = int.parse(match.group(5)!);
-    final second = int.parse(match.group(6)!);
+    final hour = int.parse(match.group(4) ?? '0');
+    final minute = int.parse(match.group(5) ?? '0');
+    final second = int.parse(match.group(6) ?? '0');
     final local = DateTime.utc(year, month, day, hour, minute, second);
     if (local.year != year ||
         local.month != month ||
@@ -291,8 +299,10 @@ class XmltvParser {
         local.second != second) {
       return null;
     }
-    final zone = match.group(7)!;
-    if (zone == 'Z') return local;
+    // XMLTV allows omitting the zone; without provider zone information an
+    // absent zone is read as UTC.
+    final zone = match.group(7);
+    if (zone == null || zone == 'Z') return local;
     final sign = zone.startsWith('-') ? -1 : 1;
     final offsetHours = int.parse(zone.substring(1, 3));
     final offsetMinutes = int.parse(zone.substring(3, 5));

@@ -131,6 +131,7 @@ class EncryptedLibraryDatabase {
         ..execute('PRAGMA trusted_schema = OFF')
         ..execute('PRAGMA secure_delete = ON')
         ..execute('PRAGMA synchronous = FULL')
+        ..execute('PRAGMA busy_timeout = 5000')
         ..execute('PRAGMA journal_mode = WAL');
       _migrate(database);
       database.select('SELECT count(*) FROM app_metadata');
@@ -734,27 +735,7 @@ class EncryptedLibraryDatabase {
     };
     if (logoUri != null) const NetworkPolicy().validateHttpUriShape(logoUri);
 
-    final decodedHeaders = jsonDecode(row['http_headers_json'] as String);
-    if (decodedHeaders is! Map) {
-      throw const LibraryDatabaseException(
-        'The encrypted library contains invalid channel data.',
-      );
-    }
-    final headers = <String, String>{};
-    const allowedHeaders = {'User-Agent', 'Referer', 'Origin'};
-    for (final entry in decodedHeaders.entries) {
-      if (entry.key is! String ||
-          entry.value is! String ||
-          !allowedHeaders.contains(entry.key) ||
-          (entry.value as String).length > 8192 ||
-          (entry.value as String).contains('\r') ||
-          (entry.value as String).contains('\n')) {
-        throw const LibraryDatabaseException(
-          'The encrypted library contains invalid channel data.',
-        );
-      }
-      headers[entry.key as String] = entry.value as String;
-    }
+    final headers = _decodeHeaders(row['http_headers_json'] as String);
     return Channel(
       id: row['id'] as String,
       name: row['name'] as String,
@@ -801,16 +782,41 @@ class EncryptedLibraryDatabase {
         )
         .firstOrNull;
     if (row == null) return null;
-    final headers = (jsonDecode(row['http_headers_json'] as String) as Map)
-        .cast<String, String>();
     return StoredChannelSecret(
       streamUri: Uri.parse(row['stream_uri'] as String),
       logoUri: switch (row['logo_uri']) {
         final String value => Uri.parse(value),
         _ => null,
       },
-      httpHeaders: Map.unmodifiable(headers),
+      httpHeaders: Map.unmodifiable(
+        _decodeHeaders(row['http_headers_json'] as String),
+      ),
     );
+  }
+
+  static Map<String, String> _decodeHeaders(String json) {
+    final decoded = jsonDecode(json);
+    if (decoded is! Map) {
+      throw const LibraryDatabaseException(
+        'The encrypted library contains invalid channel data.',
+      );
+    }
+    final headers = <String, String>{};
+    const allowedHeaders = {'User-Agent', 'Referer', 'Origin'};
+    for (final entry in decoded.entries) {
+      if (entry.key is! String ||
+          entry.value is! String ||
+          !allowedHeaders.contains(entry.key) ||
+          (entry.value as String).length > 8192 ||
+          (entry.value as String).contains('\r') ||
+          (entry.value as String).contains('\n')) {
+        throw const LibraryDatabaseException(
+          'The encrypted library contains invalid channel data.',
+        );
+      }
+      headers[entry.key as String] = entry.value as String;
+    }
+    return headers;
   }
 
   void setFavorite({

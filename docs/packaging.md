@@ -57,6 +57,8 @@ The packager creates and verifies the adjacent `.deb.asc` without exporting or
 copying private key material. A future APT repository must separately sign its
 repository metadata.
 
-The smoke scripts install to a temporary/per-user location, launch with an
-empty profile, assert that clean startup opens zero TCP connections, and
-uninstall cleanly.
+The smoke scripts launch with an empty profile, assert that clean startup
+opens zero TCP connections, and uninstall cleanly. The Windows smoke installs
+to a temporary per-user directory; the Linux smoke performs a real
+system-wide `sudo dpkg -i` into `/opt/klipa-player` and removes the package
+afterwards.

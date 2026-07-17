@@ -50,6 +50,7 @@ void main() {
       expect(result.programmes.single.title, 'Provider programme');
       expect(result.refreshedAt, now);
       expect(result.expiresAt, now.add(LocalEpgService.cacheLifetime));
+      expect(result.truncated, isFalse);
     },
   );
 

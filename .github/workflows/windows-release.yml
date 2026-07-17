@@ -1,33 +1,42 @@
 name: windows-release
 
-# Builds the Windows release bundle on a GitHub-hosted Windows runner,
-# submits the unsigned installer + portable archive to SignPath for
-# Authenticode signing, then publishes the signed artifacts to a GitHub
-# Release on the triggering tag.
+# Builds the Windows release bundle on a GitHub-hosted Windows runner and
+# signs it with SignPath in two phases:
+#   1. the application executable (klipa_player.exe) is Authenticode-signed
+#      before packaging ("windows-appfiles" artifact configuration), so the
+#      installer payload and the portable archive both ship a signed binary;
+#   2. the assembled Inno Setup installer is Authenticode-signed
+#      ("windows-installer" artifact configuration).
+# The signed artifacts are published to a GitHub Release only when the build
+# was triggered by a v* tag; workflow_dispatch on any other ref builds and
+# signs without publishing, so the pipeline can be exercised end to end.
 #
 # Pre-conditions (one-time, on the SignPath side — see docs/code-signing-policy.md):
 #   * SignPath project slug "klipa-player" exists and is linked to this repo
 #   * Signing policy "release-signing" with origin verification on main + tags/v*
-#   * Artifact configuration "windows-release" registered (matches
-#     .signpath/artifact-configurations/windows-release.xml)
+#   * Artifact configurations "windows-appfiles" and "windows-installer"
+#     registered (matching .signpath/artifact-configurations/)
 #   * GitHub secrets set: SIGNPATH_API_TOKEN, SIGNPATH_ORGANIZATION_ID
 #   * SignPath GitHub App installed on the org/repo (recommended)
-#   * Vetted libmpv-2.dll + libmpv-2.dll.sha256 published as a GitHub
-#     Release asset under the tag in MEDIA_RUNTIME_RELEASE_TAG below.
-#     These are produced locally by tool/build_windows_media.sh
-#     --archive-source and uploaded once; the build script verifies their
-#     SHA-256 before assembling the release.
+#
+# The Windows media runtime (libmpv) is Klipa's source-built, LGPL-profile
+# build (tool/build_windows_media.sh), not the DLL downloaded by the
+# media_kit_libs_windows_video pub package. The staging bundle —
+# dist/windows-media/current zipped as windows-media-runtime.zip — is
+# produced locally and uploaded once as a GitHub Release asset under
+# MEDIA_RUNTIME_RELEASE_TAG below; tool/build_windows.ps1 verifies its
+# SHA-256 and refuses to assemble a release without it. See
+# docs/supply-chain.md and the media runtime gate in docs/release-checklist.md.
 
 on:
   push:
     tags:
       - 'v*'
+  # Dispatch builds and signs the commit of the branch it is run from
+  # (github.sha), which SignPath origin-verifies; it never publishes. There is
+  # deliberately no ref input: signing an arbitrary checked-out ref would let a
+  # run originating from a protected branch sign unreviewed bytes.
   workflow_dispatch:
-    inputs:
-      ref:
-        description: Git ref to build and sign
-        required: true
-        default: main
 
 permissions:
   contents: write
@@ -42,50 +51,39 @@ env:
   MEDIA_RUNTIME_RELEASE_TAG: media-runtime-v1
   SIGNPATH_PROJECT_SLUG: klipa-player
   SIGNPATH_SIGNING_POLICY_SLUG: release-signing
-  SIGNPATH_ARTIFACT_CONFIGURATION_SLUG: windows-release
+  SIGNPATH_APPFILES_CONFIGURATION_SLUG: windows-appfiles
+  SIGNPATH_INSTALLER_CONFIGURATION_SLUG: windows-installer
 
 jobs:
   build-sign-release:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Resolve build ref
         id: ref
         shell: pwsh
+        env:
+          EVENT_REF: ${{ github.ref }}
         run: |
-          $ref = '${{ github.event.inputs.ref }}'
-          if (-not $ref) { $ref = '${{ github.ref }}' }
-          "value=$ref" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          # Only a pushed v* tag publishes; the commit built is always the one
+          # the workflow runs on (github.sha), never a caller-supplied ref.
+          $ref = $env:EVENT_REF
+          $publish = 'false'
+          $tag = ''
+          if ($ref -like 'refs/tags/v*') {
+            $publish = 'true'
+            $tag = $ref -replace '^refs/tags/',''
+          }
+          "publish=$publish" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "tag=$tag"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          ref: ${{ steps.ref.outputs.value }}
           fetch-depth: 0
 
-      - name: Fetch vetted Windows media runtime
-        shell: pwsh
-        run: |
-          $tag = '${{ env.MEDIA_RUNTIME_RELEASE_TAG }}'
-          $mediaRoot = 'dist\windows-media\current'
-          New-Item -ItemType Directory -Path $mediaRoot -Force | Out-Null
-          foreach ($a in 'libmpv-2.dll','libmpv-2.dll.sha256') {
-            $url = "https://github.com/${{ github.repository }}/releases/download/$tag/$a"
-            $dst = Join-Path $mediaRoot $a
-            Invoke-WebRequest -Uri $url -OutFile $dst -SkipHttpErrorCheck
-            if (-not (Test-Path -LiteralPath $dst) -or (Get-Item $dst).Length -eq 0) {
-              throw "Failed to fetch $a from release tag $tag"
-            }
-          }
-          $expected = ((Get-Content -LiteralPath (Join-Path $mediaRoot 'libmpv-2.dll.sha256') -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
-          $actual = (Get-FileHash -LiteralPath (Join-Path $mediaRoot 'libmpv-2.dll') -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($actual -ne $expected) {
-            throw "Vetted media runtime hash mismatch: expected $expected got $actual"
-          }
-          Write-Host "Vetted media runtime restored and verified for $tag"
-
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
@@ -94,20 +92,89 @@ jobs:
       - name: Install Inno Setup 6
         shell: pwsh
         run: |
-          choco install innosetup -y --no-progress
+          choco install innosetup --version=6.7.1 -y --no-progress
           $iscc = @(
             (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
             (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe'),
             (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe')
           ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
           if (-not $iscc) { throw 'Inno Setup 6 install failed' }
-          "iscc=$iscc" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Stage vetted Windows media runtime
+        shell: pwsh
+        run: |
+          # tool/build_windows.ps1 refuses to assemble a release without the
+          # source-built LGPL libmpv/FFmpeg runtime staged here (see
+          # docs/supply-chain.md). The bundle is produced locally by
+          # tool/build_windows_media.sh --archive-source, zipped from
+          # dist/windows-media/current, and uploaded once as a release asset.
+          $tag = '${{ env.MEDIA_RUNTIME_RELEASE_TAG }}'
+          $mediaRoot = 'dist\windows-media\current'
+          New-Item -ItemType Directory -Path $mediaRoot -Force | Out-Null
+          $zip = 'dist\windows-media\windows-media-runtime.zip'
+          $url = "https://github.com/${{ github.repository }}/releases/download/$tag/windows-media-runtime.zip"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -LiteralPath $zip -DestinationPath $mediaRoot -Force
+          # Tolerate an archive rooted at the staging directory; flatten it.
+          if (-not (Test-Path -LiteralPath (Join-Path $mediaRoot 'libmpv-2.dll'))) {
+            $inner = Get-ChildItem -LiteralPath $mediaRoot -Directory | Select-Object -First 1
+            if ($inner -and (Test-Path -LiteralPath (Join-Path $inner.FullName 'libmpv-2.dll'))) {
+              Get-ChildItem -LiteralPath $inner.FullName -Force | Move-Item -Destination $mediaRoot
+              Remove-Item -LiteralPath $inner.FullName -Recurse -Force
+            }
+          }
+          $expected = ((Get-Content -LiteralPath (Join-Path $mediaRoot 'libmpv-2.dll.sha256') -Raw).Trim() -split '\s+')[0]
+          $actual = (Get-FileHash -LiteralPath (Join-Path $mediaRoot 'libmpv-2.dll') -Algorithm SHA256).Hash
+          if ($actual -ne $expected) { throw 'Staged media runtime failed its SHA-256 check.' }
 
       - name: Build Windows release bundle
         shell: pwsh
         run: tool\build_windows.ps1 -Configuration release
 
-      - name: Package unsigned installer and portable ZIP
+      - name: Stage unsigned application executable
+        id: appstage
+        shell: pwsh
+        run: |
+          $bundle = Join-Path $env:USERPROFILE 'develop\klipa-player-windows-native\build\windows\x64\runner\Release'
+          $exe = Join-Path $bundle 'klipa_player.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw "Missing $exe" }
+          New-Item -ItemType Directory -Path unsigned-app -Force | Out-Null
+          Copy-Item -LiteralPath $exe -Destination unsigned-app
+          "bundle=$bundle" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Upload unsigned executable for SignPath origin verification
+        id: upload-unsigned-app
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-appfiles-unsigned-${{ github.run_id }}
+          path: unsigned-app
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Submit application signing request to SignPath
+        id: signpath-app
+        uses: SignPath/github-action-submit-signing-request@b9d91eadd323de506c0c81cf0c7fe7438f3360fd # v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ env.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ env.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ env.SIGNPATH_APPFILES_CONFIGURATION_SLUG }}
+          github-artifact-id: ${{ steps.upload-unsigned-app.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: '900'
+          output-artifact-directory: signed-app
+
+      - name: Restore signed executable into the release bundle
+        shell: pwsh
+        env:
+          BUNDLE: ${{ steps.appstage.outputs.bundle }}
+        run: |
+          $signed = Join-Path 'signed-app' 'klipa_player.exe'
+          if (-not (Test-Path -LiteralPath $signed)) { throw 'Signed klipa_player.exe missing' }
+          Copy-Item -LiteralPath $signed -Destination (Join-Path $env:BUNDLE 'klipa_player.exe') -Force
+
+      - name: Package installer and portable ZIP from signed files
         id: pkg
         shell: pwsh
         run: |
@@ -120,69 +187,79 @@ jobs:
           "setup=$((Resolve-Path $setup).Path)"       | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "portable=$((Resolve-Path $portable).Path)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-      - name: Stage unsigned artifacts into SignPath upload root
+      - name: Stage unsigned installer into SignPath upload root
         shell: pwsh
+        env:
+          SETUP: ${{ steps.pkg.outputs.setup }}
         run: |
-          $stage = 'unsigned'
-          New-Item -ItemType Directory -Path $stage -Force | Out-Null
-          Copy-Item -LiteralPath '${{ steps.pkg.outputs.setup }}'    -Destination $stage
-          Copy-Item -LiteralPath '${{ steps.pkg.outputs.portable }}' -Destination $stage
-          Get-ChildItem -LiteralPath $stage | Format-Table Name,Length
+          New-Item -ItemType Directory -Path unsigned-installer -Force | Out-Null
+          Copy-Item -LiteralPath $env:SETUP -Destination unsigned-installer
+          Get-ChildItem -LiteralPath unsigned-installer | Format-Table Name,Length
 
-      - name: Upload unsigned artifact for SignPath origin verification
-        id: upload-unsigned
-        uses: actions/upload-artifact@v4
+      - name: Upload unsigned installer for SignPath origin verification
+        id: upload-unsigned-installer
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: windows-unsigned-${{ github.run_id }}
-          path: unsigned
+          name: windows-installer-unsigned-${{ github.run_id }}
+          path: unsigned-installer
           if-no-files-found: error
           retention-days: 7
 
-      - name: Submit signing request to SignPath
-        id: signpath
-        uses: SignPath/github-action-submit-signing-request@v2
+      - name: Submit installer signing request to SignPath
+        id: signpath-installer
+        uses: SignPath/github-action-submit-signing-request@b9d91eadd323de506c0c81cf0c7fe7438f3360fd # v2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
           project-slug: ${{ env.SIGNPATH_PROJECT_SLUG }}
           signing-policy-slug: ${{ env.SIGNPATH_SIGNING_POLICY_SLUG }}
-          artifact-configuration-slug: ${{ env.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
-          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          artifact-configuration-slug: ${{ env.SIGNPATH_INSTALLER_CONFIGURATION_SLUG }}
+          github-artifact-id: ${{ steps.upload-unsigned-installer.outputs.artifact-id }}
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: '900'
-          output-artifact-directory: signed
+          output-artifact-directory: signed-installer
 
-      - name: Recompute SHA256SUMS over signed artifacts
-        id: sums
+      - name: Assemble release artifacts and SHA256SUMS
         shell: pwsh
+        env:
+          PORTABLE: ${{ steps.pkg.outputs.portable }}
         run: |
-          $signed = 'signed'
-          if (-not (Test-Path -LiteralPath $signed)) { throw "Signed artifact directory missing: $signed" }
-          $setup    = Get-ChildItem -LiteralPath $signed -Filter 'KlipaPlayer-Setup-x64.exe'   -File | Select-Object -First 1
-          $portable = Get-ChildItem -LiteralPath $signed -Filter 'KlipaPlayer-Portable-x64.zip' -File | Select-Object -First 1
-          if (-not $setup)    { throw 'Signed installer missing' }
-          if (-not $portable) { throw 'Signed portable archive missing' }
-          $hashLines = foreach ($a in @($setup.FullName, $portable.FullName)) {
-            $h = (Get-FileHash -LiteralPath $a -Algorithm SHA256).Hash.ToLowerInvariant()
-            "$h *$(Split-Path -Leaf $a)"
+          $out = 'release'
+          New-Item -ItemType Directory -Path $out -Force | Out-Null
+          $setup = Get-ChildItem -LiteralPath 'signed-installer' -Filter 'KlipaPlayer-Setup-x64.exe' -File | Select-Object -First 1
+          if (-not $setup) { throw 'Signed installer missing' }
+          Copy-Item -LiteralPath $setup.FullName -Destination $out
+          Copy-Item -LiteralPath $env:PORTABLE -Destination $out
+          Copy-Item -LiteralPath 'LICENSE' -Destination $out
+          Copy-Item -LiteralPath 'THIRD_PARTY_NOTICES.md' -Destination $out
+          $hashLines = foreach ($a in Get-ChildItem -LiteralPath $out -File | Sort-Object Name) {
+            $h = (Get-FileHash -LiteralPath $a.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$h *$($a.Name)"
           }
-          $sums = Join-Path $signed 'SHA256SUMS.txt'
+          $sums = Join-Path $out 'SHA256SUMS.txt'
           $hashLines | Set-Content -LiteralPath $sums -Encoding ascii
-          "setup=$((Resolve-Path $setup.FullName).Path)"       | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "portable=$((Resolve-Path $portable.FullName).Path)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "sums=$((Resolve-Path $sums).Path)"                  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Get-Content -LiteralPath $sums
 
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-release-${{ github.run_id }}
+          path: release
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Publish signed artifacts to GitHub Release
+        if: steps.ref.outputs.publish == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.ref.outputs.tag }}
         run: |
-          $ref = '${{ steps.ref.outputs.value }}'
-          $tag = $ref -replace '^refs/tags/',''
-          $notes = "Windows release for $tag.`n`nSigned via SignPath. See docs/code-signing-policy.md."
-          gh release create $tag --verify-tag --notes $notes `
-            '${{ steps.sums.outputs.setup }}' `
-            '${{ steps.sums.outputs.portable }}' `
-            '${{ steps.sums.outputs.sums }}'
-          if ($LASTEXITCODE -ne 0) { throw "gh release create failed for $tag" }
+          $notes = "Windows release for $env:TAG.`n`nSigned via SignPath. See docs/code-signing-policy.md."
+          gh release create $env:TAG --verify-tag --notes $notes `
+            'release/KlipaPlayer-Setup-x64.exe' `
+            'release/KlipaPlayer-Portable-x64.zip' `
+            'release/LICENSE' `
+            'release/THIRD_PARTY_NOTICES.md' `
+            'release/SHA256SUMS.txt'
+          if ($LASTEXITCODE -ne 0) { throw "gh release create failed for $env:TAG" }

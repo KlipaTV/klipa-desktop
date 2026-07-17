@@ -3,7 +3,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 linux_bundle="$root/build/linux/x64/release/bundle"
-windows_bundle="${WINDOWS_BUNDLE:-/mnt/c/Users/$USER/develop/klipa-player-windows-native/build/windows/x64/runner/Release}"
+windows_bundle="${WINDOWS_BUNDLE:?Set WINDOWS_BUNDLE to the Windows release bundle directory}"
 output="$root/dist/metadata"
 powershell="${POWERSHELL:-/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe}"
 

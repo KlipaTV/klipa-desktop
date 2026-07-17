@@ -19,6 +19,7 @@ class LocalEpgRefreshResult {
     required this.expiresAt,
     required this.skippedEntries,
     required this.outsideWindowEntries,
+    required this.truncated,
   });
 
   final List<Programme> programmes;
@@ -26,6 +27,7 @@ class LocalEpgRefreshResult {
   final DateTime expiresAt;
   final int skippedEntries;
   final int outsideWindowEntries;
+  final bool truncated;
 }
 
 /// Downloads XMLTV directly from the provider selected by the user.
@@ -71,6 +73,7 @@ class LocalEpgService {
       expiresAt: refreshedAt.add(cacheLifetime),
       skippedEntries: parsed.skippedEntries,
       outsideWindowEntries: parsed.outsideWindowEntries,
+      truncated: parsed.truncated,
     );
   }
 
@@ -95,7 +98,6 @@ class LocalEpgService {
     return server.replace(
       path: '/xmltv.php',
       queryParameters: {'username': username!, 'password': password!},
-      fragment: null,
     );
   }
 

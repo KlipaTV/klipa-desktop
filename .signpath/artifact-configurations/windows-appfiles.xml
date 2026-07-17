@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration "windows-appfiles" (phase 1).
+  .github/workflows/windows-release.yml uploads a GitHub Actions artifact
+  containing the unsigned application executable:
+    klipa_player.exe
+  SignPath Authenticode-signs it and returns the archive. The workflow then
+  restores the signed executable into the release bundle before the installer
+  and portable ZIP are assembled, so both ship a signed application binary.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="klipa_player.exe"
+             product-name="Klipa Player">
+      <authenticode-sign/>
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

@@ -30,6 +30,7 @@ class M3uParser {
   static const int maxLineLength = 64 * 1024;
   static const int maxFieldLength = 8192;
   static const int maxGuideIdLength = 512;
+  static const int maxWarnings = 50;
 
   M3uParseResult parse(
     Uint8List bytes, {
@@ -45,7 +46,7 @@ class M3uParser {
       );
     }
 
-    final text = utf8.decode(bytes, allowMalformed: true);
+    final text = _decode(bytes);
     if (text.contains('\u0000')) {
       throw const PlaylistFormatException('The playlist contains binary data.');
     }
@@ -53,9 +54,19 @@ class M3uParser {
     final lines = const LineSplitter().convert(text);
     final channels = <Channel>[];
     final warnings = <String>[];
+    var suppressedWarnings = 0;
     _PendingChannel? pending;
     String? pendingGroup;
     final pendingHeaders = <String, String>{};
+    var skipStream = false;
+
+    void warn(String message) {
+      if (warnings.length < maxWarnings) {
+        warnings.add(message);
+      } else {
+        suppressedWarnings++;
+      }
+    }
 
     for (var index = 0; index < lines.length; index++) {
       final rawLine = lines[index];
@@ -66,10 +77,27 @@ class M3uParser {
       final line = rawLine.trim();
       if (line.isEmpty) continue;
 
-      if (line.startsWith('#EXTINF:')) {
-        pending = _parseExtInf(line.substring(8), index + 1);
+      if (line.startsWith('#EXTM3U')) {
+        pending = null;
         pendingGroup = null;
         pendingHeaders.clear();
+        skipStream = false;
+        continue;
+      }
+      if (line.startsWith('#EXTINF:')) {
+        // A new entry abandons any prior unfinished one; its directives must
+        // not carry over (they can hold credentials). Directives seen before
+        // the first EXTINF (nothing pending, nothing skipped) still apply to
+        // the entry this line opens.
+        if (pending != null || skipStream) {
+          pendingGroup = null;
+          pendingHeaders.clear();
+        }
+        pending = _parseExtInf(line.substring(8));
+        skipStream = pending == null;
+        if (skipStream) {
+          warn('Skipped line ${index + 1}: malformed EXTINF entry.');
+        }
         continue;
       }
       if (line.startsWith('#EXTGRP:')) {
@@ -82,10 +110,20 @@ class M3uParser {
       }
       if (line.startsWith('#')) continue;
 
-      final parsed = Uri.tryParse(line);
+      if (skipStream) {
+        skipStream = false;
+        pending = null;
+        pendingGroup = null;
+        pendingHeaders.clear();
+        continue;
+      }
+
+      final pipe = line.indexOf('|');
+      final address = pipe < 0 ? line : line.substring(0, pipe).trim();
+      final parsed = Uri.tryParse(address);
       if (parsed == null ||
           (parsed.scheme != 'http' && parsed.scheme != 'https')) {
-        warnings.add('Skipped line ${index + 1}: unsupported stream address.');
+        warn('Skipped line ${index + 1}: unsupported stream address.');
         pending = null;
         pendingGroup = null;
         pendingHeaders.clear();
@@ -94,11 +132,18 @@ class M3uParser {
       try {
         const NetworkPolicy().validateHttpUriShape(parsed);
       } on NetworkPolicyException {
-        warnings.add('Skipped line ${index + 1}: invalid stream address.');
+        warn('Skipped line ${index + 1}: invalid stream address.');
         pending = null;
         pendingGroup = null;
         pendingHeaders.clear();
         continue;
+      }
+      if (pipe >= 0) {
+        final pipeHeaders = _parsePipeHeaders(line.substring(pipe + 1));
+        if (pipeHeaders.isEmpty) {
+          warn('Ignored unsupported stream options on line ${index + 1}.');
+        }
+        pendingHeaders.addAll(pipeHeaders);
       }
 
       final name = _bounded(
@@ -141,13 +186,16 @@ class M3uParser {
         'No playable HTTP or HTTPS channels were found.',
       );
     }
+    if (suppressedWarnings > 0) {
+      warnings.add('...and $suppressedWarnings more entries were skipped.');
+    }
     return M3uParseResult(
       channels: List.unmodifiable(channels),
       warnings: List.unmodifiable(warnings),
     );
   }
 
-  _PendingChannel _parseExtInf(String value, int lineNumber) {
+  _PendingChannel? _parseExtInf(String value) {
     var quote = false;
     var comma = -1;
     for (var index = 0; index < value.length; index++) {
@@ -158,11 +206,7 @@ class M3uParser {
         break;
       }
     }
-    if (comma < 0) {
-      throw PlaylistFormatException(
-        'Malformed EXTINF entry on line $lineNumber.',
-      );
-    }
+    if (comma < 0) return null;
 
     final metadata = value.substring(0, comma);
     final attributes = <String, String>{};
@@ -184,17 +228,64 @@ class M3uParser {
     final equals = value.indexOf('=');
     if (equals < 1) return;
 
-    final rawName = value.substring(0, equals).trim().toLowerCase();
-    final headerName = switch (rawName) {
-      'http-user-agent' || 'user-agent' => 'User-Agent',
-      'http-referrer' || 'http-referer' || 'referer' => 'Referer',
-      'http-origin' || 'origin' => 'Origin',
-      _ => null,
-    };
+    final headerName = _allowedHeaderName(
+      value.substring(0, equals).trim().toLowerCase(),
+    );
     if (headerName == null) return;
     final headerValue = value.substring(equals + 1).trim();
     if (headerValue.contains('\r') || headerValue.contains('\n')) return;
     headers[headerName] = _bounded(headerValue);
+  }
+
+  Map<String, String> _parsePipeHeaders(String value) {
+    final headers = <String, String>{};
+    for (final pair in value.split('&')) {
+      final equals = pair.indexOf('=');
+      if (equals < 1) continue;
+      final headerName = _allowedHeaderName(
+        pair.substring(0, equals).trim().toLowerCase(),
+      );
+      if (headerName == null) continue;
+      final headerValue = pair.substring(equals + 1).trim();
+      if (headerValue.contains('\r') || headerValue.contains('\n')) continue;
+      headers[headerName] = _bounded(headerValue);
+    }
+    return headers;
+  }
+
+  String? _allowedHeaderName(String name) => switch (name) {
+    'http-user-agent' || 'user-agent' => 'User-Agent',
+    'http-referrer' || 'http-referer' || 'referer' => 'Referer',
+    'http-origin' || 'origin' => 'Origin',
+    _ => null,
+  };
+
+  String _decode(Uint8List bytes) {
+    if (bytes.length >= 3 &&
+        bytes[0] == 0xef &&
+        bytes[1] == 0xbb &&
+        bytes[2] == 0xbf) {
+      return utf8.decode(Uint8List.sublistView(bytes, 3), allowMalformed: true);
+    }
+    if (bytes.length >= 2 && bytes[0] == 0xff && bytes[1] == 0xfe) {
+      return _decodeUtf16(bytes, Endian.little);
+    }
+    if (bytes.length >= 2 && bytes[0] == 0xfe && bytes[1] == 0xff) {
+      return _decodeUtf16(bytes, Endian.big);
+    }
+    return utf8.decode(bytes, allowMalformed: true);
+  }
+
+  String _decodeUtf16(Uint8List bytes, Endian endian) {
+    final data = ByteData.sublistView(bytes, 2);
+    if (data.lengthInBytes.isOdd) {
+      throw const PlaylistFormatException('The playlist contains binary data.');
+    }
+    final units = Uint16List(data.lengthInBytes ~/ 2);
+    for (var index = 0; index < units.length; index++) {
+      units[index] = data.getUint16(index * 2, endian);
+    }
+    return String.fromCharCodes(units);
   }
 
   Uri? _safeLogoUri(String? value) {

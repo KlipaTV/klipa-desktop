@@ -11,7 +11,7 @@ model are desktop-native.
 
 ## Current status
 
-Private testing release candidate:
+Public source, pre-release candidate:
 
 - Native Windows and Linux Flutter runners in one local Git repository
 - Klipa desktop shell, bounded M3U import, search and single-player vertical slice
@@ -64,17 +64,18 @@ Private testing release candidate:
 The Windows toolchain uses Flutter 3.44.6 stable, Visual Studio Build Tools
 2022, the Desktop development with C++ workload, and Windows SDK 10.0.26100.
 
-Native Windows validation also needs an NTFS-side worktree or build mirror.
-Windows Flutter cannot create its package symlinks through this repository's
-WSL UNC path. Run `tool/build_windows.ps1` from PowerShell to synchronize the
-fixed private mirror and build there. No public remote is required.
+Run `tool/build_windows.ps1` from PowerShell for the full native Windows
+validation (analyze, build, test). It builds in a synchronized mirror under
+`%USERPROFILE%\develop\klipa-player-windows-native`, which keeps builds
+working when the checkout lives on a filesystem where Windows Flutter cannot
+create its package symlinks (for example a WSL UNC path).
 
 ## Development
 
 Prerequisites:
 
 - Flutter 3.44.6 stable
-- Dart 3.11+
+- Dart 3.12+
 - Windows 11 or Windows 10 22H2 x64
 - Visual Studio with Desktop development with C++ for native builds
 - On Linux: GTK 3 development files, libmpv, and libsecret
@@ -130,8 +131,8 @@ certificate by [SignPath Foundation](https://signpath.org).
 
 Team roles:
 
-- Authors/Reviewers: [KlipaTV maintainers](https://github.com/orgs/KlipaTV/people?query=role%3Aowner)
-- Approvers: [KlipaTV maintainers](https://github.com/orgs/KlipaTV/people?query=role%3Aowner)
+- Authors/Reviewers: [KlipaTV](https://github.com/KlipaTV)
+- Approvers: [KlipaTV](https://github.com/KlipaTV)
 
 Privacy: this program will not transfer any information to other networked
 systems unless specifically requested by the user or the person installing or

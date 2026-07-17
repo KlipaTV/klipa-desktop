@@ -1,6 +1,6 @@
 # Native Windows validation
 
-**Status:** Private local evidence; not a release approval
+**Status:** Local evidence; not a release approval
 
 **Last run:** 2026-07-16
 
@@ -22,10 +22,11 @@ From PowerShell, run:
 .\tool\build_windows.ps1 -Configuration release
 ```
 
-The script synchronizes the fixed private NTFS mirror, excluding Git and build
-state, then runs package resolution, strict analysis, a native Windows build,
-and the complete Windows test suite against the built native DLL bundle. It has
-no remote or publishing step.
+The script synchronizes the local NTFS build mirror under
+`%USERPROFILE%\develop`, excluding Git and build state, then runs package
+resolution, strict analysis, a native Windows build, and the complete Windows
+test suite against the built native DLL bundle. It has no remote or
+publishing step.
 
 ## Evidence obtained
 

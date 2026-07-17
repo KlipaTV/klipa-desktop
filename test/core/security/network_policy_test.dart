@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:klipa_player_windows/core/security/network_policy.dart';
 
@@ -84,5 +86,28 @@ void main() {
         reason: host,
       );
     }
+  });
+
+  test('resolveHttpTarget returns the classified addresses to pin', () async {
+    final addresses = await policy.resolveHttpTarget(
+      Uri.parse('http://8.8.8.8/list.m3u'),
+      allowPrivateNetwork: false,
+    );
+    expect(addresses, [InternetAddress('8.8.8.8')]);
+  });
+
+  test('resolveHttpTarget rejects private targets without permission', () async {
+    await expectLater(
+      policy.resolveHttpTarget(
+        Uri.parse('http://192.168.1.10/list.m3u'),
+        allowPrivateNetwork: false,
+      ),
+      throwsA(isA<NetworkPolicyException>()),
+    );
+    final allowed = await policy.resolveHttpTarget(
+      Uri.parse('http://192.168.1.10/list.m3u'),
+      allowPrivateNetwork: true,
+    );
+    expect(allowed, [InternetAddress('192.168.1.10')]);
   });
 }
