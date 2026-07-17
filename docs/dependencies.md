@@ -11,7 +11,7 @@ Direct runtime package budget: **13 / 14** (Flutter SDK excluded).
 | `flutter_secure_storage_platform_interface` | Narrow API used to avoid bundling the redundant Windows secure-storage plugin | No | BSD-3-Clause; Linux implementation only |
 | `flutter_riverpod` | State and dependency boundaries | No | MIT; stable APIs only |
 | `media_kit` | Playback API and libmpv integration | FFI | Audit exact version and transitive behavior |
-| `media_kit_libs_video` | Pinned native media binaries | Yes | Full binary/codec/license audit before distribution |
+| `media_kit_libs_video` | Flutter package wiring for platform media runtimes | Yes | Windows release build must replace its downloaded DLL with Klipa's pinned LGPL-profile build |
 | `media_kit_video` | Flutter desktop video surface | Native plugin | Memory/lifecycle spike required |
 | `path_provider` | Correct per-user app/cache directories | Native plugin | Flutter-maintained; inventory plugin |
 | `sqlite3` | Indexed local data and encrypted SQLite native asset | Yes | Use `sqlite3mc`; audit license and binary hash |

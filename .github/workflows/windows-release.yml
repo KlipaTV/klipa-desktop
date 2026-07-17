@@ -19,10 +19,14 @@ name: windows-release
 #   * GitHub secrets set: SIGNPATH_API_TOKEN, SIGNPATH_ORGANIZATION_ID
 #   * SignPath GitHub App installed on the org/repo (recommended)
 #
-# The Windows media runtime (libmpv) is supplied by the
-# media_kit_libs_windows_video pub package, pinned by content hash in the
-# committed pubspec.lock; see docs/code-signing-policy.md and the open
-# vetting gate in docs/release-checklist.md.
+# The Windows media runtime (libmpv) is Klipa's source-built, LGPL-profile
+# build (tool/build_windows_media.sh), not the DLL downloaded by the
+# media_kit_libs_windows_video pub package. The staging bundle —
+# dist/windows-media/current zipped as windows-media-runtime.zip — is
+# produced locally and uploaded once as a GitHub Release asset under
+# MEDIA_RUNTIME_RELEASE_TAG below; tool/build_windows.ps1 verifies its
+# SHA-256 and refuses to assemble a release without it. See
+# docs/supply-chain.md and the media runtime gate in docs/release-checklist.md.
 
 on:
   push:
@@ -44,6 +48,7 @@ concurrency:
 
 env:
   FLUTTER_VERSION: '3.44.6'
+  MEDIA_RUNTIME_RELEASE_TAG: media-runtime-v1
   SIGNPATH_PROJECT_SLUG: klipa-player
   SIGNPATH_SIGNING_POLICY_SLUG: release-signing
   SIGNPATH_APPFILES_CONFIGURATION_SLUG: windows-appfiles
@@ -94,6 +99,33 @@ jobs:
             (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe')
           ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
           if (-not $iscc) { throw 'Inno Setup 6 install failed' }
+
+      - name: Stage vetted Windows media runtime
+        shell: pwsh
+        run: |
+          # tool/build_windows.ps1 refuses to assemble a release without the
+          # source-built LGPL libmpv/FFmpeg runtime staged here (see
+          # docs/supply-chain.md). The bundle is produced locally by
+          # tool/build_windows_media.sh --archive-source, zipped from
+          # dist/windows-media/current, and uploaded once as a release asset.
+          $tag = '${{ env.MEDIA_RUNTIME_RELEASE_TAG }}'
+          $mediaRoot = 'dist\windows-media\current'
+          New-Item -ItemType Directory -Path $mediaRoot -Force | Out-Null
+          $zip = 'dist\windows-media\windows-media-runtime.zip'
+          $url = "https://github.com/${{ github.repository }}/releases/download/$tag/windows-media-runtime.zip"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -LiteralPath $zip -DestinationPath $mediaRoot -Force
+          # Tolerate an archive rooted at the staging directory; flatten it.
+          if (-not (Test-Path -LiteralPath (Join-Path $mediaRoot 'libmpv-2.dll'))) {
+            $inner = Get-ChildItem -LiteralPath $mediaRoot -Directory | Select-Object -First 1
+            if ($inner -and (Test-Path -LiteralPath (Join-Path $inner.FullName 'libmpv-2.dll'))) {
+              Get-ChildItem -LiteralPath $inner.FullName -Force | Move-Item -Destination $mediaRoot
+              Remove-Item -LiteralPath $inner.FullName -Recurse -Force
+            }
+          }
+          $expected = ((Get-Content -LiteralPath (Join-Path $mediaRoot 'libmpv-2.dll.sha256') -Raw).Trim() -split '\s+')[0]
+          $actual = (Get-FileHash -LiteralPath (Join-Path $mediaRoot 'libmpv-2.dll') -Algorithm SHA256).Hash
+          if ($actual -ne $expected) { throw 'Staged media runtime failed its SHA-256 check.' }
 
       - name: Build Windows release bundle
         shell: pwsh

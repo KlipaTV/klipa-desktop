@@ -59,12 +59,13 @@ commit in this repository. Signing flow:
    attaches them, together with `THIRD_PARTY_NOTICES.md`, to the GitHub
    Release for the triggering tag.
 
-The Windows media runtime (libmpv/FFmpeg, `libmpv-2.dll`) is supplied by the
-`media_kit_libs_windows_video` pub package. Its content is pinned by the
-package's SHA-256 in the committed `pubspec.lock`, so every CI build resolves
-byte-identical media binaries. Deeper vetting of that DLL (codec
-configuration, upstream build provenance, LGPL/GPL obligations) is an open
-item tracked in `docs/release-checklist.md`; see also `docs/supply-chain.md`.
+The Windows media runtime (libmpv/FFmpeg, `libmpv-2.dll`) is Klipa's own
+source-built, LGPL-profile binary produced by `tool/build_windows_media.sh`
+from pinned upstream revisions (patch and provenance under
+`third_party/windows-media`). Release builds verify its SHA-256 and refuse to
+package the DLL downloaded by the `media_kit_libs_windows_video` pub package;
+the verification steps live in the media runtime gate of
+`docs/release-checklist.md`; see also `docs/supply-chain.md`.
 
 ## Privacy
 

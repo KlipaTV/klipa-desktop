@@ -18,14 +18,17 @@ for every transitive Dart/Flutter dependency (`NOTICES.Z` inside
 | SQLite3MultipleCiphers (encrypted SQLite build, `sqlite3mc`) | MIT | https://github.com/utelle/SQLite3MultipleCiphers |
 | SQLite | Public domain | https://sqlite.org |
 
-The Windows libmpv/FFmpeg binary is supplied by the
+Windows release builds replace the DLL downloaded by the
 `media_kit_libs_windows_video` pub package (see
-https://github.com/media-kit/media-kit), whose content hash is pinned in the
-committed `pubspec.lock`. Its transitive codec configuration and the
-corresponding LGPL/GPL obligations require an independent review before
-public distribution; that gate is tracked in `docs/release-checklist.md`.
-Linux obtains libmpv, GTK 3, and libsecret from the distribution rather than
-bundling them.
+https://github.com/media-kit/media-kit) with Klipa's source-built,
+LGPL-profile libmpv/FFmpeg runtime produced by `tool/build_windows_media.sh`.
+Its exact licenses, source revisions, build patch, toolchain versions, and
+hashes are bundled under `licenses/windows-media` inside the release bundle,
+and the corresponding-source archive is retained beside the installer and
+portable ZIP; the verification steps are tracked in
+`docs/release-checklist.md`. Debug/profile builds still run on the package's
+DLL. Linux obtains libmpv, GTK 3, and libsecret from the distribution rather
+than bundling them.
 
 ## Direct Dart package dependencies
 
