@@ -1,7 +1,7 @@
 # Security policy
 
-The source repository remains private. Report suspected security issues
-privately to `hello@klipa.tv`; do not disclose them in public channels.
+Report suspected security issues privately to `hello@klipa.tv`; do not
+disclose them in public issues, discussions, or other public channels.
 
 Do not put credentials, tokenized URLs, provider hostnames, private IPs,
 subscription details, or unredacted diagnostics in an issue or discussion.

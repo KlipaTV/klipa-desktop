@@ -88,6 +88,55 @@ void main() {
     await tester.pump();
     expect(windowController.requests, [true, false, true]);
     expect(fullscreenChanges, [true, false, true]);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(windowController.requests, [true, false, true, false]);
+  });
+
+  testWidgets('escape exits full screen after the channel is cleared', (
+    tester,
+  ) async {
+    final windowController = _FakeWindowController();
+    final fullscreenChanges = <bool>[];
+    late StateSetter setChannel;
+    Channel? active = _blockedFixtureChannel();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              setChannel = setState;
+              return PlayerPane(
+                channel: active,
+                windowController: windowController,
+                onFullscreenChanged: fullscreenChanges.add,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tapAt(const Offset(400, 300));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.pump();
+    expect(windowController.requests, [true]);
+
+    setChannel(() => active = null);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Choose a channel'), findsOneWidget);
+
+    await tester.tapAt(const Offset(400, 300));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+
+    expect(windowController.requests, [true, false]);
+    expect(fullscreenChanges, [true, false]);
   });
 }
 

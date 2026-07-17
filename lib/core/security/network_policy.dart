@@ -34,11 +34,44 @@ class NetworkPolicy {
 
   void validateHttpUriShape(Uri uri) => _validateShape(uri);
 
+  /// Resolves [uri] once and returns the addresses the caller must connect to,
+  /// so the connection is pinned to the exact addresses that were classified.
+  /// Connecting by any other means (a second lookup) would reopen a DNS
+  /// rebinding window between this check and the socket.
+  Future<List<InternetAddress>> resolveHttpTarget(
+    Uri uri, {
+    required bool allowPrivateNetwork,
+  }) async {
+    _validateShape(uri);
+    final addresses = await _resolve(uri.host);
+    if (addresses.any(_isPrivateOrLocal) && !allowPrivateNetwork) {
+      throw const NetworkPolicyException(
+        'This address reaches the local or private network. Enable private '
+        'network access only for a provider you trust.',
+      );
+    }
+    // IPv4 first so the pinned connection prefers a routable family on hosts
+    // that advertise AAAA records without working IPv6 connectivity.
+    addresses.sort((a, b) => a.type == b.type
+        ? 0
+        : a.type == InternetAddressType.IPv4
+        ? -1
+        : 1);
+    return addresses;
+  }
+
   Future<NetworkTargetKind> classifyHost(String host) async {
     if (host.toLowerCase() == 'localhost') {
       return NetworkTargetKind.privateOrLocal;
     }
 
+    final addresses = await _resolve(host);
+    return addresses.any(_isPrivateOrLocal)
+        ? NetworkTargetKind.privateOrLocal
+        : NetworkTargetKind.public;
+  }
+
+  Future<List<InternetAddress>> _resolve(String host) async {
     final literal = InternetAddress.tryParse(host);
     final addresses = literal == null
         ? await InternetAddress.lookup(host).timeout(const Duration(seconds: 8))
@@ -47,10 +80,7 @@ class NetworkPolicy {
     if (addresses.isEmpty) {
       throw const NetworkPolicyException('The host did not resolve.');
     }
-
-    return addresses.any(_isPrivateOrLocal)
-        ? NetworkTargetKind.privateOrLocal
-        : NetworkTargetKind.public;
+    return addresses;
   }
 
   void _validateShape(Uri uri) {

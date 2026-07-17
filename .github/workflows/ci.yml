@@ -1,0 +1,55 @@
+name: ci
+
+# Analyzes and tests every pull request and push to main so protected-branch
+# review (see .signpath/policies/) is backed by a machine check.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.44.6'
+
+jobs:
+  analyze-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Fetch dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --fatal-infos --fatal-warnings
+
+      - name: Build Windows bundle
+        run: flutter build windows --release
+
+      # The native player smoke test loads libmpv from the built bundle, so
+      # the bundle directory must be on PATH (same approach as
+      # tool/build_windows.ps1).
+      - name: Test
+        shell: pwsh
+        run: |
+          $bundle = Join-Path $PWD 'build\windows\x64\runner\Release'
+          $env:PATH = "$bundle;$env:PATH"
+          flutter test
+          if ($LASTEXITCODE -ne 0) { throw 'flutter test failed' }

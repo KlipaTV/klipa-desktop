@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration "windows-installer" (phase 2).
+  .github/workflows/windows-release.yml uploads a GitHub Actions artifact
+  containing the unsigned Inno Setup installer (whose payload already carries
+  the phase-1-signed klipa_player.exe):
+    KlipaPlayer-Setup-x64.exe
+  SignPath Authenticode-signs the installer and returns the archive. The
+  portable ZIP is not submitted here: its inner executable was signed in
+  phase 1 and the ZIP container itself carries no signature.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="KlipaPlayer-Setup-x64.exe"
+             product-name="Klipa Player">
+      <authenticode-sign/>
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

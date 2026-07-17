@@ -1,10 +1,10 @@
 # Klipa Player for Desktop — product and technical specification
 
-**Status:** Private release candidate
+**Status:** Public source, pre-release candidate
 
 **Product:** Klipa Player
 
-**Private repository:** `klipa-desktop`
+**Repository:** [KlipaTV/klipa-desktop](https://github.com/KlipaTV/klipa-desktop)
 
 **Platforms:** Windows 11, Windows 10 22H2, and supported Debian/Ubuntu, x64
 
@@ -69,9 +69,9 @@ Short store description:
 6. **Modern means stable and small.** Use current stable releases and native
    capabilities with a strict dependency budget. Do not use preview frameworks,
    an embedded web application, or abstraction layers without a concrete need.
-7. **Transparent in practice.** Reproducible internal builds, a security policy,
+7. **Transparent in practice.** Reproducible builds, a security policy,
    dependency notices, privacy documentation, and releasable CI are part of the
-   product even while the source remains private.
+   product, and the desktop source is published under the LGPL.
 8. **No content business.** Klipa supplies software, not channels, playlists,
    provider recommendations, or access to third-party media.
 
@@ -650,15 +650,15 @@ Security scope is realistic rather than theatrical:
 - Codec patent and binary redistribution review is a release gate independent
   of the application source license.
 
-## 9. Private repository and distribution policy
+## 9. Repository boundary and distribution policy
 
 ### 9.1 Repository boundary
 
-The desktop repository remains private and independent. Do not publish it, its
-history, or material from sibling Klipa repositories without explicit owner
-approval and a fresh legal and secret review.
+The desktop repository is public and independent. Do not move material from
+sibling private Klipa repositories into it without explicit owner approval
+and a fresh legal and secret review.
 
-Allowed to move between private repositories after review:
+Allowed to move from the private mobile repository after review:
 
 - Playlist parsing algorithms and their synthetic tests.
 - Input normalization and credential-redaction helpers.
@@ -691,8 +691,8 @@ its first commit in the destination repository.
 
 ### 9.2 License and trademark
 
-- First-party application source remains private and is not authorized for
-  redistribution. Its final external license is an owner/legal decision.
+- First-party application source is licensed under the LGPL-3.0-or-later
+  (see `LICENSE`); the Klipa brand is reserved separately.
 - Third-party code and binaries retain their own licenses and appear in
   `THIRD_PARTY_NOTICES.md` and the in-app Licenses screen.
 - The Klipa name and logo require separate approval; `TRADEMARKS.md` records the

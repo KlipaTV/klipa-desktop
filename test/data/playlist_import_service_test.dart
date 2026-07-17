@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:klipa_player_windows/data/m3u_parser.dart';
 import 'package:klipa_player_windows/data/playlist_import_service.dart';
 import 'package:klipa_player_windows/domain/playlist_source.dart';
 
@@ -54,5 +55,27 @@ https://stream.example/live/$requestCount.ts
     expect(result.source.name, source.name);
     expect(result.source.importedAt, importedAt);
     expect(result.channels.single.sourceId, source.id);
+  });
+
+  test('refresh rejects a corrupt stored playlist address', () async {
+    final source = PlaylistSource(
+      id: 'source-1',
+      name: 'Broken',
+      kind: PlaylistSourceKind.remoteUrl,
+      location: 'http://[invalid',
+      allowsPrivateNetwork: false,
+      importedAt: DateTime.utc(2026, 7, 15),
+    );
+
+    await expectLater(
+      PlaylistImportService().refresh(source),
+      throwsA(
+        isA<PlaylistFormatException>().having(
+          (error) => error.message,
+          'message',
+          contains('Re-add'),
+        ),
+      ),
+    );
   });
 }

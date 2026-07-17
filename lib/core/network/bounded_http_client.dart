@@ -50,20 +50,29 @@ class BoundedHttpClient {
         allowPrivateNetwork: allowPrivateNetwork,
         byteLimit: maxBytes,
         resourceName: 'playlist',
-      ).timeout(totalTimeout);
+        timeout: totalTimeout,
+      );
     } on _BoundedDownloadException catch (error) {
       throw PlaylistDownloadException(error.message);
     } on TimeoutException {
       throw const PlaylistDownloadException('The playlist request timed out.');
     } on NetworkPolicyException catch (error) {
       throw PlaylistDownloadException(error.message);
+    } on HandshakeException {
+      throw const PlaylistDownloadException(
+        'The playlist server did not present a trusted TLS certificate.',
+      );
+    } on TlsException {
+      throw const PlaylistDownloadException(
+        'The playlist server could not establish a secure connection.',
+      );
     } on SocketException {
       throw const PlaylistDownloadException(
         'The playlist host could not be reached.',
       );
-    } on HandshakeException {
+    } on HttpException {
       throw const PlaylistDownloadException(
-        'The playlist server did not present a trusted TLS certificate.',
+        'The playlist connection ended before the response was complete.',
       );
     }
   }
@@ -78,20 +87,29 @@ class BoundedHttpClient {
         allowPrivateNetwork: allowPrivateNetwork,
         byteLimit: maxGuideBytes,
         resourceName: 'guide',
-      ).timeout(guideTotalTimeout);
+        timeout: guideTotalTimeout,
+      );
     } on _BoundedDownloadException catch (error) {
       throw GuideDownloadException(error.message);
     } on TimeoutException {
       throw const GuideDownloadException('The guide request timed out.');
     } on NetworkPolicyException catch (error) {
       throw GuideDownloadException(error.message);
+    } on HandshakeException {
+      throw const GuideDownloadException(
+        'The guide server did not present a trusted TLS certificate.',
+      );
+    } on TlsException {
+      throw const GuideDownloadException(
+        'The guide server could not establish a secure connection.',
+      );
     } on SocketException {
       throw const GuideDownloadException(
         'The guide host could not be reached.',
       );
-    } on HandshakeException {
+    } on HttpException {
       throw const GuideDownloadException(
-        'The guide server did not present a trusted TLS certificate.',
+        'The guide connection ended before the response was complete.',
       );
     }
   }
@@ -101,11 +119,19 @@ class BoundedHttpClient {
     required bool allowPrivateNetwork,
     required int byteLimit,
     required String resourceName,
+    required Duration timeout,
   }) async {
+    // The connection is pinned to a single address that the policy already
+    // classified, so the socket never re-resolves and drifts onto a private
+    // address after the check (DNS rebinding). _get selects which classified
+    // address to try, falling back across them if one is unreachable.
+    InternetAddress? attempt;
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 10)
       ..idleTimeout = const Duration(seconds: 5)
-      ..userAgent = 'KlipaPlayer/0.1';
+      ..userAgent = 'KlipaPlayer/0.1'
+      ..connectionFactory = (uri, proxyHost, proxyPort) =>
+          Socket.startConnect(attempt!, uri.port);
     try {
       return await _get(
         client,
@@ -113,8 +139,11 @@ class BoundedHttpClient {
         allowPrivateNetwork: allowPrivateNetwork,
         byteLimit: byteLimit,
         resourceName: resourceName,
-      );
+        useAddress: (address) => attempt = address,
+      ).timeout(timeout);
     } finally {
+      // Runs on timeout too, aborting an in-flight transfer instead of
+      // leaving the socket and buffer alive until idle timeout.
       client.close(force: true);
     }
   }
@@ -125,19 +154,21 @@ class BoundedHttpClient {
     required bool allowPrivateNetwork,
     required int byteLimit,
     required String resourceName,
+    required void Function(InternetAddress) useAddress,
   }) async {
     var uri = initialUri;
     for (var redirects = 0; redirects <= maxRedirects; redirects++) {
-      await _networkPolicy.validateHttpTarget(
+      final addresses = await _networkPolicy.resolveHttpTarget(
         uri,
         allowPrivateNetwork: allowPrivateNetwork,
       );
 
-      final request = await client.getUrl(uri);
-      request
-        ..followRedirects = false
-        ..maxRedirects = 0;
-      final response = await request.close();
+      final response = await _open(
+        client,
+        uri,
+        addresses: addresses,
+        useAddress: useAddress,
+      );
 
       if (_isRedirect(response.statusCode)) {
         if (redirects == maxRedirects) {
@@ -153,7 +184,14 @@ class BoundedHttpClient {
             'The $resourceName server returned an invalid redirect.',
           );
         }
-        final next = uri.resolve(location);
+        final Uri next;
+        try {
+          next = uri.resolve(location);
+        } on FormatException {
+          throw _BoundedDownloadException(
+            'The $resourceName server returned an invalid redirect.',
+          );
+        }
         if (uri.scheme == 'https' && next.scheme != 'https') {
           throw _BoundedDownloadException(
             'A secure $resourceName cannot redirect to an insecure address.',
@@ -201,6 +239,29 @@ class BoundedHttpClient {
     throw _BoundedDownloadException(
       'The $resourceName could not be downloaded.',
     );
+  }
+
+  Future<HttpClientResponse> _open(
+    HttpClient client,
+    Uri uri, {
+    required List<InternetAddress> addresses,
+    required void Function(InternetAddress) useAddress,
+  }) async {
+    for (var i = 0; i < addresses.length; i++) {
+      useAddress(addresses[i]);
+      try {
+        final request = await client.getUrl(uri);
+        request
+          ..followRedirects = false
+          ..maxRedirects = 0;
+        return await request.close();
+      } on SocketException {
+        // A classified address was unreachable; try the next one before
+        // giving up, without ever re-resolving the host.
+        if (i == addresses.length - 1) rethrow;
+      }
+    }
+    throw const SocketException('No classified address was reachable.');
   }
 
   bool _isRedirect(int statusCode) =>

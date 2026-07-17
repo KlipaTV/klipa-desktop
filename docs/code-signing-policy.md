@@ -20,15 +20,15 @@ Klipa is a solo-maintainer project. Roles are documented here so SignPath's
 per-release approval workflow is unambiguous.
 
 - **Authors / Committers** —
-  [KlipaTV maintainers](https://github.com/orgs/KlipaTV/people?query=role%3Aowner).
+  [KlipaTV](https://github.com/KlipaTV).
   All direct commits to `main` are made by a maintainer.
 - **Reviewers** —
-  [KlipaTV maintainers](https://github.com/orgs/KlipaTV/people?query=role%3Aowner).
+  [KlipaTV](https://github.com/KlipaTV).
   Every pull request from an external contributor must be reviewed by a
   maintainer before merge. No PR may be self-merged by an external
   contributor.
 - **Approvers** —
-  [KlipaTV maintainers](https://github.com/orgs/KlipaTV/people?query=role%3Aowner).
+  [KlipaTV](https://github.com/KlipaTV).
   Every SignPath signing request must be manually approved in the SignPath
   web UI by a maintainer before the certificate is unlocked. No automatic
   signing is enabled.
@@ -44,19 +44,28 @@ commit in this repository. Signing flow:
 
 1. A maintainer pushes a tag matching `v*` to `main`.
 2. The `windows-release.yml` GitHub Actions workflow runs on `windows-latest`:
-   - restores the pinned libmpv/FFmpeg runtime (vetted by
-     `tool/build_windows_media.sh --archive-source`),
-   - runs `tool/build_windows.ps1 -Configuration release`,
+   - runs `tool/build_windows.ps1 -Configuration release` (analyze, build,
+     test),
+   - submits the unsigned `klipa_player.exe` to SignPath with the
+     `windows-appfiles` artifact configuration and restores the signed
+     executable into the release bundle,
    - runs `tool/package_windows.ps1 -SkipBuild` to assemble the installer and
-     portable ZIP (no Authenticode signing happens on the runner),
-   - submits the unsigned artifacts to SignPath via `Submit-SigningRequest`.
-3. The maintainer approves the request in SignPath.
-4. The workflow downloads the signed artifacts via `Get-SignedArtifact`,
-   regenerates `SHA256SUMS.txt` over them, and attaches them to the GitHub
+     portable ZIP from the signed bundle (no Authenticode signing happens on
+     the runner itself),
+   - submits the unsigned installer to SignPath with the `windows-installer`
+     artifact configuration.
+3. The maintainer approves each request in the SignPath web UI.
+4. The workflow regenerates `SHA256SUMS.txt` over the signed artifacts and
+   attaches them, together with `THIRD_PARTY_NOTICES.md`, to the GitHub
    Release for the triggering tag.
 
-The corresponding-source archive for the libmpv/FFmpeg runtime is also
-attached to the same release; see `docs/supply-chain.md`.
+The Windows media runtime (libmpv/FFmpeg, `libmpv-2.dll`) is Klipa's own
+source-built, LGPL-profile binary produced by `tool/build_windows_media.sh`
+from pinned upstream revisions (patch and provenance under
+`third_party/windows-media`). Release builds verify its SHA-256 and refuse to
+package the DLL downloaded by the `media_kit_libs_windows_video` pub package;
+the verification steps live in the media runtime gate of
+`docs/release-checklist.md`; see also `docs/supply-chain.md`.
 
 ## Privacy
 
