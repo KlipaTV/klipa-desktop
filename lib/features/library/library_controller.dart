@@ -50,7 +50,7 @@ class LibraryController extends Notifier<LibraryState> {
     _disposed = false;
     ref.onDispose(() => _disposed = true);
     unawaited(Future<void>.microtask(_restoreLibrary));
-    return const LibraryState(isLoading: true);
+    return LibraryState(isLoading: true);
   }
 
   Future<void> importUrl(
@@ -356,7 +356,7 @@ class LibraryController extends Notifier<LibraryState> {
       await _navigationWrites;
       await _store.reset();
       if (_disposed) return;
-      state = const LibraryState(message: 'App data was reset.');
+      state = LibraryState(message: 'App data was reset.');
     } on Object catch (error) {
       if (_disposed) return;
       state = state.copyWith(
