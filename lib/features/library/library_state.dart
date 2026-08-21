@@ -4,7 +4,7 @@ import '../../domain/channel_schedule.dart';
 import '../../domain/library_source.dart';
 
 class LibraryState {
-  const LibraryState({
+  LibraryState({
     this.sources = const [],
     this.channels = const [],
     this.favoriteChannels = const {},
@@ -56,13 +56,24 @@ class LibraryState {
     return List.unmodifiable(values);
   }
 
-  List<Channel> get sourceChannels => selectedSourceId == null
+  // Derived collections are memoized per instance: playlists can hold tens of
+  // thousands of channels, and these scans otherwise rerun on every widget
+  // rebuild — several times per frame — even when the state did not change.
+  late final List<Channel> _sourceChannels = selectedSourceId == null
       ? channels
-      : channels
-            .where((channel) => channel.sourceId == selectedSourceId)
-            .toList(growable: false);
+      : List.unmodifiable(
+          channels.where((channel) => channel.sourceId == selectedSourceId),
+        );
 
-  List<String> get availableGroups => deriveGroups(sourceChannels);
+  late final List<String> _availableGroups = deriveGroups(_sourceChannels);
+
+  late final Channel? _resumeChannel = _resolveResumeChannel();
+
+  late final List<Channel> _visibleChannels = _computeVisibleChannels();
+
+  List<Channel> get sourceChannels => _sourceChannels;
+
+  List<String> get availableGroups => _availableGroups;
 
   bool isFavorite(Channel channel) => favoriteChannels.contains((
     sourceId: channel.sourceId,
@@ -72,31 +83,35 @@ class LibraryState {
   ChannelSchedule? scheduleFor(Channel channel) =>
       schedules[(sourceId: channel.sourceId, channelId: channel.id)];
 
-  Channel? get resumeChannel {
+  Channel? get resumeChannel => _resumeChannel;
+
+  List<Channel> get visibleChannels => _visibleChannels;
+
+  Channel? _resolveResumeChannel() {
     final identity = lastChannelIdentity;
     if (identity == null) return null;
-    return channels
-        .where(
-          (channel) =>
-              channel.sourceId == identity.sourceId &&
-              channel.id == identity.channelId,
-        )
-        .firstOrNull;
+    for (final channel in channels) {
+      if (channel.sourceId == identity.sourceId &&
+          channel.id == identity.channelId) {
+        return channel;
+      }
+    }
+    return null;
   }
 
-  List<Channel> get visibleChannels {
+  List<Channel> _computeVisibleChannels() {
     final normalized = query.trim().toLowerCase();
-    return sourceChannels
-        .where((channel) {
-          if (selectedGroup != null && channel.group != selectedGroup) {
-            return false;
-          }
-          if (favoritesOnly && !isFavorite(channel)) return false;
-          return normalized.isEmpty ||
-              channel.name.toLowerCase().contains(normalized) ||
-              (channel.group?.toLowerCase().contains(normalized) ?? false);
-        })
-        .toList(growable: false);
+    return List.unmodifiable(
+      _sourceChannels.where((channel) {
+        if (selectedGroup != null && channel.group != selectedGroup) {
+          return false;
+        }
+        if (favoritesOnly && !isFavorite(channel)) return false;
+        return normalized.isEmpty ||
+            channel.name.toLowerCase().contains(normalized) ||
+            (channel.group?.toLowerCase().contains(normalized) ?? false);
+      }),
+    );
   }
 
   LibraryState copyWith({

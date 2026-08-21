@@ -95,6 +95,32 @@ void main() {
       isNull,
     );
   });
+
+  test('derived collections are memoized per state instance', () {
+    final state = LibraryState(
+      channels: [
+        _channel('News One', group: 'News'),
+        _channel('Sports One', group: 'Sports'),
+      ],
+      favoriteChannels: const {
+        (sourceId: 'fixture', channelId: 'News One'),
+      },
+    );
+
+    // Repeated access within one rebuild must not rescan or reallocate.
+    expect(identical(state.visibleChannels, state.visibleChannels), isTrue);
+    expect(identical(state.sourceChannels, state.sourceChannels), isTrue);
+    expect(identical(state.availableGroups, state.availableGroups), isTrue);
+    expect(identical(state.resumeChannel, state.resumeChannel), isTrue);
+
+    // A new instance derives fresh results and leaves the old one untouched.
+    final filtered = state.copyWith(query: 'SPORTS');
+    expect(filtered.visibleChannels.map((channel) => channel.name), [
+      'Sports One',
+    ]);
+    expect(state.visibleChannels.length, 2);
+    expect(filtered.availableGroups, ['News', 'Sports']);
+  });
 }
 
 Channel _channel(String name, {String? group}) => Channel(

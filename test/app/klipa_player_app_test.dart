@@ -397,7 +397,7 @@ final class _CategoryFixtureController extends LibraryController {
 
 final class _ImportingFixtureController extends LibraryController {
   @override
-  LibraryState build() => const LibraryState(
+  LibraryState build() => LibraryState(
     isImporting: true,
     operationMessage: 'Signing in and importing channels…',
   );
@@ -422,7 +422,7 @@ final class _BlockedImportFixtureController extends LibraryController {
 
 final class _NoticeFixtureController extends LibraryController {
   @override
-  LibraryState build() => const LibraryState(message: 'Imported 42 channels.');
+  LibraryState build() => LibraryState(message: 'Imported 42 channels.');
 }
 
 final class _FullscreenFixtureController extends LibraryController {
@@ -447,7 +447,7 @@ final class _RecoveryFixtureController extends LibraryController {
   static var resetCalls = 0;
 
   @override
-  LibraryState build() => const LibraryState(
+  LibraryState build() => LibraryState(
     error: 'The encrypted library key is missing.',
     recoveryRequired: true,
   );
@@ -455,7 +455,7 @@ final class _RecoveryFixtureController extends LibraryController {
   @override
   Future<void> resetLibrary() async {
     resetCalls++;
-    state = const LibraryState(message: 'App data was reset.');
+    state = LibraryState(message: 'App data was reset.');
   }
 }
 
