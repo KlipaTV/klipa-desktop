@@ -370,7 +370,10 @@ void main() {
   test('deleting a source clears a stale category filter', () async {
     final store = _FakeLibraryStore(
       initial: LibrarySnapshot(
-        sources: [_librarySource(), _librarySource(id: 'source-2')],
+        sources: [
+          _librarySource(),
+          _librarySource(id: 'source-2'),
+        ],
         channels: [
           _channel('one'),
           _channel('two', sourceId: 'source-2', group: 'Sports'),
@@ -394,7 +397,10 @@ void main() {
   test('deleting a source keeps a category filter that survives', () async {
     final store = _FakeLibraryStore(
       initial: LibrarySnapshot(
-        sources: [_librarySource(), _librarySource(id: 'source-2')],
+        sources: [
+          _librarySource(),
+          _librarySource(id: 'source-2'),
+        ],
         channels: [
           _channel('one'),
           _channel('two', sourceId: 'source-2', group: 'Sports'),

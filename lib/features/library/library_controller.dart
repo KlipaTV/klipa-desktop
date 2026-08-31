@@ -253,10 +253,14 @@ class LibraryController extends Notifier<LibraryState> {
       await _store.renameSource(sourceId: sourceId, name: normalized);
       if (_disposed) return;
       state = state.copyWith(
-        sources: List.unmodifiable(<LibrarySource>[
-          for (final source in state.sources)
-            source.id == sourceId ? source.copyWith(name: normalized) : source,
-        ]..sort(_compareSources)),
+        sources: List.unmodifiable(
+          <LibrarySource>[
+            for (final source in state.sources)
+              source.id == sourceId
+                  ? source.copyWith(name: normalized)
+                  : source,
+          ]..sort(_compareSources),
+        ),
         isImporting: false,
         clearOperationMessage: true,
         message: 'Renamed source.',
@@ -502,7 +506,8 @@ class LibraryController extends Notifier<LibraryState> {
       isImporting: false,
       clearOperationMessage: true,
       clearError: true,
-      message: '$verb ${result.channels.length} channels.$warningSuffix'
+      message:
+          '$verb ${result.channels.length} channels.$warningSuffix'
           '$guideSuffix$guideTruncatedSuffix',
     );
     _queueNavigationSave();
