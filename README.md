@@ -105,6 +105,10 @@ startup endpoint. Network access is initiated only for a source the user adds,
 its provider-hosted guide/artwork/media, or a future explicit external-browser
 promotion action. Normal operation does not require a Klipa VPS.
 
+Repository collaboration and agent handoff rules are in
+[`AGENTS.md`](AGENTS.md). Read them before changing source, packaging, security,
+or release configuration.
+
 ## Scope
 
 The v1 boundary is live TV only: M3U/M3U8, Xtream live channels, favorites,

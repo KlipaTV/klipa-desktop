@@ -102,9 +102,7 @@ void main() {
         _channel('News One', group: 'News'),
         _channel('Sports One', group: 'Sports'),
       ],
-      favoriteChannels: const {
-        (sourceId: 'fixture', channelId: 'News One'),
-      },
+      favoriteChannels: const {(sourceId: 'fixture', channelId: 'News One')},
     );
 
     // Repeated access within one rebuild must not rescan or reallocate.

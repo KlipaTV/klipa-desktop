@@ -52,11 +52,13 @@ class NetworkPolicy {
     }
     // IPv4 first so the pinned connection prefers a routable family on hosts
     // that advertise AAAA records without working IPv6 connectivity.
-    addresses.sort((a, b) => a.type == b.type
-        ? 0
-        : a.type == InternetAddressType.IPv4
-        ? -1
-        : 1);
+    addresses.sort(
+      (a, b) => a.type == b.type
+          ? 0
+          : a.type == InternetAddressType.IPv4
+          ? -1
+          : 1,
+    );
     return addresses;
   }
 
