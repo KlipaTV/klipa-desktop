@@ -12,6 +12,40 @@ if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
 fi
 [[ -x "$bundle/klipa_player" ]] || { echo "Linux release bundle is missing." >&2; exit 1; }
 
+# Reproducible packaging
+# =====================
+# dpkg-deb stores the mtime of every staged file and directory in the archive's
+# tar members and compresses them with zstd, so wall-clock timestamps and an
+# unpinned compressor make the .deb differ on every run. The package is made
+# byte-reproducible by fixing both:
+#
+#   1. SOURCE_DATE_EPOCH is the only time source dpkg uses. It is derived from
+#      the commit timestamp of HEAD (`git log -1 --format=%ct`), so two
+#      packagings of the same commit agree even when they run minutes apart.
+#      An explicit SOURCE_DATE_EPOCH from the environment wins, which lets a
+#      release script rebuild a tagged commit at the time recorded for that
+#      tag. Nothing here reads the wall clock.
+#   2. The staging tree is normalised to that epoch before packaging. Files
+#      copied with `cp -a` keep the bundle's mtimes and directories created
+#      with `mkdir` keep the time of the run, so dpkg-deb would otherwise
+#      embed both. Every entry is reset to the epoch (see the `find` below).
+#
+# The compressor is pinned for the same reason: the zstd level is stated
+# explicitly so a changed dpkg-deb default cannot alter the bytes, and the
+# encoder is limited to one thread because the multithreaded zstd encoder
+# reorders the stream as the thread count changes. Level 19 matches
+# dpkg-deb's current default, so artifacts keep the size the previous
+# toolchain produced.
+source_date_epoch="${SOURCE_DATE_EPOCH:-}"
+if [[ -z "$source_date_epoch" ]]; then
+  source_date_epoch="$(git -C "$root" log -1 --format=%ct 2>/dev/null || true)"
+fi
+if [[ ! "$source_date_epoch" =~ ^[0-9]+$ ]]; then
+  echo "SOURCE_DATE_EPOCH must be a Unix timestamp in seconds; it is unset and could not be derived from Git history." >&2
+  exit 1
+fi
+export SOURCE_DATE_EPOCH="$source_date_epoch"
+
 case "$stage" in
   "$root"/dist/linux/stage) rm -rf -- "$stage" ;;
   *) echo "Refusing unsafe staging path: $stage" >&2; exit 1 ;;
@@ -63,9 +97,20 @@ sed -e "s/@VERSION@/$version/g" \
     -e "s/@INSTALLED_SIZE@/$installed_size/g" \
     "$root/packaging/linux/control.in" > "$stage/DEBIAN/control"
 
+# Normalise every staged timestamp to the packaging epoch; this is the last
+# write to the staging tree before dpkg-deb reads it. -depth visits the contents
+# of a directory before the directory itself, so touching a file does not
+# re-bump its parent's mtime afterwards, and -h also resets symlink timestamps.
+find "$stage" -depth -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
+
 mkdir -p "$dist"
 package="$dist/klipa-player_${version}_amd64.deb"
-dpkg-deb --root-owner-group --build "$stage" "$package"
+# Compression is pinned: -Z zstd -z 19 fixes the encoder and level, and
+# --threads-max=1 stops the multithreaded zstd encoder from reordering the
+# stream. --uniform-compression keeps the control and data members on the same
+# settings.
+dpkg-deb --root-owner-group --uniform-compression \
+  -Z zstd -z 19 --threads-max=1 --build "$stage" "$package"
 dpkg-deb --info "$package"
 rm -rf -- "$stage"
 if [[ -n "${SIGNING_KEY:-}" ]]; then
