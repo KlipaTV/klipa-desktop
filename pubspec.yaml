@@ -1,7 +1,7 @@
 name: klipa_player_windows
 description: Klipa Player — a lightweight, local-first IPTV player for desktop.
 publish_to: 'none'
-version: 0.1.0+1
+version: 0.1.1+1
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
