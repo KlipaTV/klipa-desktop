@@ -3,6 +3,52 @@
 This checklist does not authorize publishing. Every artifact remains local
 until the owner explicitly approves a release destination and audience.
 
+## Status update — 2026-09-10
+
+Verified on a Linux host against `origin/main`; a passing local build is not a
+release approval.
+
+- No release has ever been cut: `git tag` returns nothing and
+  `gh release list -R KlipaTV/klipa-desktop` returns nothing.
+- The single desktop artifact served from the website
+  (`klipa.tv/downloads/desktop/klipa-player_0.1.0-1_amd64.deb`) matches its
+  adjacent `SHA256SUMS.txt`. Both the computed hash and the published line are
+  SHA-256
+  `2fc76f633f34187e23794969d383e135248430e62f0294918587c7a9234e5d6c`.
+- Repository validation passes locally: `dart format --output=none
+  --set-exit-if-changed lib test`, `flutter analyze --fatal-infos
+  --fatal-warnings` (no issues), and `flutter test` (139 passed, 3 skipped as
+  Windows-only).
+
+### Traceability gap (open)
+
+The served `.deb` carries no commit or revision provenance. Its control field
+`Version: 0.1.0-1` maps to the `0.1.0+1` version in `pubspec.yaml`, but that
+version string is shared by every commit that carried it, so the artifact
+cannot be attributed to a specific source revision. No tag, release note, or
+embedded revision identifies the commit it was built from. Until an artifact is
+built from and linked to a tagged commit, its supply-chain provenance is
+unverified. Any future release artifact must be built from, and recorded as
+attributable to, a tagged commit before it is published.
+
+### Blockers
+
+Owner-gated (no engineering action can clear these):
+
+- Approval of the release destination and audience.
+- `SIGNPATH_API_TOKEN` and `SIGNPATH_ORGANIZATION_ID` repository secrets, plus
+  the maintainer's manual approval of each signing request in the SignPath web
+  UI.
+- Explicit approval before pushing a `v*` tag or creating a release.
+
+Engineering-gated (need hardware not available on the current development
+host):
+
+- Corrupt-media and repeated channel-switch coverage across the documented
+  Intel/AMD/NVIDIA matrix, including HLS and MPEG-TS.
+- Install and upgrade validation on clean Windows 10/11 and supported
+  Debian/Ubuntu VMs.
+
 ## Automated gates completed locally
 
 - Strict Flutter analysis and complete Windows/Linux test suites.
