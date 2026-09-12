@@ -1,35 +1,66 @@
 # External distribution release checklist
 
-This checklist does not authorize publishing. Every artifact remains local
-until the owner explicitly approves a release destination and audience.
+Nothing in this checklist authorizes publishing. Apart from the single Linux
+release recorded below, every artifact remains local until the owner explicitly
+approves a release destination and audience.
 
-## Status update — 2026-09-10
+## Status update — 2026-09-12
 
-Verified on a Linux host against `origin/main`; a passing local build is not a
-release approval.
+Verified on a Linux host against `origin/main` and against the live production
+download; a passing local build is not a release approval.
 
-- No release has ever been cut: `git tag` returns nothing and
-  `gh release list -R KlipaTV/klipa-desktop` returns nothing.
-- The single desktop artifact served from the website
-  (`klipa.tv/downloads/desktop/klipa-player_0.1.0-1_amd64.deb`) matches its
-  adjacent `SHA256SUMS.txt`. Both the computed hash and the published line are
-  SHA-256
-  `2fc76f633f34187e23794969d383e135248430e62f0294918587c7a9234e5d6c`.
-- Repository validation passes locally: `dart format --output=none
-  --set-exit-if-changed lib test`, `flutter analyze --fatal-infos
-  --fatal-warnings` (no issues), and `flutter test` (139 passed, 3 skipped as
-  Windows-only).
+- One release has been cut. Tag `v0.1.1` exists on `origin` (annotated tag
+  object `0e90a324a5d5edcf6c96c1b69131ad30ed155bff`) and resolves to commit
+  `491d3f9c0a39ce0ba0be3f12f34c294847734f78`, which is the current `main` HEAD
+  and `origin/main`. The GitHub release "Klipa Player 0.1.1 (Linux amd64)" is
+  published, not a draft, and not marked pre-release. Its assets are
+  `klipa-player_0.1.1-1_amd64.deb` (10,130,232 bytes), `SHA256SUMS.txt`
+  (97 bytes), `sbom-source.cdx.json` (154,003 bytes), and
+  `THIRD_PARTY_NOTICES.md` (2,607 bytes).
+- The artifact served in production
+  (`klipa.tv/downloads/desktop/klipa-player_0.1.1-1_amd64.deb`) returns HTTP 200
+  and 10,130,232 bytes with SHA-256
+  `d9ce557bcbc4908c858a7cfc1039aadf5d934cc4aecfee1e34333b734a9a3f51`.
+- The copy published under the website's desktop download directory, the live
+  production download, and the `v0.1.1` release asset are the same bytes:
+  10,130,232 bytes and that same SHA-256. The `SHA256SUMS.txt` published beside
+  the site artifact contains that hash and `sha256sum -c` succeeds; the
+  `SHA256SUMS.txt` attached to the `v0.1.1` release carries the same line.
+- Repository validation passes locally on Flutter 3.44.6 / Dart 3.12.2:
+  `dart format --output=none --set-exit-if-changed lib test` (55 files,
+  0 changed), `flutter analyze --fatal-infos --fatal-warnings` (No issues
+  found), and `flutter test` (139 passed, 3 skipped as Windows-only).
 
-### Traceability gap (open)
+### Traceability: partly closed by the tag, still not embedded
 
-The served `.deb` carries no commit or revision provenance. Its control field
-`Version: 0.1.0-1` maps to the `0.1.0+1` version in `pubspec.yaml`, but that
-version string is shared by every commit that carried it, so the artifact
-cannot be attributed to a specific source revision. No tag, release note, or
-embedded revision identifies the commit it was built from. Until an artifact is
-built from and linked to a tagged commit, its supply-chain provenance is
-unverified. Any future release artifact must be built from, and recorded as
-attributable to, a tagged commit before it is published.
+The released `.deb` carries no commit or revision provenance inside it.
+`dpkg-deb -f` reports `Package: klipa-player`, `Version: 0.1.1-1`,
+`Architecture: amd64`, a dependency list, and a description — no `Source:`, no
+`Built-Using:`, and no revision field. Its control archive holds only `control`
+(418 bytes): no `md5sums`, no changelog, no build metadata. The payload listing
+contains no `.buildinfo`, SBOM, or revision file, and a repository-wide search
+finds no occurrence of the commit SHA inside the package. The only embedded
+version data is `data/flutter_assets/version.json`, which records an app name,
+`version` 0.1.1, `build_number` 1, and no commit.
+
+What moved when the release was tagged: the previous status recorded that the
+served 0.1.0 artifact could not be attributed to a source revision because the
+`0.1.0+1` version string was carried by 30 commits. `version: 0.1.1+1` in
+`pubspec.yaml` now occurs in exactly one commit in this repository's history
+(`491d3f9c0a39ce0ba0be3f12f34c294847734f78`), and tag `v0.1.1` resolves to that
+same commit, so the released version string identifies a single revision and
+the release record links the published SHA-256 to it.
+
+What is still not established: that linkage rests on the tag/version convention
+and on the published `SHA256SUMS.txt`, not on anything inside the `.deb`.
+Nothing in the package shows which commit produced it, so a rebuild from a
+different tree carrying `version: 0.1.1+1` would be indistinguishable from the
+released artifact by inspection alone. The `v0.1.1` tag is an unsigned
+annotated tag (`git verify-tag` reports "no signature found"), and the Linux
+artifact is published unsigned, with no detached `.deb.asc`. Supply-chain
+provenance therefore still depends on the release record itself; any future
+release artifact must embed, or verifiably build from, the revision it claims
+before its provenance can be called established.
 
 ### Blockers
 

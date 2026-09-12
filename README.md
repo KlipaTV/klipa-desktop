@@ -11,7 +11,8 @@ model are desktop-native.
 
 ## Current status
 
-Public source, pre-release candidate:
+Public source, pre-release candidate (one tagged Linux release exists; see the
+[release checklist](docs/release-checklist.md)):
 
 - Native Windows and Linux Flutter runners in one local Git repository
 - Klipa desktop shell, bounded M3U import, search and single-player vertical slice
