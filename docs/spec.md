@@ -1,6 +1,7 @@
 # Klipa Player for Desktop — product and technical specification
 
-**Status:** Public source, pre-release candidate
+**Status:** Public source, pre-release candidate; one tagged Linux release
+(`v0.1.1`) is published, recorded in `docs/release-checklist.md`
 
 **Product:** Klipa Player
 
