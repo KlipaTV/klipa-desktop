@@ -1,23 +1,64 @@
 # Code signing policy
 
-Klipa Player desktop binaries are code-signed before any external
-distribution. Signing is performed exclusively through CI-provenance flow
-described below; no binary built on a personal laptop is ever signed and
-shipped.
+Klipa Player desktop binaries are *intended* to be code-signed before any
+external distribution, through the CI-provenance flow described below: no
+binary built on a personal laptop is ever signed and shipped.
+
+## Status: no certificate is active (2026-09-13)
+
+**No signed release exists and no code-signing certificate has been issued to
+this project.** The free SignPath Foundation program declined the application
+on 2026-07-22, on the grounds that the project does not yet show enough
+public-visibility signals (adoption, external references, institutional
+backing); the Foundation invited a reapplication once broader recognition
+exists.
+
+What that means in practice:
+
+- Every Klipa Player desktop artifact published so far is **unsigned**, and no
+  Windows artifact is published for download at all. The Debian/Ubuntu package
+  is the only public download.
+- The SignPath flow documented in this file is the **preferred route, not an
+  active one**. It becomes active only through a future approved application, a
+  paid SignPath subscription, or a different route below.
+
+### Routes evaluated (2026-09-13)
+
+Cost and availability below follow Microsoft's own comparison of signing
+options in the Windows app developer documentation (retrieved 2026-09-13, page
+last updated 2026-08-29):
+
+| Route | Cost | Availability | Notes |
+| --- | --- | --- | --- |
+| SignPath Foundation | free | open-source projects with established public visibility | declined for this project; reapplication invited |
+| SignPath paid subscription | quote from vendor | worldwide | same managed pipeline as the flow below |
+| Microsoft Store, MSIX package | Store developer account | worldwide | Microsoft re-signs the package; no SmartScreen warning; makes the Store a second distribution channel |
+| Azure Artifact Signing (formerly Trusted Signing) | ~$9.99/month | organizations in USA, Canada, EU, UK; **individuals only in USA and Canada** | CI-native, no hardware token; **therefore unavailable to an individual developer in Spain**, and available only if the project is operated through a legal entity in the EU/UK |
+| Certum Open Source Code Signing | from ~$29 plus card/token set | worldwide, for open-source projects | open-source-specific certificate; Certum Cloud (SimplySign) signing from roughly $116–177/year |
+| OV certificate (DigiCert, Sectigo, GlobalSign, …) | $150–300/year | worldwide | hardware token or cloud HSM required |
+| EV certificate | $400+/year | worldwide | no longer bypasses SmartScreen since 2024; the premium is not justified here |
+| Self-signed or no signature | free | — | blocks or warns every public user; not viable for distribution |
+
+The chosen route and its rationale are recorded in the private project
+decision log. This section will name the active route as soon as one is in
+effect, and the public download pages will not describe a Windows build as
+signed before that happens.
 
 ## Source of the certificate
 
-Free code signing is provided by [SignPath.io](https://about.signpath.io),
-certificate by [SignPath Foundation](https://signpath.org). The certificate is
-issued to *SignPath Foundation*; Klipa Project is the published name on the
-artifact metadata. SignPath Foundation is the legal publisher of record and
-vouches that signed binaries were produced by an automated, verifiable build
-from this repository.
+Under the SignPath Foundation route, free code signing is provided by
+[SignPath.io](https://about.signpath.io) with the certificate issued by
+[SignPath Foundation](https://signpath.org). The certificate is issued to
+*SignPath Foundation*; Klipa Project is the published name on the artifact
+metadata. SignPath Foundation is then the legal publisher of record and vouches
+that signed binaries were produced by an automated, verifiable build from this
+repository.
 
 ## Team roles
 
-Klipa is a solo-maintainer project. Roles are documented here so SignPath's
-per-release approval workflow is unambiguous.
+Klipa is a solo-maintainer project. Roles are documented here so that the
+SignPath per-release approval workflow is unambiguous once a certificate is
+active (see the status section above).
 
 - **Authors / Committers** —
   [KlipaTV](https://github.com/KlipaTV).

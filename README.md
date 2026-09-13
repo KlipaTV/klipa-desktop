@@ -45,8 +45,9 @@ Public source, pre-release candidate (one tagged Linux release exists; see the
 - Runtime networking has no Klipa service dependency: install and startup make
   no Klipa request, and provider data is never routed through Klipa
 - Confirmed reset and missing/corrupt-key recovery are wired; external
-  distribution security and signing gates are implemented through
-  SignPath code signing and the GitHub Actions release workflow
+  distribution and signing gates are automated in the GitHub Actions release
+  workflow, with no signing certificate active yet (see
+  [Code signing policy](docs/code-signing-policy.md))
 - Native Windows debug build, DPAPI, encrypted database and libmpv smoke tests pass
 - Native release build and an authorized private MPEG-TS playback smoke pass
 - Native Linux release bundle builds at about 29 MiB before packaging; local
@@ -59,8 +60,9 @@ Public source, pre-release candidate (one tagged Linux release exists; see the
   and versions, license notices, and a high/critical vulnerability gate
 - Deterministic release fuzzing covers M3U, XMLTV, and Xtream inputs; optional
   Windows Authenticode and Linux detached-signature paths keep keys external
-- Public source at https://github.com/KlipaTV/klipa-desktop; signed Windows
-  releases are published from tagged commits via the release workflow
+- Public source at https://github.com/KlipaTV/klipa-desktop; the Windows release
+  workflow is built to publish signed releases from tagged commits, and no
+  signed Windows build has been published because no certificate is active
 
 The Windows toolchain uses Flutter 3.44.6 stable, Visual Studio Build Tools
 2022, the Desktop development with C++ workload, and Windows SDK 10.0.26100.
@@ -127,12 +129,19 @@ external-distribution gates are tracked in the [release checklist](docs/release-
 
 ## Code signing policy
 
-Klipa Player desktop binaries are signed before external distribution through
-a CI-provenance flow managed by SignPath. No binary built on a personal laptop
+Klipa Player desktop binaries are intended to be signed before external
+distribution through a CI-provenance flow. No binary built on a personal laptop
 is ever signed and shipped.
 
-Free code signing provided by [SignPath.io](https://about.signpath.io),
-certificate by [SignPath Foundation](https://signpath.org).
+**Status: no certificate is active, and no signed build has been published.**
+The SignPath Foundation application was declined on 2026-07-22 for lack of
+public-visibility signals, so every desktop artifact published so far is
+unsigned and no Windows download is offered. Free code signing, if approved,
+would be provided by [SignPath.io](https://about.signpath.io) with a
+certificate by [SignPath Foundation](https://signpath.org). The routes under
+evaluation — Store MSIX signing, Azure Artifact Signing, Certum Open Source,
+OV certificates — with costs, availability and constraints, are documented in
+[Code signing policy](docs/code-signing-policy.md).
 
 Team roles:
 
