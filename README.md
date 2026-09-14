@@ -158,7 +158,10 @@ procedure: see [Code signing policy](docs/code-signing-policy.md).
 ## License and branding
 
 This project's first-party source code is licensed under the
-**GNU Lesser General Public License v3.0 or later** — see `LICENSE`. The LGPL
+**GNU Lesser General Public License v3.0 or later** — see `LICENSE`. The
+canonical GNU texts ship alongside it in the layout the GNU project itself uses
+for LGPL-3.0-or-later: `COPYING` (GNU GPL v3) and `COPYING.LESSER` (the
+additional permissions that make it the Lesser GPL). The LGPL
 was chosen so the commercial Klipa mobile app can link against shared
 desktop components without becoming FOSS itself.
 
