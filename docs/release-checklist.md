@@ -80,6 +80,67 @@ host):
 - Install and upgrade validation on clean Windows 10/11 and supported
   Debian/Ubuntu VMs.
 
+## Status update — 2026-09-16: the Linux packager is deterministic and self-attributing
+
+Verified on 2026-09-16 on a Linux host (`dpkg-deb` 1.23.7, `zstd` 1.5.7, 16
+processors) against the tree carrying this section, reusing the existing
+`build/linux/x64/release/bundle`. This closes the engineering half of the
+attribution gap for future artifacts. It does not change the published release,
+and it does not make the published bytes reproducible; see the warning below.
+
+### Triage: the two 0.1.1 artifacts differ in packaging, not in payload
+
+The local `dist/linux/klipa-player_0.1.1-1_amd64.deb` (10,132,352 bytes) and the
+published/served artifact (10,130,232 bytes, SHA-256
+`d9ce557bcbc4908c858a7cfc1039aadf5d934cc4aecfee1e34333b734a9a3f51`) were
+compared by unpacking both (`ar x`, decompress the member tars) and hashing every
+entry: paths, modes, sizes, symlink targets, and per-file SHA-256 are **identical**
+in both, and in two fresh repackages of the on-disk bundle. The 2,120-byte gap is
+therefore packaging non-determinism, not a rebuild of the application bundle.
+
+Two consecutive runs of the previous packager over that one bundle produced
+different artifacts — 10,130,270 bytes
+(`9bf15300870e5e8a5b7c173ff3257d33ceedeae97d8d27fe36ea1e2eee920d3c`) and
+10,130,128 bytes
+(`284b80d79d3560f219f6be096bd13f0f362db8efef00d7d79368edba3e7ae0bc`) — the
+first difference at byte 33, inside the mtime field of the first ar member
+header. The payload was unchanged between them.
+
+### What changed
+
+`tool/package_linux.sh` now pins `SOURCE_DATE_EPOCH` (derived from the commit,
+integer-validated, with an explicit override for tagged rebuilds), normalises
+every staging mtime to that epoch as its last write before packaging, and pins
+the compressor to `--uniform-compression -Z zstd -z 19 --threads-max=1`. Two
+consecutive runs over the same commit and bundle now yield one hash
+(`d4f73f39b9450020749468918338e1b7fb9d3f25e0ae1a90d15a6ef0a1ae08d2`), `cmp`
+reports no difference, and all 53 `data.tar` plus 2 `control.tar` entries carry
+a single mtime equal to the epoch. The recipe and the empirically determined
+zstd default are recorded in `docs/packaging.md`.
+
+The package also identifies its source revision: `Source-Revision` in the
+`control` member and `/usr/share/doc/klipa-player/SOURCE_REVISION` in the
+payload.
+
+This establishes **packaging** determinism, not build determinism: both runs
+reused an existing Flutter release bundle. Reproducing a `.deb` from source still
+requires reproducing the Flutter/Dart build that produces that bundle.
+
+### The published `v0.1.1` artifact is not reproducible and must not be republished
+
+The published artifact was built by the previous packager. Its bytes are
+unchanged and remain the released artifact; the checksum recorded above stays
+the authority for it. A rebuild of `v0.1.1` with the current packager will
+**not** reproduce `d9ce557b…`: the package carries an additional payload file and
+control field, its member mtimes are the commit's timestamp rather than the wall
+clock, and its compressor flags are now explicit. No release should be re-cut or
+re-uploaded on the expectation that the published hash can be regenerated.
+
+A fixed compressor level and thread count remove build-host variation. They do
+not remove toolchain-version variation: a different `libzstd` or `dpkg` produces
+a different, self-consistent stream. Published checksums should therefore be
+recorded together with the packaging toolchain that produced them.
+
 ## Automated gates completed locally
 
 - Strict Flutter analysis and complete Windows/Linux test suites.

@@ -1,5 +1,6 @@
 Package: klipa-player
 Version: @VERSION@
+Source-Revision: @SOURCE_REVISION@
 Section: video
 Priority: optional
 Architecture: amd64
