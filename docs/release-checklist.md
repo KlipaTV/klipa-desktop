@@ -72,13 +72,30 @@ Owner-gated (no engineering action can clear these):
   UI.
 - Explicit approval before pushing a `v*` tag or creating a release.
 
-Engineering-gated (need hardware not available on the current development
-host):
+Engineering-gated. Measured on 2026-09-20, "need hardware not available on the
+current development host" was the wrong description of most of this list:
 
 - Corrupt-media and repeated channel-switch coverage across the documented
-  Intel/AMD/NVIDIA matrix, including HLS and MPEG-TS.
-- Install and upgrade validation on clean Windows 10/11 and supported
-  Debian/Ubuntu VMs.
+  Intel/AMD/NVIDIA matrix, including HLS and MPEG-TS. Re-measured: an Intel GPU
+  is present and usable; an NVIDIA GPU is present but unusable because
+  `nvidia-smi` fails with a driver/library version mismatch, so the NVIDIA leg
+  cannot be run here today; no AMD device is present. The NVIDIA leg is blocked
+  by a driver problem and the AMD leg by the absence of the device, while the
+  Intel leg is not hardware-blocked at all. What is still missing across the
+  whole matrix is the media corpus and the per-vendor coverage.
+- No Windows host or VM is available here, so install, upgrade and zero-network
+  clean-launch validation on Windows 10/11 has not been run. The only Windows
+  coverage in this repository is CI (`.github/workflows/ci.yml` builds the
+  Windows release bundle on `windows-latest`, and `windows-release.yml`), and a
+  CI build is not an install onto a clean Windows machine.
+- The container engine of `tool/validate_linux_install.sh` cannot run here: the
+  Docker client is installed but the daemon socket is permission-denied for the
+  user running the check, so the tool refuses that engine and exits non-zero
+  instead of skipping it. The Debian/Ubuntu legs are covered by the same tool's
+  `rootfs` engine, measured in the 2026-09-20 status update below.
+- The old "install and upgrade validation on clean Debian/Ubuntu VMs" item is
+  partly answered by that same run, which measures the package against four
+  supported releases. It is not a VM install, and a VM run has not been done.
 
 ## Status update — 2026-09-16: the Linux packager is deterministic and self-attributing
 
@@ -141,6 +158,107 @@ not remove toolchain-version variation: a different `libzstd` or `dpkg` produces
 a different, self-consistent stream. Published checksums should therefore be
 recorded together with the packaging toolchain that produced them.
 
+## Status update — 2026-09-20: the Linux .deb measured on clean Debian and Ubuntu systems
+
+Verified on 2026-09-20 on a Linux development host (`dpkg` 1.23.7,
+`bubblewrap` 0.11.1), from two complete runs of
+`tool/validate_linux_install.sh` against commit
+`374f7e3bccdba15d9bf6fbc9f23b94bb79b8f867` (`origin/main`). Nothing was
+published, tagged, signed or uploaded, and this section changes no artifact: the
+published `v0.1.1` bytes stay exactly as published.
+
+The tool builds a clean base system for each release out of *that release's own
+archive*: it resolves the package's dependency closure with `apt-get` against an
+empty dpkg status, adds the release's Essential packages (apt omits those by
+design, because it assumes a running system already has them), extracts the
+closure into a private root filesystem, configures it with that release's own
+dpkg running inside the root under `bubblewrap`, then installs the `.deb` under
+test, inspects the installed layout, embedded provenance and dynamic links,
+executes the binary under Xvfb inside the root, removes it again, and exercises
+the upgrade path. It also verifies after each leg that the host's own dpkg and
+loader state was unchanged. It is not a virtual machine: it is the same package
+set a clean system of that release would have. It can therefore say nothing
+about real hardware, a real kernel configuration or a real display.
+
+Package under test: `klipa-player` 0.1.1-1, 10,132,798 bytes, SHA-256
+`8432837a08372a88ba5f955ba79988c5a025fa36020b31fbb77c0f2f5f59f05d`.
+
+### Result per release
+
+- **Debian 12 (bookworm, glibc 2.36)** — FAIL. The release publishes every
+  declared dependency (`libgtk-3-0` 3.24.38-2~deb12u3, `libmpv2` 0.35.1-4,
+  `libsecret-1-0` 0.20.5-3) and resolves a 362-package closure on a clean
+  bookworm system. The package installs and reaches `install ok installed`; all
+  53 owned paths are present, of which 28 are files; the embedded
+  `Source-Revision` names this commit; removal leaves no packaged file behind (28
+  files removed, 8 owned directories retained, as dpkg intends); and the upgrade
+  path `0.1.1-0` to `0.1.1-1` moves the version while keeping an identical path
+  set and byte-identical file contents. What fails is the payload itself: the
+  bundled `libflutter_secure_storage_linux_plugin.so` requires `GLIBC_2.38` and
+  bookworm provides 2.36, so the loader refuses to start the program there
+  (`version \`GLIBC_2.38' not found`). No other ELF object in the package needs
+  more than `GLIBC_2.34`.
+- **Debian 13 (trixie, glibc 2.41)** — PASS. `libgtk-3-0` is published as
+  `libgtk-3-0t64` 3.24.49-3, which the declared alternative covers, alongside
+  `libmpv2` 0.40.0-3+deb13u1 and `libsecret-1-0` 0.21.7-1; the closure is 349
+  packages and 348 reach `install ok installed`. Every NEEDED library resolves,
+  the binary starts under Xvfb inside the clean root and is still running when
+  the check's timeout fires, and removal and the upgrade transition both pass.
+- **Ubuntu 22.04 (jammy, glibc 2.35)** — UNSUPPORTED, and not by the package's
+  contents. jammy publishes `libgtk-3-0` 3.24.33-1ubuntu1 and `libsecret-1-0`
+  0.20.5-2 in `main universe`, but **no `libmpv2`**; it ships `libmpv1`, so the
+  declared `Depends` cannot be satisfied on that release at all. This is a
+  distribution-support limit of the package's metadata.
+- **Ubuntu 24.04 (noble, glibc 2.39)** — PASS, on the same basis as Debian 13:
+  `libgtk-3-0` is published as `libgtk-3-0t64` 3.24.41-4ubuntu1, with `libmpv2`
+  0.37.0-1ubuntu4 and `libsecret-1-0` 0.21.4-1build3. The closure is 357 packages
+  and 356 reach `install ok installed`; every NEEDED library resolves, the binary
+  starts and stays running, and removal and the upgrade transition pass.
+
+Both runs produced this same verdict for every release, with process exit status
+1: Debian 12 FAIL, Debian 13 PASS, Ubuntu 22.04 UNSUPPORTED, Ubuntu 24.04 PASS.
+Each run rebuilt every root filesystem from empty (the downloaded archives are
+cached between runs; nothing about the base systems is), and each verified that
+the host's dpkg and loader state was unchanged.
+
+### Defect recorded, not fixed here: this artifact needs glibc 2.38, and nothing says so
+
+`klipa-player` 0.1.1-1 declares `Depends: libgtk-3-0 | libgtk-3-0t64, libmpv2,
+libsecret-1-0`. No Debian control field can express a minimum glibc version, and
+this package needs one, because one bundled plugin is built against `GLIBC_2.38`.
+The measured consequences on this tree:
+
+- On Debian 12 the package installs cleanly, every declared dependency is
+  satisfied, the upgrade path works — and the program will not start.
+- On Ubuntu 22.04 the declared `Depends` cannot be satisfied, so the glibc
+  question does not even arise.
+- Debian 13 and Ubuntu 24.04 both pass every check.
+
+So the practical floor for this artifact is glibc 2.38, which is one supported
+release higher than the packaging and its "supported Debian/Ubuntu" phrasing
+imply. The remedy belongs to the bundle's build environment and the package
+metadata — build that plugin against an older glibc, or state the floor where a
+user can see it before installing. Neither is done here.
+
+### One observation about the declared dependency set
+
+On a base system that satisfies the declared `Depends` and carries an X server
+and a GL stack, the program aborted at startup with
+`Couldn't open libGLESv2.so.2` until the release's `libgles2` was added to that
+base system; with it present, the program starts and stays running. Flutter's GTK
+embedder opens a GL ES library directly and none of the declared `Depends` pulls
+one in. Recorded as an observation rather than a defect: a desktop installation
+will normally already have one, which is why the check adds it explicitly.
+
+### Which engine produced this, and which one could not run
+
+These results come from the tool's `rootfs` engine. Its `docker` engine was not
+exercised: the Docker client is installed on this host, but the daemon socket is
+permission-denied for the user running the check, so the tool reports that engine
+as unavailable and exits non-zero instead of skipping it. The `rootfs` engine
+prints, with each run, the base-system properties it cannot reproduce; the group
+ownership of base-system files is the material one.
+
 ## Automated gates completed locally
 
 - Strict Flutter analysis and complete Windows/Linux test suites.
@@ -161,9 +279,18 @@ and artifacts under `dist` are local and ignored by Git.
 ## Engineering gates still open
 
 - Run corrupt-media and repeated channel-switch tests on the documented Intel,
-  AMD, and NVIDIA matrix, including HLS and MPEG-TS.
-- Validate install and upgrade on clean Windows 10/11 and supported
-  Debian/Ubuntu VMs rather than only the development host.
+  AMD, and NVIDIA matrix, including HLS and MPEG-TS. Not hardware-blocked on
+  Intel here; blocked on NVIDIA by a driver/library version mismatch and on AMD
+  by the absence of any AMD device (measured 2026-09-20). The media corpus and
+  the per-vendor coverage are missing regardless.
+- Validate install, upgrade and zero-network clean launch on Windows 10/11.
+  There is no Windows host or VM here, and CI builds a bundle without doing it.
+- Validate install and upgrade on a real supported Debian/Ubuntu VM or machine.
+  The 2026-09-20 status update below measures a private root filesystem built
+  from each release's own archive, which is a different check.
+- Close the glibc floor recorded in the 2026-09-20 status update: the artifact
+  runs on Debian 13 and Ubuntu 24.04 but not on Debian 12, and the package's
+  `Depends` cannot express that requirement.
 
 ## Accepted product security decision
 
