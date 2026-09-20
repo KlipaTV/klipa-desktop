@@ -162,10 +162,11 @@ recorded together with the packaging toolchain that produced them.
 
 Verified on 2026-09-20 on a Linux development host (`dpkg` 1.23.7,
 `bubblewrap` 0.11.1), from two complete runs of
-`tool/validate_linux_install.sh` against commit
-`374f7e3bccdba15d9bf6fbc9f23b94bb79b8f867` (`origin/main`). Nothing was
-published, tagged, signed or uploaded, and this section changes no artifact: the
-published `v0.1.1` bytes stay exactly as published.
+`tool/validate_linux_install.sh` against the tree at commit
+`374f7e3bccdba15d9bf6fbc9f23b94bb79b8f867`, which is the revision the package
+under test was built from; this section and the tool are committed on top of it.
+Nothing was published, tagged, signed or uploaded, and this section changes no
+artifact: the published `v0.1.1` bytes stay exactly as published.
 
 The tool builds a clean base system for each release out of *that release's own
 archive*: it resolves the package's dependency closure with `apt-get` against an
