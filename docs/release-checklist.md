@@ -195,9 +195,9 @@ Package under test: `klipa-player` 0.1.1-1, 10,132,798 bytes, SHA-256
   path `0.1.1-0` to `0.1.1-1` moves the version while keeping an identical path
   set and byte-identical file contents. What fails is the payload itself: the
   bundled `libflutter_secure_storage_linux_plugin.so` requires `GLIBC_2.38` and
-  bookworm provides 2.36, so the loader refuses to start the program there
-  (`version \`GLIBC_2.38' not found`). No other ELF object in the package needs
-  more than `GLIBC_2.34`.
+  bookworm provides 2.36, so the loader refuses to start the program there,
+  reporting "version `GLIBC_2.38' not found". No other ELF object in the package
+  needs more than `GLIBC_2.34`.
 - **Debian 13 (trixie, glibc 2.41)** — PASS. `libgtk-3-0` is published as
   `libgtk-3-0t64` 3.24.49-3, which the declared alternative covers, alongside
   `libmpv2` 0.40.0-3+deb13u1 and `libsecret-1-0` 0.21.7-1; the closure is 349
