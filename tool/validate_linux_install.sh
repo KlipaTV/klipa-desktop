@@ -28,7 +28,11 @@
 #   docker  The container route. Same checks inside official debian:*/ubuntu:*
 #           images. Requires a reachable Docker daemon; it is committed so the
 #           check is reproducible where one exists, and it refuses rather than
-#           silently skipping.
+#           silently skipping. It does not implement the two checks described at
+#           the end of this header (declared-floor classification and the
+#           declared-closure GL ES check): a container leg reports only PASS or
+#           FAIL, so a metadata refusal there appears as a FAIL. The rootfs
+#           engine is the engine that implements those checks.
 #
 # How to read the result of a leg:
 #
@@ -40,6 +44,13 @@
 #   UNSUPPORTED  the release's own archive does not publish a member of a
 #                declared Depends group. Recorded as a release-support limit
 #                with the evidence, never as a failure of the package.
+#   METADATA-UNSUPPORTED
+#                the release publishes every declared name, but not a version
+#                that satisfies a declared version floor (`libc6 (>= 2.38)`).
+#                The package's own metadata says this base system is not
+#                supported, so a package manager refuses the install: that is
+#                the metadata working, not a defect and not a pass. Recorded as
+#                a supportedness verdict with the floor named.
 #   PARTIAL      installed and inspected, but a sub-check could not run at full
 #                level (for example no Xvfb, or the binary did not stay alive).
 #   ENGINE-UNAVAILABLE / INDEX-UNREADABLE / HOST-CONTAMINATED
@@ -49,10 +60,11 @@
 #
 # Exit status: 0 only if every attempted leg passed. 1 if any leg FAILed,
 # 4 if any check could not be determined, 3 if any leg was PARTIAL, 2 if any
-# leg was UNSUPPORTED. Higher-numbered precedence: failure wins over
-# indeterminate wins over partial wins over unsupported. 64 means the check did
-# not run at all - a bad argument, a missing package, or a refused work
-# directory - so that a gate cannot mistake a usage error for a leg verdict.
+# leg was UNSUPPORTED or METADATA-UNSUPPORTED. Higher-numbered precedence:
+# failure wins over indeterminate wins over partial wins over unsupported. 64
+# means the check did not run at all - a bad argument, a missing package, or a
+# refused work directory - so that a gate cannot mistake a usage error for a leg
+# verdict.
 #
 # Usage:
 #   tool/validate_linux_install.sh                 # auto engine, all known legs
@@ -66,6 +78,18 @@
 # Downloaded archives and apt state are cached per leg under the work directory,
 # so a second run of the same tree reuses them. Only the root filesystems are
 # rebuilt. Nothing here is committed.
+#
+# Two checks exist to keep a measured defect class from regressing silently:
+#
+#   * The declared Depends are evaluated *with their version constraints*
+#     against the release's own index, not by package name alone, so a version
+#     floor the release cannot meet is reported as METADATA-UNSUPPORTED rather
+#     than passing and then failing at startup.
+#   * The closure of the package *alone* (before the leg's own runtime extras
+#     are added) is searched for an archive that actually ships
+#     libGLESv2.so.2, the SONAME the Flutter GTK embedder opens at process
+#     start. A closure carrying no GL ES provider is a FAIL, even though the
+#     leg's own extras would let the launch check below succeed.
 
 set -euo pipefail
 
@@ -402,6 +426,11 @@ db_field() { # statusfile package field
   ' "$1" 2>/dev/null
 }
 
+# A one-line reason for a verdict whose class alone is not self-explanatory
+# (currently the declared-floor verdict). Cleared before every leg and read by
+# the summary in main().
+verdict_reason=""
+
 # ---------------------------------------------------------------------------
 # Engine: rootfs
 # ---------------------------------------------------------------------------
@@ -522,35 +551,116 @@ run_rootfs_leg() {
   say "base set:  ${essential_pkgs[*]}"
 
   # --- can this release satisfy the declared Depends? ------------------------
+  #
+  # Two questions, deliberately not conflated:
+  #
+  #   * does the release publish a package with that *name* at all? A "no" is a
+  #     distribution-support limit - jammy publishes libmpv1, never libmpv2.
+  #   * for a member carrying a version constraint (`libc6 (>= 2.38)`), does the
+  #     release publish a version that satisfies it? A "no" is the package's own
+  #     declared floor: the metadata is stating that this base system is not
+  #     supported. Installing anyway and failing to start is the defect; a
+  #     package manager refusing the install is the fix working, so it must not
+  #     be reported as a defect of the package (FAIL) nor as a pass.
+  #
+  # The comparison uses dpkg's own comparator, so it is the same ordering the
+  # package manager applies, with the release's own published version as one
+  # side ("2.36-9+deb12u14" against "2.38").
   say "checking the declared Depends against $suite ..."
-  local group member group_ok satisfied=1
-  local -a missing_groups=() dep_groups=()
+  local group member group_ok absent_any blocked
+  local -a missing_groups=() dep_groups=() floor_groups=()
+  local mname constraint op want mver
   while IFS= read -r group; do
     [[ -n "$group" ]] || continue
     dep_groups+=("$group")
     group_ok=0
+    absent_any=0
+    blocked=""
     while IFS= read -r member; do
       [[ -n "$member" ]] || continue
-      if "${APTC[@]}" show "$member" >/dev/null 2>&1; then
-        say "  satisfied: $member $("${APTC[@]}" show "$member" 2>/dev/null | sed -n 's/^Version: //p' | head -1) (from $suite)"
-        group_ok=1
+      # "name (op version)" -> name plus constraint; a bare name has no
+      # constraint. Only a member with parentheses carries one, so the split is
+      # on the first "(" and the first ")" after it.
+      mname="$member"
+      constraint=""
+      if [[ "$member" == *"("*")"* ]]; then
+        mname="${member%%(*}"
+        constraint="${member#*(}"
+        constraint="${constraint%%)*}"
+        mname="${mname%"${mname##*[![:space:]]}"}"
+        constraint="${constraint#"${constraint%%[![:space:]]*}"}"
+        constraint="${constraint%"${constraint##*[![:space:]]}"}"
       fi
-    done < <(printf '%s' "$group" | tr '|' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/[[:space:]]*([^)]*)//g' | awk 'NF')
+      if ! "${APTC[@]}" show "$mname" >/dev/null 2>&1; then
+        absent_any=1
+        continue
+      fi
+      # The candidate is what the release would install. A name that exists only
+      # as something another package provides (libgtk-3-0 on trixie, from
+      # libgtk-3-0t64) reports no candidate of its own, so the first published
+      # version stands in for it; that is the same name apt resolves.
+      mver="$("${APTC[@]}" policy "$mname" 2>/dev/null | sed -n 's/^  Candidate: //p')"
+      if [[ -z "$mver" || "$mver" == "(none)" ]]; then
+        mver="$("${APTC[@]}" show "$mname" 2>/dev/null | sed -n 's/^Version: //p' | head -1)"
+      fi
+      if [[ -z "$constraint" ]]; then
+        say "  satisfied: $mname $mver (from $suite)"
+      elif [[ -z "$mver" ]]; then
+        say "  satisfied: $mname (published; no version resolved to compare with"
+        say "             '$mname ($constraint)', so the constraint is not judged here)"
+      else
+        op="${constraint%%[0-9]*}"
+        want="${constraint#"$op"}"
+        op="${op// /}"
+        want="${want// /}"
+        if dpkg --compare-versions "$mver" "$op" "$want" 2>/dev/null; then
+          say "  satisfied: $mname $mver (meets '$mname ($constraint)', from $suite)"
+        else
+          say "  DECLARED FLOOR NOT MET: $suite publishes $mname $mver, which does not"
+          say "             satisfy the declared '$mname ($constraint)'"
+          blocked="$mname ($constraint) unmet: $suite publishes $mver"
+          continue
+        fi
+      fi
+      group_ok=1
+    done < <(printf '%s' "$group" | tr '|' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | awk 'NF')
     if [[ $group_ok -eq 0 ]]; then
-      satisfied=0
-      missing_groups+=("$group")
-      say "  UNSATISFIED GROUP: $group - no member published in $suite $components"
+      if [[ $absent_any -eq 1 ]]; then
+        missing_groups+=("$group")
+        say "  UNSATISFIED GROUP: $group - no member published in $suite $components"
+      elif [[ -n "$blocked" ]]; then
+        floor_groups+=("$blocked")
+      else
+        missing_groups+=("$group")
+        say "  UNSATISFIED GROUP: $group - no member resolvable in $suite $components"
+      fi
     fi
   done < <(printf '%s' "$dep_line" | tr ',' '\n' | awk 'NF')
 
-  if [[ $satisfied -eq 0 ]]; then
+  if [[ ${#missing_groups[@]} -gt 0 ]]; then
     say "  RESULT: UNSUPPORTED"
     say "  $suite does not publish a package satisfying every declared Depends"
     say "  group above. This is a distribution-support limit of $pkg_name"
     say "  $pkg_version, not a defect of the package's contents."
+    if [[ ${#floor_groups[@]} -gt 0 ]]; then
+      say "  A declared version floor is unmet here as well:"
+      for m in "${floor_groups[@]}"; do say "    $m"; done
+    fi
     return 2
   fi
-  say "every declared Depends group is published by $suite"
+
+  if [[ ${#floor_groups[@]} -gt 0 ]]; then
+    say "  RESULT: METADATA-UNSUPPORTED"
+    say "  $suite does not satisfy a version floor that $pkg_name $pkg_version"
+    say "  declares in its Depends, so a package manager refuses this package here"
+    say "  instead of installing something that cannot start:"
+    for m in "${floor_groups[@]}"; do say "    $m"; done
+    say "  This is the metadata doing its job. It is not a defect of the package's"
+    say "  contents and it is not a pass, so it is reported as its own verdict."
+    verdict_reason="declared floor unmet - ${floor_groups[*]}"
+    return 5
+  fi
+  say "every declared Depends group is published by $suite, with its version floor met"
 
   # --- resolve the closure on a clean (empty) dpkg status --------------------
   say "resolving the closure of '$pkg_name + base system' against a clean $suite system ..."
@@ -633,6 +743,59 @@ run_rootfs_leg() {
     return 4
   fi
   say "archives:  ${#expected_files[@]} archive file(s) matched to the resolved versions"
+
+  # --- does the *declared* closure carry a GL ES provider? -------------------
+  #
+  # The execution check further down runs with this leg's runtime extras, which
+  # include libgles2 because the Flutter GTK embedder opens libGLESv2.so.2 as the
+  # process starts. A successful launch there therefore cannot show whether the
+  # package's *own* Depends bring a GL ES provider: with libgl1, libegl1 and mesa
+  # present but libgles2 missing, the binary aborts with "Couldn't open
+  # libGLESv2.so.2", and none of the declared dependencies pulls one in.
+  #
+  # So the closure of the package alone (plus the release's Essential packages,
+  # which every clean system already has) is resolved separately, and the
+  # archives themselves are searched for the SONAME. A package *name* is not
+  # evidence: the provider has to ship the file the loader opens.
+  say "checking the declared closure for a GL ES provider ..."
+  local gl_resolve="$leg_work/resolve-declared.txt"
+  if ! timeout "$timeout_build" "${APT[@]}" -s install "$package" "${essential_pkgs[@]}" >"$gl_resolve" 2>&1; then
+    say "  The declared closure does not resolve on $suite on its own, so whether"
+    say "  it carries a GL ES provider cannot be determined. Full output:"
+    say "  $gl_resolve"
+    say "  RESULT: INDEX-UNREADABLE (declared closure did not resolve)"
+    return 4
+  fi
+  local -a declared_names=()
+  while IFS= read -r n; do
+    n="${n%%:*}"; n="${n%%=*}"
+    [[ "$n" == "$pkg_name" ]] && continue
+    declared_names+=("$n")
+  done < <(grep '^Inst ' "$gl_resolve" | awk '{print $2}' | sort -u)
+  local gles_provider="" pn pf
+  for pn in "${declared_names[@]}"; do
+    for pf in "$rcache/${pn}"_*.deb; do
+      [[ -e "$pf" ]] || continue
+      if [[ -n "$(dpkg-deb -c "$pf" 2>/dev/null | grep -m1 -F 'libGLESv2.so.2' || true)" ]]; then
+        gles_provider="$pn ($(basename "$pf"))"
+        break 2
+      fi
+    done
+  done
+  say "declared:  ${#declared_names[@]} package(s) in the closure of $pkg_name alone,"
+  say "           with none of this leg's runtime extras added"
+  if [[ -z "$gles_provider" ]]; then
+    say "  RESULT: FAIL - no package in the declared dependency closure ships"
+    say "  libGLESv2.so.2. A base system built from the declared dependencies,"
+    say "  plus an X server and a GL stack, aborts at startup with"
+    say "  \"Couldn't open libGLESv2.so.2\": the declared closure is missing a GL"
+    say "  ES provider. Declare one whose name resolves on every release the"
+    say "  package claims to support (libgles2 does, measured on all four legs of"
+    say "  this tool)."
+    return 1
+  fi
+  say "GL ES:     $gles_provider ships libGLESv2.so.2, and is declared rather"
+  say "           than added by this leg's runtime extras"
 
   # --- build the clean root filesystem --------------------------------------
   # Always from empty: reusing a partially built root from an earlier run would
@@ -823,11 +986,15 @@ run_rootfs_leg() {
   local loader="/lib64/ld-linux-x86-64.so.2"
   [[ -e "$rootfs$loader" ]] || loader="/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
 
-  # glibc floor. A .deb cannot express "needs glibc >= X" in Depends, so a
-  # payload built against a newer glibc installs happily on an older release and
-  # then fails to load. Compare what each packaged ELF actually requires against
-  # what this release provides, which is the diagnosis the loader's own message
-  # does not give.
+  # glibc floor. A payload built against a glibc newer than the release provides
+  # installs happily and then fails to load. What stops that is the *declared*
+  # floor (`Depends: libc6 (>= 2.38)`), which is evaluated above and reported as
+  # METADATA-UNSUPPORTED on a leg that cannot meet it: a versioned Depends on
+  # libc6 does express a minimum glibc version, and the package manager enforces
+  # it before unpacking anything. Reaching this check therefore means the
+  # artifact declares no floor, or one lower than its own payload needs.
+  # Compare what each packaged ELF actually requires against what this release
+  # provides, which is the diagnosis the loader's own message does not give.
   local link_fail=0
   local base_glibc
   base_glibc="$(db_field "$adm/status" libc6 Version)"
@@ -847,10 +1014,12 @@ run_rootfs_leg() {
   done < <(find "$rootfs/opt/klipa-player" -type f \( -name '*.so' -o -name '*.so.*' -o -name 'klipa_player' \) | sort)
   if [[ $over -gt 0 ]]; then
     say "  RESULT: FAIL - $over packaged ELF object(s) link against a glibc newer than"
-    say "  $suite provides ($base_glibc). A Debian package cannot declare a glibc"
-    say "  minimum in Depends, so the artifact installs on $suite and then part of"
-    say "  its payload cannot load there: the declared support for this release is"
-    say "  wider than what the package can actually run on."
+    say "  $suite provides ($base_glibc), while the declared Depends do not require a"
+    say "  libc6 new enough for them. The artifact therefore installs on $suite and"
+    say "  then part of its payload cannot load there: the declared support for this"
+    say "  release is wider than what the package can actually run on. A release that"
+    say "  cannot satisfy a *declared* floor is reported as METADATA-UNSUPPORTED, so"
+    say "  reaching this check means the floor is missing or too low."
     link_fail=1
   fi
 
@@ -1192,6 +1361,7 @@ main() {
   fi
 
   local -a results=()
+  local -a reasons=()
   local -a leg_list=()
   IFS=',' read -r -a leg_list <<<"$legs"
   local leg rc
@@ -1199,10 +1369,12 @@ main() {
     leg="${leg//[[:space:]]/}"
     [[ -n "$leg" ]] || continue
     rc=0
+    verdict_reason=""
     if ! leg_known "$leg"; then
       section "leg $leg"
       say "  Unknown leg. Known legs: debian:12 debian:13 ubuntu:22.04 ubuntu:24.04 ubuntu:26.04"
       results+=("$leg UNKNOWN")
+      reasons+=("")
       continue
     fi
     if [[ "$chosen" == "docker" ]]; then
@@ -1216,13 +1388,22 @@ main() {
       2) results+=("$leg UNSUPPORTED") ;;
       3) results+=("$leg PARTIAL") ;;
       4) results+=("$leg UNAVAILABLE") ;;
+      5) results+=("$leg METADATA-UNSUPPORTED") ;;
       *) results+=("$leg ERROR($rc)") ;;
     esac
+    reasons+=("${verdict_reason:-}")
   done
 
   section "summary"
-  local r
-  for r in "${results[@]}"; do say "  $r"; done
+  local r i
+  for i in "${!results[@]}"; do
+    r="${results[$i]}"
+    if [[ -n "${reasons[$i]:-}" ]]; then
+      say "  $r - ${reasons[$i]}"
+    else
+      say "  $r"
+    fi
+  done
   say ""
   say "Full transcript: $report"
   say "Engine: $chosen. Root filesystems are rebuilt per run and removed unless --keep."
@@ -1236,11 +1417,12 @@ main() {
   local severity=0 sev
   for r in "${results[@]}"; do
     case "$r" in
-      *" PASS")        sev=0 ;;
-      *" UNSUPPORTED") sev=1 ;;
-      *" PARTIAL")     sev=2 ;;
-      *" FAIL")        sev=4 ;;
-      *)               sev=3 ;;
+      *" PASS")               sev=0 ;;
+      *" METADATA-UNSUPPORTED") sev=1 ;;
+      *" UNSUPPORTED")        sev=1 ;;
+      *" PARTIAL")            sev=2 ;;
+      *" FAIL")               sev=4 ;;
+      *)                      sev=3 ;;
     esac
     [[ $sev -gt $severity ]] && severity=$sev
   done
@@ -1249,7 +1431,7 @@ main() {
     4) verdict=1 ;;  # a defect of the package
     3) verdict=4 ;;  # the environment could not answer the question
     2) verdict=3 ;;  # installed and inspected, execution not at full level
-    1) verdict=2 ;;  # a release-support limit, not a package defect
+    1) verdict=2 ;;  # a release-support limit or a declared floor, not a defect
     *) verdict=0 ;;  # every attempted leg passed
   esac
   say "exit: $verdict (0 all pass, 1 fail, 2 unsupported, 3 partial, 4 undetermined)"

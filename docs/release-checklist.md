@@ -241,6 +241,13 @@ imply. The remedy belongs to the bundle's build environment and the package
 metadata — build that plugin against an older glibc, or state the floor where a
 user can see it before installing. Neither is done here.
 
+> **Correction, 2026-09-21.** One sentence above is wrong. A Debian control field
+> *can* express a minimum glibc version: the 2026-09-21 status update below does
+> it with `Depends: libc6 (>= 2.38)`, which a package manager enforces before it
+> unpacks anything. What is true, and what the sentence was reaching for, is that
+> the **published `v0.1.1` artifact carries no such field** and is not going to
+> be rebuilt or republished to gain one.
+
 ### One observation about the declared dependency set
 
 On a base system that satisfies the declared `Depends` and carries an X server
@@ -259,6 +266,133 @@ permission-denied for the user running the check, so the tool reports that engin
 as unavailable and exits non-zero instead of skipping it. The `rootfs` engine
 prints, with each run, the base-system properties it cannot reproduce; the group
 ownership of base-system files is the material one.
+
+## Status update — 2026-09-21: the package declares its glibc floor and its GL ES provider
+
+Verified on 2026-09-21 on the same Linux development host (`dpkg` 1.23.7,
+`bubblewrap` 0.11.1), with complete runs of `tool/validate_linux_install.sh` (the
+`rootfs` engine) against the corrected metadata. **Nothing was published, tagged,
+signed or uploaded, and no released byte changed**: the published `v0.1.1`
+artifact (10,130,232 bytes, SHA-256
+`d9ce557bcbc4908c858a7cfc1039aadf5d934cc4aecfee1e34333b734a9a3f51`) keeps the
+control metadata it was built with and is not rebuilt to gain the new one. The
+corrected metadata lands with the next release, whenever it is cut.
+
+### Measured: the floor is `GLIBC_2.38` and the missing provider is `libgles2`
+
+- Every ELF object in the packaged payload was read with `objdump -T`. The
+  highest versioned glibc symbol any of them requires is **`GLIBC_2.38`**, in
+  `lib/libflutter_secure_storage_linux_plugin.so`, and the two symbols are
+  `__isoc23_strtoll` and `__isoc23_strtoull`. The next highest requirement in the
+  package is `GLIBC_2.34` (the `klipa_player` executable, `libdartjni.so`,
+  `libsqlite3mc.so`); `libflutter_linux_gtk.so` needs 2.18, and the remaining
+  plugins need 2.2.5. One object sets the floor, and 2.38 is measured rather than
+  rounded up.
+- Measured against each release's published `libc6` with dpkg's own comparator:
+  `dpkg --compare-versions 2.36-9+deb12u14 ge 2.38` fails (bookworm),
+  `dpkg --compare-versions 2.35-0ubuntu3 ge 2.38` fails (jammy), while
+  `2.41-12+deb13u4` (trixie) and `2.39-0ubuntu8` (noble) succeed. The floor sits
+  between the two supported pairs.
+- `libgles2` is the package that ships `/usr/lib/x86_64-linux-gnu/libGLESv2.so.2`,
+  the SONAME the Flutter GTK embedder opens as the process starts. Confirmed by
+  listing the archive on each release (bookworm 1.6.0-1, trixie 1.7.0-1+b2, noble
+  1.7.0-1build1) and by the tool's own resolution check on all four legs,
+  including jammy 1.4.0-1. The older alternative name `libgles2-mesa` is published
+  only on bookworm and jammy, so it is not used.
+- The two readings are recorded with their commands in `docs/packaging.md`.
+
+### What changed, and what each release's apt does now
+
+`packaging/linux/control.in`:
+
+```
+Depends: libgtk-3-0 | libgtk-3-0t64, libmpv2, libsecret-1-0, libgles2, libc6 (>= 2.38)
+```
+
+Each release's own `apt-get -s install` against an empty dpkg status (simulation
+only: nothing is downloaded or installed by this test):
+
+| release | before this change | with the corrected metadata |
+| ------- | ------------------ | --------------------------- |
+| Debian 12 bookworm | installs, then cannot start | refuses the install; the solver names `klipa-player:amd64 Depends libc6 (>= 2.38)`, exit 100 |
+| Ubuntu 22.04 jammy | refuses (no `libmpv2`) | refuses on `libmpv2` — unchanged |
+| Debian 13 trixie | installs and runs | resolves, `Inst libc6 (2.41-12+deb13u4)`, `Inst libgles2 (1.7.0-1+b2)`, exit 0 |
+| Ubuntu 24.04 noble | installs and runs | resolves, `Inst libc6 (2.39-0ubuntu8)`, `Inst libgles2 (1.7.0-1build1)`, exit 0 |
+
+The packaging path is otherwise untouched, and its determinism still holds: two
+consecutive local builds of one commit
+(`eec8867de1da0c2fe0cfe1f1bd2b2be672a2ac12`, `SOURCE_DATE_EPOCH` 1789927961)
+produced one artifact, 10,132,512 bytes, SHA-256
+`2b750d90c292e46269baa1a0ea48ada54dd8a00805455795e9828df66cc2a0e7`, and `cmp`
+reported no difference. That artifact is local and is not a release.
+
+### The class is now checkable
+
+`tool/validate_linux_install.sh` gained two checks, and both are exercised by the
+same command that produced the results below:
+
+- The declared `Depends` are evaluated **with their version constraints** against
+  the release's own index, using `dpkg --compare-versions` and each release's
+  published version. A release that publishes every declared *name* but no
+  satisfying *version* is reported as `METADATA-UNSUPPORTED` - its own verdict,
+  mapped into the unsupported exit class (process exit 2) - with the unmet floor
+  named in the summary line. A release that does not publish a name at all stays
+  `UNSUPPORTED`, so the 2026-09-20 jammy classification is unchanged.
+- The closure of the package **alone** (before the leg's own X/GL runtime extras
+  are added) is searched for an archive that actually ships `libGLESv2.so.2`.
+  Finding none is a `FAIL`, with the abort message quoted in the verdict. The
+  launch check cannot make this distinction on its own, because the extras it
+  installs include `libgles2` and would mask the gap.
+
+### Demonstrated in both directions, on a scratch copy
+
+A copy of the tree was repackaged from the same release bundle with one
+dependency removed at a time, and the tool was run against each build. The
+committed tree was not touched.
+
+| scratch `Depends` | leg | observed verdict |
+| ----------------- | --- | ---------------- |
+| `libc6 (>= 2.38)`, **no `libgles2`** | debian:13 | **FAIL** - "no package in the declared dependency closure ships `libGLESv2.so.2`", reported before the root filesystem is built; process exit 1 |
+| **no floor**, with `libgles2` | debian:12 | **FAIL** - the closure check passes (`libgles2 (libgles2_1.6.0-1_amd64.deb) ships libGLESv2.so.2`), the package installs, and the leg then fails on the payload itself: "needs `GLIBC_2.38` ... (newer than 2.36)" and `version 'GLIBC_2.38' not found`; process exit 1 |
+| `libc6 (>= 2.38)` **and** `libgles2` (the committed metadata) | debian:12 | **METADATA-UNSUPPORTED** - declared floor unmet, jammy-style name absence not involved; process exit 2 |
+| the same committed metadata | debian:13 | **PASS** - the floor is met, `libgles2 (libgles2_1.7.0-1+b2_amd64.deb)` is found in the declared closure, and every later check runs at full level |
+
+The second row is the reason the class needed a verdict of its own: without the
+declared floor, that leg looks like a defect of a package that claims support for
+the release it fails on.
+
+### Verdict per release
+
+`tool/validate_linux_install.sh --engine rootfs`, package under test the locally
+rebuilt `klipa-player` 0.1.1-1 (10,132,512 bytes, SHA-256 `2b750d90…`):
+
+| release | verdict | exit | evidence |
+| ------- | ------- | ---- | -------- |
+| Debian 12 bookworm | `METADATA-UNSUPPORTED` | 2 | declared floor unmet: bookworm publishes `libc6` 2.36-9+deb12u14, the package requires `libc6 (>= 2.38)` |
+| Debian 13 trixie | `PASS` | 0 | install, layout, provenance, dynamic link, execution under Xvfb, uninstall and the upgrade transition all at full level |
+| Ubuntu 22.04 jammy | `UNSUPPORTED` | 2 | `libmpv2` is not published in jammy `main universe` (the declared floor is unmet there too, and the verdict says so) |
+| Ubuntu 24.04 noble | `PASS` | 0 | same basis as Debian 13 |
+
+Process exit status is 2 (a release-support or declared-floor class, not a
+package defect). The verdicts match the 2026-09-20 run for jammy, trixie and
+noble; Debian 12 moved from `FAIL` to `METADATA-UNSUPPORTED` because the package
+now states the requirement instead of being installed onto a system that cannot
+run it. Full transcript: `dist/validation/report-20260921T191156Z.txt` (local and
+git-ignored; the tool commits no report).
+
+### What this does not establish
+
+- It is not a virtual-machine install. The engine builds a private root
+  filesystem from each release's own archive, which is a different check, and it
+  says nothing about real hardware, a real kernel or a real display.
+- It says nothing about Windows; there is no Windows host or VM here, and this
+  change does not touch the Windows signing route.
+- The published `v0.1.1` artifact's own behaviour is unchanged by this work: on
+  Debian 12 it still installs and still cannot start. The fix is in the metadata
+  the next package carries, not in the bytes already released.
+- The container engine of the tool still cannot run on this host (the daemon
+  socket is permission-denied), and it does not implement the two new checks; a
+  container leg reports only `PASS` or `FAIL`.
 
 ## Automated gates completed locally
 
@@ -289,9 +423,12 @@ and artifacts under `dist` are local and ignored by Git.
 - Validate install and upgrade on a real supported Debian/Ubuntu VM or machine.
   The 2026-09-20 status update below measures a private root filesystem built
   from each release's own archive, which is a different check.
-- Close the glibc floor recorded in the 2026-09-20 status update: the artifact
-  runs on Debian 13 and Ubuntu 24.04 but not on Debian 12, and the package's
-  `Depends` cannot express that requirement.
+- The glibc floor recorded in the 2026-09-20 status update is now declared by the
+  metadata a package built from this tree carries (`libc6 (>= 2.38)`, plus
+  `libgles2` for the GL ES provider), and the check reports
+  `METADATA-UNSUPPORTED` for a leg that cannot meet it. The published `v0.1.1`
+  artifact keeps its old metadata and is not republished; see the 2026-09-21
+  status update.
 
 ## Accepted product security decision
 

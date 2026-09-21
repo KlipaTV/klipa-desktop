@@ -122,6 +122,144 @@ rests on the version string and a published checksum alone:
 `SOURCE_REVISION` overrides the commit recorded in an exported tree; it must be
 a full 40-character commit SHA or the packager stops.
 
+### What the package declares, and why: the glibc floor and the GL ES provider
+
+`packaging/linux/control.in` declares
+
+```
+Depends: libgtk-3-0 | libgtk-3-0t64, libmpv2, libsecret-1-0, libgles2, libc6 (>= 2.38)
+```
+
+The last two members are not decoration. Each one was measured, and each one
+closes a way the package could install onto a base system and then fail to
+start - which is what the published `v0.1.1` artifact does on Debian 12.
+
+#### The floor is `GLIBC_2.38`, and `libc6 (>= 2.38)` is how it is stated
+
+Read from the packaged objects themselves, not from the build host:
+
+```bash
+cd /opt/klipa-player
+for f in klipa_player lib/*.so*; do
+  printf '%-52s %s\n' "$f" \
+    "$(objdump -T "$f" 2>/dev/null | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)"
+done
+```
+
+| packaged object | highest versioned glibc symbol it requires |
+| --------------- | ------------------------------------------ |
+| `lib/libflutter_secure_storage_linux_plugin.so` | **`GLIBC_2.38`** |
+| `klipa_player` (executable) | `GLIBC_2.34` |
+| `lib/libdartjni.so`, `lib/libsqlite3mc.so` | `GLIBC_2.34` |
+| `lib/libflutter_linux_gtk.so` | `GLIBC_2.18` |
+| `lib/libfile_selector_linux_plugin.so`, `lib/libmedia_kit_libs_linux_plugin.so`, `lib/libmedia_kit_video_plugin.so`, `lib/liburl_launcher_linux_plugin.so` | `GLIBC_2.2.5` |
+
+The exact symbols are `__isoc23_strtoll` and `__isoc23_strtoull`:
+
+```bash
+objdump -T lib/libflutter_secure_storage_linux_plugin.so | grep GLIBC_2.38
+# ... (GLIBC_2.38) __isoc23_strtoll
+# ... (GLIBC_2.38) __isoc23_strtoull
+```
+
+One object built against `GLIBC_2.38` sets the floor for the whole package. No
+other object needs more than `GLIBC_2.34`, so 2.38 is the floor and not a
+rounded-up guess. `dpkg`'s own comparator puts the releases on either side of
+it, with each release's published version:
+
+| release | `libc6` | `libc6 (>= 2.38)` |
+| ------- | ------- | ----------------- |
+| Debian 12 bookworm | 2.36-9+deb12u14 | not satisfied |
+| Debian 13 trixie | 2.41-12+deb13u4 | satisfied |
+| Ubuntu 22.04 jammy | 2.35-0ubuntu3 | not satisfied |
+| Ubuntu 24.04 noble | 2.39-0ubuntu8 | satisfied |
+
+```bash
+dpkg --compare-versions 2.36-9+deb12u14 ge 2.38; echo $?   # 1
+dpkg --compare-versions 2.41-12+deb13u4 ge 2.38; echo $?   # 0
+```
+
+An earlier record in `docs/release-checklist.md` stated that "No Debian control
+field can express a minimum glibc version". That was wrong, and the fix depends
+on it being wrong: a versioned `Depends` on `libc6` is exactly that expression,
+and the package manager enforces it before anything is unpacked.
+
+The floor must follow the payload, so it is re-measured when the bundle changes:
+if a future release builds `libflutter_secure_storage_linux_plugin.so` against an
+older glibc, the `objdump -T` reading above drops and `libc6 (>= ...)` must be
+lowered to match it. A floor left higher than the payload needs is not a defect
+the check reports; it would only mean the package asks for a newer base system
+than it actually requires.
+
+#### The GL ES provider is `libgles2`
+
+Flutter's GTK embedder opens `libGLESv2.so.2` directly as the process starts.
+Measured: with an X server, `libgl1`, `libegl1` and mesa's DRI drivers present
+but `libgles2` absent, the binary aborts with `Couldn't open libGLESv2.so.2`;
+with `libgles2` present it starts and stays running. The declared dependencies
+used to pull in no provider of that SONAME at all.
+
+`libgles2` was chosen by testing resolution per release, not by assuming the
+name exists: it is published on all four legs (bookworm 1.6.0-1, trixie
+1.7.0-1+b2, jammy 1.4.0-1, noble 1.7.0-1build1), while the older alternative
+name `libgles2-mesa` is published only on bookworm and jammy. Listing the
+archive confirms it ships the file the loader opens, rather than trusting a
+package description:
+
+```bash
+dpkg-deb -c libgles2_1.6.0-1_amd64.deb | grep libGLESv2
+# /usr/lib/x86_64-linux-gnu/libGLESv2.so.2
+# /usr/lib/x86_64-linux-gnu/libGLESv2.so.2.1.0
+```
+
+#### What each release's apt does with the package now
+
+Resolution was tested against each release's own index, with a clean dpkg
+status, using simulation only (`apt-get -s install`; nothing is downloaded or
+installed by the test):
+
+| release | apt result with the corrected metadata |
+| ------- | -------------------------------------- |
+| Debian 12 bookworm | refuses: `klipa-player : Depends: libc6 (>= 2.38) but ...`, solver reports the conflicting assignment `klipa-player:amd64 Depends libc6 (>= 2.38)`; exit 100 |
+| Ubuntu 22.04 jammy | refuses: the conflicting assignment named is `libmpv2`, unchanged - jammy ships `libmpv1` |
+| Debian 13 trixie | resolves: `Inst libc6 (2.41-12+deb13u4)`, `Inst libgles2 (1.7.0-1+b2)`, `Inst klipa-player (0.1.1-1 local-deb)`; exit 0 |
+| Ubuntu 24.04 noble | resolves: `Inst libc6 (2.39-0ubuntu8)`, `Inst libgles2 (1.7.0-1build1)`, `Inst klipa-player (0.1.1-1 local-deb)`; exit 0 |
+
+#### The published `v0.1.1` artifact keeps its bytes
+
+The corrected metadata is a change to **future** packages only. The published
+`v0.1.1` `.deb` (10,130,232 bytes, SHA-256
+`d9ce557bcbc4908c858a7cfc1039aadf5d934cc4aecfee1e34333b734a9a3f51`) was built by
+the earlier packager with the old `Depends` line, is not rebuilt, not
+republished, and not re-signed; its record stays what it was. Nothing in this
+document authorizes a re-upload of it. The corrected metadata lands with the
+next release, whenever that is cut.
+
+Packaging determinism is unaffected: `tool/package_linux.sh` still derives
+`SOURCE_DATE_EPOCH` from the commit, normalises the staging tree and pins the
+compressor, and two consecutive local builds of one commit after this change
+produced one SHA-256 and `cmp` reported no difference.
+
+#### How the class stays checkable
+
+`tool/validate_linux_install.sh` decides two things it did not decide before,
+so this defect class cannot return silently:
+
+- The declared `Depends` are evaluated **with their version constraints**
+  against the release's own index (`dpkg --compare-versions`, each release's
+  published version). A release that publishes the name but not a satisfying
+  version is reported as `METADATA-UNSUPPORTED`: the package's own metadata
+  would refuse the install, which is neither a pass nor a defect of the
+  package. A release that does not publish the name at all stays `UNSUPPORTED`.
+- The closure of the package **alone** (before the leg's own X/GL runtime
+  extras are added) is searched for an archive that actually ships
+  `libGLESv2.so.2`. Finding none is a `FAIL`, with the abort message quoted in
+  the verdict - the launch check alone cannot see this, because the extras it
+  installs would supply the provider and mask the gap.
+
+Both directions were demonstrated on a scratch copy of the tree, and the
+results are recorded in `docs/release-checklist.md`.
+
 ### The published `v0.1.1` artifact does not become reproducible
 
 The published `v0.1.1` `.deb` (10,130,232 bytes, SHA-256
