@@ -321,8 +321,9 @@ only: nothing is downloaded or installed by this test):
 
 The packaging path is otherwise untouched, and its determinism still holds: two
 consecutive local builds of one commit
-(`eec8867de1da0c2fe0cfe1f1bd2b2be672a2ac12`, `SOURCE_DATE_EPOCH` 1789927961)
-produced one artifact, 10,132,512 bytes, SHA-256
+(`eec8867de1da0c2fe0cfe1f1bd2b2be672a2ac12`, `SOURCE_DATE_EPOCH` 1789927961),
+both reusing the same existing release bundle, produced one artifact, 10,132,512
+bytes, SHA-256
 `2b750d90c292e46269baa1a0ea48ada54dd8a00805455795e9828df66cc2a0e7`, and `cmp`
 reported no difference. That artifact is local and is not a release.
 
