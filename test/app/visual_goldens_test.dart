@@ -16,85 +16,103 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
   });
 
-  testWidgets('onboarding 1440x900', (tester) async {
-    await _setDesktopViewport(tester, const Size(1440, 900));
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          libraryStoreProvider.overrideWithValue(const DisabledLibraryStore()),
-        ],
-        child: const KlipaPlayerApp(),
-      ),
-    );
-    await _settleAssets(tester);
+  // Text and images rasterize differently per platform, so a reference only
+  // holds on the platform that rendered it. Only Linux references are kept.
+  group(
+    'visual references',
+    () {
+      testWidgets('onboarding 1440x900', (tester) async {
+        await _setDesktopViewport(tester, const Size(1440, 900));
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              libraryStoreProvider.overrideWithValue(
+                const DisabledLibraryStore(),
+              ),
+            ],
+            child: const KlipaPlayerApp(),
+          ),
+        );
+        await _settleAssets(tester);
 
-    await expectLater(
-      find.byType(KlipaPlayerApp),
-      matchesGoldenFile(
-        'goldens/onboarding_1440x900_${Platform.operatingSystem}.png',
-      ),
-    );
-  });
+        await expectLater(
+          find.byType(KlipaPlayerApp),
+          matchesGoldenFile(
+            'goldens/onboarding_1440x900_${Platform.operatingSystem}.png',
+          ),
+        );
+      });
 
-  testWidgets('library shell 1440x900', (tester) async {
-    await _setDesktopViewport(tester, const Size(1440, 900));
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          libraryControllerProvider.overrideWith(_FixtureLibraryController.new),
-        ],
-        child: const KlipaPlayerApp(),
-      ),
-    );
-    await _settleAssets(tester);
+      testWidgets('library shell 1440x900', (tester) async {
+        await _setDesktopViewport(tester, const Size(1440, 900));
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              libraryControllerProvider.overrideWith(
+                _FixtureLibraryController.new,
+              ),
+            ],
+            child: const KlipaPlayerApp(),
+          ),
+        );
+        await _settleAssets(tester);
 
-    await expectLater(
-      find.byType(KlipaPlayerApp),
-      matchesGoldenFile(
-        'goldens/library_1440x900_${Platform.operatingSystem}.png',
-      ),
-    );
-  });
+        await expectLater(
+          find.byType(KlipaPlayerApp),
+          matchesGoldenFile(
+            'goldens/library_1440x900_${Platform.operatingSystem}.png',
+          ),
+        );
+      });
 
-  testWidgets('onboarding 1024x768', (tester) async {
-    await _setDesktopViewport(tester, const Size(1024, 768));
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          libraryStoreProvider.overrideWithValue(const DisabledLibraryStore()),
-        ],
-        child: const KlipaPlayerApp(),
-      ),
-    );
-    await _settleAssets(tester);
+      testWidgets('onboarding 1024x768', (tester) async {
+        await _setDesktopViewport(tester, const Size(1024, 768));
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              libraryStoreProvider.overrideWithValue(
+                const DisabledLibraryStore(),
+              ),
+            ],
+            child: const KlipaPlayerApp(),
+          ),
+        );
+        await _settleAssets(tester);
 
-    await expectLater(
-      find.byType(KlipaPlayerApp),
-      matchesGoldenFile(
-        'goldens/onboarding_1024x768_${Platform.operatingSystem}.png',
-      ),
-    );
-  });
+        await expectLater(
+          find.byType(KlipaPlayerApp),
+          matchesGoldenFile(
+            'goldens/onboarding_1024x768_${Platform.operatingSystem}.png',
+          ),
+        );
+      });
 
-  testWidgets('library shell 1024x768', (tester) async {
-    await _setDesktopViewport(tester, const Size(1024, 768));
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          libraryControllerProvider.overrideWith(_FixtureLibraryController.new),
-        ],
-        child: const KlipaPlayerApp(),
-      ),
-    );
-    await _settleAssets(tester);
+      testWidgets('library shell 1024x768', (tester) async {
+        await _setDesktopViewport(tester, const Size(1024, 768));
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              libraryControllerProvider.overrideWith(
+                _FixtureLibraryController.new,
+              ),
+            ],
+            child: const KlipaPlayerApp(),
+          ),
+        );
+        await _settleAssets(tester);
 
-    await expectLater(
-      find.byType(KlipaPlayerApp),
-      matchesGoldenFile(
-        'goldens/library_1024x768_${Platform.operatingSystem}.png',
-      ),
-    );
-  });
+        await expectLater(
+          find.byType(KlipaPlayerApp),
+          matchesGoldenFile(
+            'goldens/library_1024x768_${Platform.operatingSystem}.png',
+          ),
+        );
+      });
+    },
+    skip: Platform.isLinux
+        ? false
+        : 'Reference screenshots are kept for Linux.',
+  );
 }
 
 Future<void> _setDesktopViewport(WidgetTester tester, Size size) async {
