@@ -1,8 +1,39 @@
 # External distribution release checklist
 
-Nothing in this checklist authorizes publishing. Apart from the single Linux
-release recorded below, every artifact remains local until the owner explicitly
+Nothing in this checklist authorizes publishing. Apart from the Linux
+releases recorded below, every artifact remains local until the owner explicitly
 approves a release destination and audience.
+
+## Status update: 2026-10-26, v0.1.2
+
+Cut on 2026-10-26 with the owner's explicit approval.
+
+- Tag `v0.1.2` (annotated, unsigned) resolves to
+  `f46d373eda41836458fcb0e7177cce104bd0f131`, the `main` HEAD it was cut from.
+  CI passed on that commit on `windows-latest` (analyze, Windows release build,
+  tests).
+- The GitHub release "Klipa Player 0.1.2 (Linux amd64)" is published and is the
+  latest. Assets: `klipa-player_0.1.2-1_amd64.deb` (9,925,006 bytes, SHA-256
+  `55ab6eeab13a204d1e6d1dc387da37dc0f66a65cee17aa970d84528484f3f349`),
+  `SHA256SUMS.txt`, `sbom-source.cdx.json` (syft 1.51.1, 139 components) and
+  `THIRD_PARTY_NOTICES.md`.
+- klipa.tv serves the same bytes at
+  `/downloads/desktop/klipa-player_0.1.2-1_amd64.deb`. The 0.1.1 package stays
+  served for links already published, and the site's `SHA256SUMS.txt` lists
+  both. The site's `THIRD_PARTY_NOTICES.txt` is the 0.1.2 bundle's Flutter
+  `NOTICES`, as for 0.1.1.
+- Gates run: format, analyze and `flutter test` (150 passed, 3 skipped as
+  Windows-only), `flutter build linux --release`, `tool/package_linux.sh`
+  (`SOURCE_DATE_EPOCH` 1793025978, from the commit), install, start (6 s, zero
+  TCP connections) and removal as root in throwaway Ubuntu 24.04 and Debian 13
+  containers, and grype 0.121.0 over the source SBOM (no findings).
+- Not run: the parser fuzz (no parser changed), `tool/validate_linux_install.sh`,
+  the GPU media matrix and a Wayland session.
+- The tag started `windows-release`, which stopped at "Stage vetted Windows
+  media runtime" as it did for `v0.1.1`: the `media-runtime-v1` asset does not
+  exist yet. Nothing for Windows was signed or published.
+- Since `3937dd1` the visual references are kept for Linux only; Windows runs
+  every other test.
 
 ## Status update — 2026-09-12
 
