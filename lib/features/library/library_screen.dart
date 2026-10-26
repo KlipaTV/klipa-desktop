@@ -191,7 +191,7 @@ class _Onboarding extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const Text(
-              'A lightweight Windows player from Klipa. Add a playlist '
+              'A lightweight desktop player from Klipa. Add a playlist '
               'you are authorized to use; Klipa does not provide content.',
               textAlign: TextAlign.center,
               style: TextStyle(color: KlipaColors.foregroundDim, height: 1.5),
@@ -652,7 +652,7 @@ class _SourceListTile extends StatelessWidget {
                 icon,
                 size: 18,
                 color: selected
-                    ? KlipaColors.indigo
+                    ? KlipaColors.foreground
                     : KlipaColors.foregroundDim,
               ),
               const SizedBox(width: 10),
@@ -856,10 +856,10 @@ class _ChannelBrowser extends StatelessWidget {
                   minimumSize: const Size.square(36),
                   maximumSize: const Size.square(36),
                   backgroundColor: state.favoritesOnly
-                      ? KlipaColors.indigo.withValues(alpha: 0.18)
+                      ? KlipaColors.foreground.withValues(alpha: 0.12)
                       : Colors.transparent,
                   foregroundColor: state.favoritesOnly
-                      ? KlipaColors.indigo
+                      ? KlipaColors.foreground
                       : KlipaColors.foregroundDim,
                 ),
                 icon: Icon(
@@ -1024,7 +1024,7 @@ class _ChannelTile extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: selected
-                      ? KlipaColors.indigo.withValues(alpha: 0.24)
+                      ? KlipaColors.foreground.withValues(alpha: 0.14)
                       : KlipaColors.inkRaised,
                   borderRadius: BorderRadius.circular(7),
                   border: Border.all(color: KlipaColors.border),
@@ -1085,7 +1085,7 @@ class _ChannelTile extends StatelessWidget {
                   icon: Icon(
                     favorite ? Icons.star_rounded : Icons.star_border_rounded,
                     color: favorite
-                        ? KlipaColors.indigo
+                        ? KlipaColors.foreground
                         : KlipaColors.foregroundDim,
                     size: 19,
                   ),
@@ -1094,7 +1094,7 @@ class _ChannelTile extends StatelessWidget {
               if (selected)
                 const Icon(
                   Icons.graphic_eq_rounded,
-                  color: KlipaColors.indigo,
+                  color: KlipaColors.tally,
                   size: 18,
                 ),
             ],
@@ -1240,7 +1240,7 @@ class _NoticeState extends State<_Notice> with SingleTickerProviderStateMixin {
               key: const Key('notice-countdown'),
               value: 1 - _countdown.value,
               minHeight: 3,
-              color: KlipaColors.indigo,
+              color: KlipaColors.foregroundMuted,
               backgroundColor: Colors.transparent,
             ),
           ),
@@ -1379,15 +1379,26 @@ class _BrandMark extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(size * 0.24),
-    child: Image.asset(
-      'assets/branding/logo_mark.png',
-      width: size,
-      height: size,
-      filterQuality: FilterQuality.medium,
-    ),
-  );
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(size * 0.24);
+    // The mark is drawn on ink, so a hairline keeps its edge on the ink UI.
+    return DecoratedBox(
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        border: Border.all(color: KlipaColors.border),
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Image.asset(
+          'assets/branding/logo_mark.png',
+          width: size,
+          height: size,
+          filterQuality: FilterQuality.medium,
+        ),
+      ),
+    );
+  }
 }
 
 Future<void> _showLocalPlaylistWarning(

@@ -1,25 +1,36 @@
 import 'package:flutter/material.dart';
 
 abstract final class KlipaColors {
-  static const ink = Color(0xFF0E0E0E);
-  static const inkRaised = Color(0xFF1A1A1A);
-  static const inkHover = Color(0xFF252525);
-  static const foreground = Color(0xFFE8E8E8);
-  static const foregroundMuted = Color(0xFFCCCCCC);
-  static const foregroundDim = Color(0xFF8C8C8C);
-  static const indigo = Color(0xFF6C5CE7);
-  static const success = Color(0xFF51CF66);
-  static const warning = Color(0xFFFFB74D);
-  static const live = Color(0xFFD32F2F);
-  static const border = Color(0xFF303030);
+  // Klipa On Air: warm off-white on blue-black ink, and a single tally light
+  // reserved for what is on air and for the main action.
+  static const ink = Color(0xFF111317);
+  static const inkRaised = Color(0xFF1A1D23);
+  static const inkHover = Color(0xFF252932);
+  static const foreground = Color(0xFFF4F1EA);
+  static const foregroundMuted = Color(0xFFB9B5AC);
+  static const foregroundDim = Color(0xFF8C8981);
+  static const tally = Color(0xFFFF5B24);
+  static const onTally = Color(0xFF0B0B0C);
+  static const success = Color(0xFF3DDC97);
+  static const warning = Color(0xFFFFC53D);
+  static const live = tally;
+  static const danger = Color(0xFFFF4D5E);
+  static const border = Color(0x29FFFFFF);
 }
 
 ThemeData buildKlipaTheme() {
-  final colorScheme = ColorScheme.fromSeed(
-    seedColor: KlipaColors.indigo,
-    brightness: Brightness.dark,
+  // Controls take the neutral foreground; only filled buttons carry the tally.
+  const colorScheme = ColorScheme.dark(
+    primary: KlipaColors.foreground,
+    onPrimary: KlipaColors.ink,
+    secondary: KlipaColors.foregroundMuted,
+    onSecondary: KlipaColors.ink,
     surface: KlipaColors.ink,
-    error: const Color(0xFFFF6B6B),
+    onSurface: KlipaColors.foreground,
+    surfaceContainerHighest: KlipaColors.inkHover,
+    outline: KlipaColors.border,
+    error: KlipaColors.danger,
+    onError: KlipaColors.onTally,
   );
   return ThemeData(
     brightness: Brightness.dark,
@@ -60,13 +71,16 @@ ThemeData buildKlipaTheme() {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: KlipaColors.indigo, width: 1.5),
+        borderSide: const BorderSide(
+          color: KlipaColors.foregroundMuted,
+          width: 1.5,
+        ),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: KlipaColors.indigo,
-        foregroundColor: Colors.white,
+        backgroundColor: KlipaColors.tally,
+        foregroundColor: KlipaColors.onTally,
         minimumSize: const Size(0, 44),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
