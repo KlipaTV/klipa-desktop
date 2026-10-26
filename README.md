@@ -19,10 +19,12 @@ Public source, pre-release candidate (one tagged Linux release exists; see the
 - Masked Xtream login with bounded, live-only account/category/stream requests
 - Compact category filtering and background-isolate playlist parsing
 - Compact live controls for play/pause, mute, app-session volume, fit mode and
-  native full screen, with focus-scoped keyboard shortcuts and playback-only
-  auto-hide
+  native full screen on Windows and Linux, with focus-scoped keyboard shortcuts,
+  channel up/down from the player, and playback-only auto-hide of the controls
+  and pointer
 - Race-safe channel replacement behind a small playback port, with teardown-first
-  switching, bounded readiness, retry, and generic user-facing native errors
+  switching, bounded readiness, retry, a bounded automatic reopen of a live
+  channel that stopped after it played, and generic user-facing native errors
 - Strict HTTP(S), redirect, size, header, protocol and private-network controls
 - Import-time disclosure that HLS/DASH sources may choose nested media hosts;
   the lightweight player trusts each user-added source for destinations while

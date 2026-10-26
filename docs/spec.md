@@ -442,8 +442,8 @@ create a runtime dependency on the mobile repository.
 | `Enter` | Activate focused channel or control |
 | `Space` | Play/pause when focus is not in a text field |
 | `M` | Toggle mute when focus is not in a text field |
-| `Up` / `Down` | Move in lists; adjust volume when the player volume control is focused |
-| `Page Up` / `Page Down` | Previous/next visible channel while player has focus |
+| `Up` / `Down` | Move in lists; previous/next visible channel while the player has focus; adjust volume when the player volume control is focused |
+| `Page Up` / `Page Down`, `CH-` / `CH+` | Previous/next visible channel while player has focus |
 | `F` or `F11` | Enter full screen |
 | `Esc` | Exit full screen, dismiss dialog, or close temporary overlay |
 | `Ctrl+R` | Refresh active source after confirmation if an import is running |

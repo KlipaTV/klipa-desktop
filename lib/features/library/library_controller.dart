@@ -187,6 +187,25 @@ class LibraryController extends Notifier<LibraryState> {
     _queueNavigationSave();
   }
 
+  /// Moves the selection [offset] places through the list the browser shows,
+  /// wrapping at either end, so a viewer can change channel from the player.
+  void selectAdjacent(int offset) {
+    final channels = state.visibleChannels;
+    if (channels.isEmpty || state.isResetting) return;
+    final current = state.selectedChannel;
+    final index = current == null
+        ? -1
+        : channels.indexWhere(
+            (channel) =>
+                channel.id == current.id &&
+                channel.sourceId == current.sourceId,
+          );
+    final target = index < 0
+        ? (offset > 0 ? 0 : channels.length - 1)
+        : (index + offset) % channels.length;
+    select(channels[target]);
+  }
+
   void dismissNotices() {
     state = state.copyWith(clearMessage: true, clearError: true);
   }

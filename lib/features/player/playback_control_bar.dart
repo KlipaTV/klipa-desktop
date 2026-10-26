@@ -24,6 +24,8 @@ class PlaybackControlBar extends StatelessWidget {
     required this.onVolumeChanged,
     required this.onFitChanged,
     required this.onFullscreenChanged,
+    this.reconnecting = false,
+    this.showStatus = true,
     super.key,
   });
 
@@ -39,6 +41,13 @@ class PlaybackControlBar extends StatelessWidget {
   final ValueChanged<double>? onVolumeChanged;
   final VoidCallback onFitChanged;
   final VoidCallback onFullscreenChanged;
+
+  /// The channel stopped after it played and is being reopened.
+  final bool reconnecting;
+
+  /// False while an error covers the picture, so the bar never claims LIVE
+  /// for a channel that stopped.
+  final bool showStatus;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -58,20 +67,28 @@ class PlaybackControlBar extends StatelessWidget {
           onPressed: onPlayPause,
           icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
         ),
-        const SizedBox(width: 8),
-        Container(
-          width: 7,
-          height: 7,
-          decoration: BoxDecoration(
-            color: buffering ? KlipaColors.warning : KlipaColors.live,
-            shape: BoxShape.circle,
+        if (showStatus) ...[
+          const SizedBox(width: 8),
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: buffering || reconnecting
+                  ? KlipaColors.warning
+                  : KlipaColors.live,
+              shape: BoxShape.circle,
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          buffering ? 'BUFFERING' : 'LIVE',
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
-        ),
+          const SizedBox(width: 8),
+          Text(
+            reconnecting
+                ? 'RECONNECTING'
+                : buffering
+                ? 'BUFFERING'
+                : 'LIVE',
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+          ),
+        ],
         const SizedBox(width: 16),
         Expanded(
           child: Text(

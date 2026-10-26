@@ -13,9 +13,15 @@ abstract interface class VideoPlayerPort {
 
   Stream<bool> get bufferingChanges;
 
+  /// Emits true when the media reaches its end. For a live channel that means
+  /// the provider closed the stream.
+  Stream<bool> get completedChanges;
+
   bool get playing;
 
   bool get buffering;
+
+  Duration get position;
 
   Widget buildView({required BoxFit fit});
 
@@ -57,10 +63,16 @@ final class MediaKitVideoPlayerPort implements VideoPlayerPort {
   Stream<bool> get bufferingChanges => _player.stream.buffering;
 
   @override
+  Stream<bool> get completedChanges => _player.stream.completed;
+
+  @override
   bool get playing => _player.state.playing;
 
   @override
   bool get buffering => _player.state.buffering;
+
+  @override
+  Duration get position => _player.state.position;
 
   @override
   Widget buildView({required BoxFit fit}) => Video(

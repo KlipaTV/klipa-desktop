@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -30,12 +31,18 @@ class PlayerPane extends StatefulWidget {
     this.resumeChannel,
     this.onResume,
     this.onFullscreenChanged,
+    this.onPreviousChannel,
+    this.onNextChannel,
     this.controller,
     this.windowController = const MethodChannelAppWindowController(),
     this.playerFactory = createMediaKitVideoPlayerPort,
     this.channelStartTimeout = const Duration(seconds: 20),
     this.openCommandTimeout = const Duration(seconds: 5),
     this.readinessGrace = const Duration(milliseconds: 500),
+    this.errorGrace = const Duration(seconds: 2),
+    this.reconnectDelay = const Duration(seconds: 1),
+    this.maxReconnectAttempts = 5,
+    this.stablePlayback = const Duration(seconds: 20),
     super.key,
   });
 
@@ -43,12 +50,30 @@ class PlayerPane extends StatefulWidget {
   final Channel? resumeChannel;
   final VoidCallback? onResume;
   final ValueChanged<bool>? onFullscreenChanged;
+  final VoidCallback? onPreviousChannel;
+  final VoidCallback? onNextChannel;
   final PlayerPaneController? controller;
   final AppWindowController windowController;
   final VideoPlayerPortFactory playerFactory;
   final Duration channelStartTimeout;
   final Duration openCommandTimeout;
   final Duration readinessGrace;
+
+  /// How long a native error may stand before it counts. libmpv reports some
+  /// errors (a missing audio device, one bad segment) at error level while the
+  /// picture keeps playing; only an error the playback does not outlive fails
+  /// the channel.
+  final Duration errorGrace;
+
+  /// First wait before reopening a live channel that stopped after it played;
+  /// each further attempt doubles it, up to eight times this value, so the
+  /// default attempts cover an outage of about half a minute.
+  final Duration reconnectDelay;
+  final int maxReconnectAttempts;
+
+  /// Uninterrupted playback after which a later drop starts a fresh set of
+  /// reconnect attempts.
+  final Duration stablePlayback;
 
   @override
   State<PlayerPane> createState() => _PlayerPaneState();
@@ -57,21 +82,33 @@ class PlayerPane extends StatefulWidget {
 class _PlayerPaneState extends State<PlayerPane> {
   static const _startTimeoutMessage =
       'The channel did not start in time. You can try again.';
+  static const _streamLostMessage =
+      'The channel stopped and did not come back. You can try again.';
 
   VideoPlayerPort? _player;
   StreamSubscription<String>? _errorSubscription;
   StreamSubscription<bool>? _playingSubscription;
   StreamSubscription<bool>? _bufferingSubscription;
+  StreamSubscription<bool>? _completedSubscription;
+  StreamSubscription<bool>? _windowFullscreenSubscription;
   final _focusNode = FocusNode(debugLabel: 'Player');
   Timer? _hideControlsTimer;
   Timer? _channelStartTimer;
   Timer? _readinessTimer;
+  Timer? _errorGraceTimer;
+  Timer? _reconnectTimer;
+  Timer? _stablePlaybackTimer;
   Future<void> _openQueue = Future.value();
   Future<void> _playerDisposal = Future.value();
   var _openGeneration = 0;
   var _opening = false;
   var _playing = false;
   var _buffering = false;
+  var _reconnecting = false;
+  var _reconnectAttempts = 0;
+  // Whether the channel played since it was last chosen. Only a channel that
+  // played is reopened on its own; one that never started fails as before.
+  var _hadPlayback = false;
   var _controlsVisible = true;
   var _muted = false;
   var _volume = 100.0;
@@ -85,7 +122,18 @@ class _PlayerPaneState extends State<PlayerPane> {
   void initState() {
     super.initState();
     widget.controller?._attach(_stopCallback);
+    _listenToWindow();
     if (widget.channel case final channel?) _requestOpen(channel);
+  }
+
+  void _listenToWindow() {
+    unawaited(_windowFullscreenSubscription?.cancel());
+    _windowFullscreenSubscription = widget.windowController.fullscreenChanges
+        .listen((fullscreen) {
+          if (!mounted || fullscreen == _fullscreen) return;
+          setState(() => _fullscreen = fullscreen);
+          widget.onFullscreenChanged?.call(fullscreen);
+        });
   }
 
   @override
@@ -94,6 +142,9 @@ class _PlayerPaneState extends State<PlayerPane> {
     if (!identical(widget.controller, oldWidget.controller)) {
       oldWidget.controller?._detach(_stopCallback);
       widget.controller?._attach(_stopCallback);
+    }
+    if (!identical(widget.windowController, oldWidget.windowController)) {
+      _listenToWindow();
     }
     if (widget.channel?.id != oldWidget.channel?.id ||
         widget.channel?.sourceId != oldWidget.channel?.sourceId) {
@@ -105,20 +156,22 @@ class _PlayerPaneState extends State<PlayerPane> {
     }
   }
 
-  void _requestOpen(Channel channel) {
+  void _requestOpen(Channel channel, {bool reconnect = false}) {
     final generation = ++_openGeneration;
     _cancelStartTimers();
     _hideControlsTimer?.cancel();
+    if (!reconnect) _resetRecovery();
     setState(() {
       _opening = true;
       _buffering = true;
       _playing = false;
+      _reconnecting = reconnect;
       _error = null;
       _controlsVisible = true;
     });
     _channelStartTimer = Timer(
       widget.channelStartTimeout,
-      () => _failCurrent(generation, _startTimeoutMessage),
+      () => _recoverOrFail(channel, generation, _startTimeoutMessage),
     );
     _openQueue = _settled(
       _openQueue,
@@ -129,11 +182,13 @@ class _PlayerPaneState extends State<PlayerPane> {
     _openGeneration++;
     _cancelStartTimers();
     _hideControlsTimer?.cancel();
+    _resetRecovery();
     if (mounted) {
       setState(() {
         _opening = false;
         _playing = false;
         _buffering = false;
+        _reconnecting = false;
         _error = null;
         _controlsVisible = true;
       });
@@ -173,6 +228,9 @@ class _PlayerPaneState extends State<PlayerPane> {
       _bufferingSubscription = player.bufferingChanges.listen(
         (buffering) => _handleBuffering(buffering, channel, generation, player),
       );
+      _completedSubscription = player.completedChanges.listen(
+        (completed) => _handleCompleted(completed, channel, generation, player),
+      );
 
       if (mounted) setState(() {});
       await player
@@ -190,7 +248,7 @@ class _PlayerPaneState extends State<PlayerPane> {
       _handlePlaying(player.playing, channel, generation, player);
       _handleBuffering(player.buffering, channel, generation, player);
     } on TimeoutException {
-      _failCurrent(generation, _startTimeoutMessage);
+      _recoverOrFail(channel, generation, _startTimeoutMessage);
     } on NetworkPolicyException catch (error) {
       _failCurrent(
         generation,
@@ -220,7 +278,27 @@ class _PlayerPaneState extends State<PlayerPane> {
     VideoPlayerPort player,
   ) {
     if (!_isOwnedAndCurrent(player, channel, generation)) return;
-    _failCurrent(generation, PlaybackErrorMapper.userMessage(message));
+    if (_errorGraceTimer != null) return;
+    final positionAtError = player.position;
+    final userMessage = PlaybackErrorMapper.userMessage(message);
+    _errorGraceTimer = Timer(widget.errorGrace, () {
+      _errorGraceTimer = null;
+      if (!_isOwnedAndCurrent(player, channel, generation)) return;
+      // The picture moved on, so the error did not stop playback.
+      if (player.position > positionAtError) return;
+      _recoverOrFail(channel, generation, userMessage);
+    });
+  }
+
+  void _handleCompleted(
+    bool completed,
+    Channel channel,
+    int generation,
+    VideoPlayerPort player,
+  ) {
+    if (!completed || !_isOwnedAndCurrent(player, channel, generation)) return;
+    // A live channel has no end: the provider closed the stream.
+    _recoverOrFail(channel, generation, PlaybackErrorMapper.unavailableMessage);
   }
 
   void _handlePlaying(
@@ -280,12 +358,65 @@ class _PlayerPaneState extends State<PlayerPane> {
       }
       _channelStartTimer?.cancel();
       _channelStartTimer = null;
+      _hadPlayback = true;
+      _stablePlaybackTimer?.cancel();
+      _stablePlaybackTimer = Timer(widget.stablePlayback, () {
+        _stablePlaybackTimer = null;
+        _reconnectAttempts = 0;
+      });
       setState(() {
         _opening = false;
+        _reconnecting = false;
         _controlsVisible = true;
       });
       _scheduleControlsHide();
     });
+  }
+
+  /// Reopens a channel that stopped after it played, with a doubling wait,
+  /// and fails it once the attempts run out. A channel that never played
+  /// fails at once, as a first start always has.
+  void _recoverOrFail(Channel channel, int generation, String message) {
+    if (!mounted || generation != _openGeneration) return;
+    if (!_hadPlayback || _reconnectAttempts >= widget.maxReconnectAttempts) {
+      _failCurrent(generation, _hadPlayback ? _streamLostMessage : message);
+      return;
+    }
+    _openGeneration++;
+    _cancelStartTimers();
+    _hideControlsTimer?.cancel();
+    _stablePlaybackTimer?.cancel();
+    _stablePlaybackTimer = null;
+    final delay = widget.reconnectDelay * (1 << min(_reconnectAttempts, 3));
+    _reconnectAttempts++;
+    final player = _player;
+    setState(() {
+      _opening = true;
+      _playing = false;
+      _buffering = true;
+      _reconnecting = true;
+      _error = null;
+      _controlsVisible = true;
+    });
+    if (player != null) unawaited(_disposePlayerIfOwned(player));
+    _reconnectTimer = Timer(delay, () {
+      _reconnectTimer = null;
+      if (!mounted ||
+          widget.channel?.id != channel.id ||
+          widget.channel?.sourceId != channel.sourceId) {
+        return;
+      }
+      _requestOpen(channel, reconnect: true);
+    });
+  }
+
+  void _resetRecovery() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _stablePlaybackTimer?.cancel();
+    _stablePlaybackTimer = null;
+    _reconnectAttempts = 0;
+    _hadPlayback = false;
   }
 
   void _failCurrent(int generation, String message) {
@@ -293,11 +424,13 @@ class _PlayerPaneState extends State<PlayerPane> {
     _openGeneration++;
     _cancelStartTimers();
     _hideControlsTimer?.cancel();
+    _resetRecovery();
     final player = _player;
     setState(() {
       _opening = false;
       _playing = false;
       _buffering = false;
+      _reconnecting = false;
       _error = message;
       _controlsVisible = true;
     });
@@ -309,6 +442,8 @@ class _PlayerPaneState extends State<PlayerPane> {
     _channelStartTimer = null;
     _readinessTimer?.cancel();
     _readinessTimer = null;
+    _errorGraceTimer?.cancel();
+    _errorGraceTimer = null;
   }
 
   List<Future<void>> _detachPlayerSubscriptions() {
@@ -316,10 +451,12 @@ class _PlayerPaneState extends State<PlayerPane> {
       _errorSubscription,
       _playingSubscription,
       _bufferingSubscription,
+      _completedSubscription,
     ];
     _errorSubscription = null;
     _playingSubscription = null;
     _bufferingSubscription = null;
+    _completedSubscription = null;
     return [
       for (final subscription in subscriptions)
         if (subscription != null) subscription.cancel(),
@@ -429,15 +566,40 @@ class _PlayerPaneState extends State<PlayerPane> {
     if (_fullscreen) unawaited(_setFullscreen(false));
   }
 
+  // Up walks the list the way the browser shows it (the channel above); CH+
+  // follows the broadcast convention and moves to the next channel.
+  static const _previousChannelKeys = [
+    LogicalKeyboardKey.arrowUp,
+    LogicalKeyboardKey.pageUp,
+    LogicalKeyboardKey.channelDown,
+    LogicalKeyboardKey.mediaTrackPrevious,
+  ];
+
+  static const _nextChannelKeys = [
+    LogicalKeyboardKey.arrowDown,
+    LogicalKeyboardKey.pageDown,
+    LogicalKeyboardKey.channelUp,
+    LogicalKeyboardKey.mediaTrackNext,
+  ];
+
+  void _zap(VoidCallback? change) {
+    if (change == null) return;
+    _revealControls();
+    change();
+  }
+
   @override
   void dispose() {
     widget.controller?._detach(_stopCallback);
     _openGeneration++;
     _cancelStartTimers();
     _hideControlsTimer?.cancel();
+    _resetRecovery();
     unawaited(_errorSubscription?.cancel());
     unawaited(_playingSubscription?.cancel());
     unawaited(_bufferingSubscription?.cancel());
+    unawaited(_completedSubscription?.cancel());
+    unawaited(_windowFullscreenSubscription?.cancel());
     if (_player case final player?) unawaited(_disposePlayer(player));
     _player = null;
     if (_fullscreen) {
@@ -491,6 +653,10 @@ class _PlayerPaneState extends State<PlayerPane> {
         const SingleActivator(LogicalKeyboardKey.keyF): _toggleFullscreen,
         const SingleActivator(LogicalKeyboardKey.f11): _toggleFullscreen,
         const SingleActivator(LogicalKeyboardKey.escape): _exitFullscreen,
+        for (final key in _previousChannelKeys)
+          SingleActivator(key): () => _zap(widget.onPreviousChannel),
+        for (final key in _nextChannelKeys)
+          SingleActivator(key): () => _zap(widget.onNextChannel),
       },
       child: Focus(
         focusNode: _focusNode,
@@ -499,6 +665,9 @@ class _PlayerPaneState extends State<PlayerPane> {
           return KeyEventResult.ignored;
         },
         child: MouseRegion(
+          // The pointer hides with the controls so it never sits on the
+          // picture; any movement brings both back.
+          cursor: controlsVisible ? MouseCursor.defer : SystemMouseCursors.none,
           onHover: (_) => _revealControls(),
           child: Listener(
             onPointerDown: (_) {
@@ -535,6 +704,8 @@ class _PlayerPaneState extends State<PlayerPane> {
                           channelName: channel.name,
                           playing: _playing,
                           buffering: _buffering,
+                          reconnecting: _reconnecting,
+                          showStatus: _error == null,
                           muted: _muted,
                           volume: _muted ? 0 : _volume,
                           fit: _fit,

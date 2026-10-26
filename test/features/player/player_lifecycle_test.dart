@@ -211,6 +211,185 @@ void main() {
     expect(player.disposeCount, 1);
   });
 
+  testWidgets('an error the picture outlives does not stop the channel', (
+    tester,
+  ) async {
+    final player = _FakeVideoPlayerPort('no-audio-device');
+    addTearDown(player.closeStreams);
+
+    await tester.pumpWidget(
+      _testApp(
+        channel: _channel('one'),
+        playerFactory: () => player,
+        errorGrace: const Duration(milliseconds: 20),
+      ),
+    );
+    await _pumpOpen(tester);
+    // libmpv reports a missing audio output at error level, then keeps
+    // playing the picture.
+    player.emitError('Could not open/initialize audio device -> no sound.');
+    player.emitPlaying(true);
+    player.emitBuffering(false);
+    player.position = const Duration(seconds: 1);
+    await _pumpFor(tester, const Duration(milliseconds: 40));
+
+    expect(find.text('Try again'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('fake-video-no-audio-device')),
+      findsOneWidget,
+    );
+    expect(player.disposeCount, 0);
+  });
+
+  testWidgets('an error playback does not outlive fails after the grace', (
+    tester,
+  ) async {
+    final player = _FakeVideoPlayerPort('dead');
+    addTearDown(player.closeStreams);
+
+    await tester.pumpWidget(
+      _testApp(
+        channel: _channel('one'),
+        playerFactory: () => player,
+        errorGrace: const Duration(milliseconds: 20),
+      ),
+    );
+    await _pumpOpen(tester);
+    player.emitError('tcp: Connection refused');
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(find.text('Try again'), findsNothing);
+
+    await _pumpFor(tester, const Duration(milliseconds: 20));
+    expect(find.text('Try again'), findsOneWidget);
+    expect(player.disposeCount, 1);
+  });
+
+  testWidgets('a live channel that stops after playing is reopened', (
+    tester,
+  ) async {
+    final first = _FakeVideoPlayerPort('first');
+    final second = _FakeVideoPlayerPort('second');
+    final ports = [first, second];
+    addTearDown(() => Future.wait(ports.map((port) => port.closeStreams())));
+    var factoryIndex = 0;
+
+    await tester.pumpWidget(
+      _testApp(
+        channel: _channel('one'),
+        playerFactory: () => ports[factoryIndex++],
+      ),
+    );
+    await _pumpOpen(tester);
+    first.emitPlaying(true);
+    first.emitBuffering(false);
+    await tester.pump(const Duration(milliseconds: 15));
+    expect(find.text('LIVE'), findsOneWidget);
+
+    first.emitCompleted();
+    await tester.pump();
+    expect(find.text('RECONNECTING'), findsOneWidget);
+    expect(find.text('Try again'), findsNothing);
+
+    await _pumpUntil(tester, () => second.opened.isNotEmpty);
+    expect(first.disposeCount, 1);
+    expect(second.opened.single.id, 'one');
+    second.emitPlaying(true);
+    second.emitBuffering(false);
+    await tester.pump(const Duration(milliseconds: 15));
+
+    expect(find.text('LIVE'), findsOneWidget);
+    expect(find.byKey(const ValueKey('fake-video-second')), findsOneWidget);
+  });
+
+  testWidgets('reopening stops after the configured attempts', (tester) async {
+    final ports = List.generate(4, (index) => _FakeVideoPlayerPort('p$index'));
+    addTearDown(() => Future.wait(ports.map((port) => port.closeStreams())));
+    var factoryIndex = 0;
+
+    await tester.pumpWidget(
+      _testApp(
+        channel: _channel('one'),
+        playerFactory: () => ports[factoryIndex++],
+        channelStartTimeout: const Duration(milliseconds: 30),
+      ),
+    );
+    await _pumpOpen(tester);
+    ports.first.emitPlaying(true);
+    ports.first.emitBuffering(false);
+    await tester.pump(const Duration(milliseconds: 15));
+    ports.first.emitCompleted();
+
+    // Neither reopened player ever starts, so each attempt times out.
+    await _pumpFor(tester, const Duration(milliseconds: 200));
+
+    expect(factoryIndex, 3);
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.text('LIVE'), findsNothing);
+    expect(
+      find.text(
+        'The channel stopped and did not come back. You can try again.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a stream that ends before it ever played is not reopened', (
+    tester,
+  ) async {
+    final player = _FakeVideoPlayerPort('ended');
+    addTearDown(player.closeStreams);
+    var factoryCalls = 0;
+
+    await tester.pumpWidget(
+      _testApp(
+        channel: _channel('one'),
+        playerFactory: () {
+          factoryCalls++;
+          return player;
+        },
+      ),
+    );
+    await _pumpOpen(tester);
+    player.emitCompleted();
+    await _pumpFor(tester, const Duration(milliseconds: 40));
+
+    expect(factoryCalls, 1);
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.text('RECONNECTING'), findsNothing);
+  });
+
+  testWidgets('the pointer hides with the controls during playback', (
+    tester,
+  ) async {
+    final player = _FakeVideoPlayerPort('cursor');
+    addTearDown(player.closeStreams);
+
+    await tester.pumpWidget(
+      _testApp(
+        channel: _channel('one'),
+        playerFactory: () => player,
+        channelStartTimeout: const Duration(seconds: 10),
+      ),
+    );
+    await _pumpOpen(tester);
+    player.emitPlaying(true);
+    player.emitBuffering(false);
+    await tester.pump(const Duration(milliseconds: 15));
+    MouseCursor playerCursor() => tester
+        .widgetList<MouseRegion>(
+          find.descendant(
+            of: find.byType(PlayerPane),
+            matching: find.byType(MouseRegion),
+          ),
+        )
+        .first
+        .cursor;
+    expect(playerCursor(), MouseCursor.defer);
+
+    await tester.pump(const Duration(seconds: 4));
+    expect(playerCursor(), SystemMouseCursors.none);
+  });
+
   testWidgets('a failing player teardown does not block later channels', (
     tester,
   ) async {
@@ -317,6 +496,9 @@ Widget _testApp({
   required VideoPlayerPortFactory playerFactory,
   Duration channelStartTimeout = const Duration(milliseconds: 100),
   Duration openCommandTimeout = const Duration(milliseconds: 50),
+  Duration errorGrace = Duration.zero,
+  Duration reconnectDelay = const Duration(milliseconds: 10),
+  int maxReconnectAttempts = 2,
 }) => MaterialApp(
   theme: ThemeData.dark().copyWith(splashFactory: NoSplash.splashFactory),
   home: Scaffold(
@@ -326,9 +508,19 @@ Widget _testApp({
       channelStartTimeout: channelStartTimeout,
       openCommandTimeout: openCommandTimeout,
       readinessGrace: const Duration(milliseconds: 10),
+      errorGrace: errorGrace,
+      reconnectDelay: reconnectDelay,
+      maxReconnectAttempts: maxReconnectAttempts,
     ),
   ),
 );
+
+Future<void> _pumpFor(WidgetTester tester, Duration duration) async {
+  const step = Duration(milliseconds: 5);
+  for (var elapsed = Duration.zero; elapsed < duration; elapsed += step) {
+    await tester.pump(step);
+  }
+}
 
 Future<void> _pumpOpen(WidgetTester tester) async {
   for (var index = 0; index < 6; index++) {
@@ -365,6 +557,7 @@ final class _FakeVideoPlayerPort implements VideoPlayerPort {
   final _errors = StreamController<String>.broadcast(sync: true);
   final _playingChanges = StreamController<bool>.broadcast(sync: true);
   final _bufferingChanges = StreamController<bool>.broadcast(sync: true);
+  final _completedChanges = StreamController<bool>.broadcast(sync: true);
   var _playing = false;
   var _buffering = true;
   var disposeCount = 0;
@@ -381,7 +574,13 @@ final class _FakeVideoPlayerPort implements VideoPlayerPort {
   Stream<bool> get bufferingChanges => _bufferingChanges.stream;
 
   @override
+  Stream<bool> get completedChanges => _completedChanges.stream;
+
+  @override
   bool get playing => _playing;
+
+  @override
+  Duration position = Duration.zero;
 
   @override
   bool get buffering => _buffering;
@@ -420,9 +619,15 @@ final class _FakeVideoPlayerPort implements VideoPlayerPort {
 
   void emitError(String value) => _errors.add(value);
 
+  void emitCompleted() {
+    _playing = false;
+    _completedChanges.add(true);
+  }
+
   Future<void> closeStreams() async {
     await _errors.close();
     await _playingChanges.close();
     await _bufferingChanges.close();
+    await _completedChanges.close();
   }
 }

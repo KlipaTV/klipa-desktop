@@ -112,4 +112,32 @@ void main() {
     expect(find.byTooltip('Exit full screen'), findsOneWidget);
     expect(find.byIcon(Icons.volume_off_rounded), findsOneWidget);
   });
+
+  testWidgets('names a reconnect instead of buffering', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark().copyWith(splashFactory: NoSplash.splashFactory),
+        home: Scaffold(
+          body: PlaybackControlBar(
+            channelName: 'Test channel',
+            playing: false,
+            buffering: true,
+            reconnecting: true,
+            muted: false,
+            volume: 100,
+            fit: BoxFit.contain,
+            fullscreen: false,
+            onPlayPause: null,
+            onMute: null,
+            onVolumeChanged: null,
+            onFitChanged: () {},
+            onFullscreenChanged: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('RECONNECTING'), findsOneWidget);
+    expect(find.text('BUFFERING'), findsNothing);
+  });
 }

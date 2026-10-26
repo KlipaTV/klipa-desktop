@@ -333,6 +333,8 @@ class _DesktopLibrary extends StatelessWidget {
                   : () => controller.select(state.resumeChannel!),
               controller: playerController,
               onFullscreenChanged: onFullscreenChanged,
+              onPreviousChannel: () => controller.selectAdjacent(-1),
+              onNextChannel: () => controller.selectAdjacent(1),
             ),
           ),
         ],
@@ -783,7 +785,7 @@ class _RailButton extends StatelessWidget {
   );
 }
 
-class _ChannelBrowser extends StatelessWidget {
+class _ChannelBrowser extends StatefulWidget {
   const _ChannelBrowser({
     required this.state,
     required this.controller,
@@ -801,6 +803,62 @@ class _ChannelBrowser extends StatelessWidget {
   final ValueChanged<LibrarySource> onRenameSource;
   final ValueChanged<LibrarySource> onRefreshSource;
   final ValueChanged<LibrarySource> onDeleteSource;
+
+  @override
+  State<_ChannelBrowser> createState() => _ChannelBrowserState();
+}
+
+class _ChannelBrowserState extends State<_ChannelBrowser> {
+  static const _tileExtent = 64.0;
+  static const _listPadding = 6.0;
+
+  final _scrollController = ScrollController();
+
+  LibraryState get state => widget.state;
+  LibraryController get controller => widget.controller;
+
+  @override
+  void didUpdateWidget(_ChannelBrowser oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final selected = widget.state.selectedChannel;
+    final previous = oldWidget.state.selectedChannel;
+    if (selected != null &&
+        (selected.id != previous?.id ||
+            selected.sourceId != previous?.sourceId)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _reveal(selected));
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Scrolls just enough to show [channel], which a viewer may have reached
+  /// from the player with the keyboard.
+  void _reveal(Channel channel) {
+    if (!mounted || !_scrollController.hasClients) return;
+    final index = state.visibleChannels.indexWhere(
+      (candidate) =>
+          candidate.id == channel.id && candidate.sourceId == channel.sourceId,
+    );
+    if (index < 0) return;
+    final position = _scrollController.position;
+    final top = _listPadding + index * _tileExtent;
+    final bottom = top + _tileExtent;
+    final double target;
+    if (top < position.pixels) {
+      target = top - _listPadding;
+    } else if (bottom > position.pixels + position.viewportDimension) {
+      target = bottom + _listPadding - position.viewportDimension;
+    } else {
+      return;
+    }
+    _scrollController.jumpTo(
+      target.clamp(position.minScrollExtent, position.maxScrollExtent),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -872,7 +930,7 @@ class _ChannelBrowser extends StatelessWidget {
             ],
           ),
         ),
-        if (showSourceFilter && state.sources.isNotEmpty)
+        if (widget.showSourceFilter && state.sources.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
             child: Row(
@@ -911,11 +969,11 @@ class _ChannelBrowser extends StatelessWidget {
                     if (source == null) return;
                     switch (action) {
                       case _SourceAction.refresh:
-                        onRefreshSource(source);
+                        widget.onRefreshSource(source);
                       case _SourceAction.rename:
-                        onRenameSource(source);
+                        widget.onRenameSource(source);
                       case _SourceAction.delete:
-                        onDeleteSource(source);
+                        widget.onDeleteSource(source);
                     }
                   },
                 ),
@@ -926,7 +984,7 @@ class _ChannelBrowser extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
           child: TextField(
             key: const Key('channel-search'),
-            focusNode: searchFocus,
+            focusNode: widget.searchFocus,
             onChanged: controller.search,
             decoration: const InputDecoration(
               hintText: 'Search channels',
@@ -964,9 +1022,10 @@ class _ChannelBrowser extends StatelessWidget {
           child: channels.isEmpty
               ? const Center(child: Text('No matching channels'))
               : ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(vertical: _listPadding),
                   itemCount: channels.length,
-                  itemExtent: 64,
+                  itemExtent: _tileExtent,
                   itemBuilder: (context, index) {
                     final channel = channels[index];
                     return _ChannelTile(

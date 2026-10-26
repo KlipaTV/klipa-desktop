@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -94,6 +96,72 @@ void main() {
     expect(windowController.requests, [true, false, true, false]);
   });
 
+  testWidgets('the player follows a window that left full screen itself', (
+    tester,
+  ) async {
+    final windowController = _FakeWindowController();
+    final fullscreenChanges = <bool>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(),
+        home: Scaffold(
+          body: PlayerPane(
+            channel: _blockedFixtureChannel(),
+            windowController: windowController,
+            onFullscreenChanged: fullscreenChanges.add,
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tapAt(const Offset(400, 300));
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.pump();
+    expect(find.byTooltip('Exit full screen'), findsOneWidget);
+
+    windowController.leaveFullscreenOnItsOwn();
+    await tester.pump();
+
+    expect(fullscreenChanges, [true, false]);
+    expect(find.byTooltip('Enter full screen'), findsOneWidget);
+    expect(windowController.requests, [true]);
+  });
+
+  testWidgets('arrow, page and channel keys change channel from the player', (
+    tester,
+  ) async {
+    final moves = <int>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(),
+        home: Scaffold(
+          body: PlayerPane(
+            channel: _blockedFixtureChannel(),
+            windowController: _FakeWindowController(),
+            onPreviousChannel: () => moves.add(-1),
+            onNextChannel: () => moves.add(1),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tapAt(const Offset(400, 300));
+
+    for (final key in [
+      LogicalKeyboardKey.arrowDown,
+      LogicalKeyboardKey.arrowUp,
+      LogicalKeyboardKey.pageDown,
+      LogicalKeyboardKey.pageUp,
+      LogicalKeyboardKey.channelUp,
+      LogicalKeyboardKey.channelDown,
+    ]) {
+      await tester.sendKeyEvent(key);
+      await tester.pump();
+    }
+
+    expect(moves, [1, -1, 1, -1, 1, -1]);
+  });
+
   testWidgets('escape exits full screen after the channel is cleared', (
     tester,
   ) async {
@@ -150,6 +218,12 @@ Channel _blockedFixtureChannel() => Channel(
 
 final class _FakeWindowController implements AppWindowController {
   final requests = <bool>[];
+  final _changes = StreamController<bool>.broadcast(sync: true);
+
+  @override
+  Stream<bool> get fullscreenChanges => _changes.stream;
+
+  void leaveFullscreenOnItsOwn() => _changes.add(false);
 
   @override
   Future<bool> isFullscreen() async => requests.lastOrNull ?? false;

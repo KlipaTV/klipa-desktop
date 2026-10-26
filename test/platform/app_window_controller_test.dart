@@ -32,4 +32,22 @@ void main() {
     expect(calls.first.arguments, isTrue);
     expect(calls.last.method, 'isFullscreen');
   });
+
+  test('reports a full-screen change the window made on its own', () async {
+    const controller = MethodChannelAppWindowController();
+    final changes = <bool>[];
+    final subscription = controller.fullscreenChanges.listen(changes.add);
+    addTearDown(subscription.cancel);
+
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .handlePlatformMessage(
+          channel.name,
+          channel.codec.encodeMethodCall(
+            const MethodCall('fullscreenChanged', false),
+          ),
+          (_) {},
+        );
+
+    expect(changes, [false]);
+  });
 }

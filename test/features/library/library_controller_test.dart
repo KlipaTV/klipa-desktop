@@ -344,6 +344,33 @@ void main() {
     expect(saved.lastChannel, (sourceId: 'source-1', channelId: 'one'));
   });
 
+  test('adjacent selection follows the visible list and wraps', () async {
+    final channels = [_channel('a'), _channel('b'), _channel('c')];
+    final store = _FakeLibraryStore(
+      initial: LibrarySnapshot(sources: [_librarySource()], channels: channels),
+    );
+    final container = _container(store: store);
+    addTearDown(container.dispose);
+    await _waitForLoad(container);
+    final controller = container.read(libraryControllerProvider.notifier);
+    String? selected() =>
+        container.read(libraryControllerProvider).selectedChannel?.id;
+
+    controller.selectAdjacent(1);
+    expect(selected(), 'a');
+    controller.selectAdjacent(1);
+    expect(selected(), 'b');
+    controller.selectAdjacent(-1);
+    controller.selectAdjacent(-1);
+    expect(selected(), 'c');
+    controller.selectAdjacent(1);
+    expect(selected(), 'a');
+
+    controller.search('channel b');
+    controller.selectAdjacent(1);
+    expect(selected(), 'b');
+  });
+
   test('a failed navigation save does not undo the user action', () async {
     final channel = _channel('one');
     final store = _FakeLibraryStore(
