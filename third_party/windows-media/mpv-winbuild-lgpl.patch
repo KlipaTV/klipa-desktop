@@ -127,10 +127,10 @@ index b5797dc..88136c4 100644
      BUILD_COMMAND ${EXEC} ninja -C <BINARY_DIR>
      INSTALL_COMMAND ${EXEC} ninja -C <BINARY_DIR> install
 diff --git a/packages/mpv.cmake b/packages/mpv.cmake
-index a2954d5..0ab69e9 100644
+index a2954d5..a861ab1 100644
 --- a/packages/mpv.cmake
 +++ b/packages/mpv.cmake
-@@ -6,24 +6,11 @@ ExternalProject_Add(mpv
+@@ -6,25 +6,11 @@ ExternalProject_Add(mpv
          lcms2
          libarchive
          libass
@@ -152,10 +152,11 @@ index a2954d5..0ab69e9 100644
 -        libsdl2
 -        subrandr
 -        libsixel
-         curl
+-        curl
      GIT_REPOSITORY https://github.com/mpv-player/mpv.git
      SOURCE_DIR ${SOURCE_LOCATION}
-@@ -41,25 +28,26 @@ ExternalProject_Add(mpv
+     GIT_CLONE_FLAGS "--filter=tree:0"
+@@ -41,25 +27,26 @@ ExternalProject_Add(mpv
          -Db_lto=true
          ${mpv_lto_mode}
          -Dlibmpv=true
@@ -189,13 +190,14 @@ index a2954d5..0ab69e9 100644
 +        -Dsubrandr=disabled
 +        -Dsixel=disabled
          ${mpv_gl}
-         -Dlibcurl=enabled
+-        -Dlibcurl=enabled
 -        -Dc_args='-Wno-error=int-conversion'
++        -Dlibcurl=disabled
 +        -Dc_args='-Wno-error=int-conversion -DEGL_PLATFORM_ANGLE_TYPE_D3D9_ANGLE=0x3207'
      BUILD_COMMAND ${EXEC} LTO_JOB=1 PDB=1 ninja -C <BINARY_DIR>
      INSTALL_COMMAND ""
      LOG_DOWNLOAD 1 LOG_UPDATE 1 LOG_CONFIGURE 1 LOG_BUILD 1 LOG_INSTALL 1
-@@ -77,7 +65,6 @@ ExternalProject_Add_Step(mpv copy-binary
+@@ -77,7 +64,6 @@ ExternalProject_Add_Step(mpv copy-binary
      COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/mpv.com                           ${CMAKE_CURRENT_BINARY_DIR}/mpv-package/mpv.com
      COMMAND ${CMAKE_COMMAND} -E copy <SOURCE_DIR>/etc/mpv-register.bat              ${CMAKE_CURRENT_BINARY_DIR}/mpv-package/mpv-register.bat
      COMMAND ${CMAKE_COMMAND} -E copy <SOURCE_DIR>/etc/mpv-unregister.bat            ${CMAKE_CURRENT_BINARY_DIR}/mpv-package/mpv-unregister.bat

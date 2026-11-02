@@ -180,8 +180,8 @@ repair_partial_checkouts() {
 # builds here, between their download and patch steps. The other pinned
 # packages of the recipe are outside the graph; a recipe whose pinned set
 # differs must be reviewed before this list is trusted.
-pinned_in_graph=(openssl libpsl xz)
-pinned_elsewhere=(avisynth-headers libsixel mbedtls vapoursynth)
+pinned_in_graph=(openssl xz)
+pinned_elsewhere=(avisynth-headers libpsl libsixel mbedtls vapoursynth)
 mapfile -t pinned < <(grep -l 'GIT_RESET' "$source_dir"/packages/*.cmake | xargs -n1 basename | sed 's/\.cmake$//' | sort)
 expected="$(printf '%s\n' "${pinned_in_graph[@]}" "${pinned_elsewhere[@]}" | sort)"
 [[ "$(printf '%s\n' "${pinned[@]}")" == "$expected" ]] || {
