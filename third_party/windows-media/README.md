@@ -10,7 +10,8 @@ artifacts must not use the opaque DLL downloaded by
 The patch disables mpv's GPL mode and removes GPL codec/filter dependencies
 from the build graph. FFmpeg remains version-3 LGPL; nonfree components are
 never enabled. The renderer keeps libplacebo's D3D11/OpenGL path while omitting
-Vulkan, glslang, and shaderc. SPIR-V Cross is linked in its standard static mode
+the Vulkan loader, glslang, and shaderc; libplacebo still compiles its Vulkan
+stubs, so the Vulkan headers are a build-time dependency only. SPIR-V Cross is linked in its standard static mode
 for D3D11 shader translation.
 
 The pinned mpv-winbuild-cmake revision is `bda10a2` (2026-10-30). Its own

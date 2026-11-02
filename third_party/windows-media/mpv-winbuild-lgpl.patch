@@ -103,19 +103,23 @@ index fc0149d..0e26cce 100644
          --disable-ffplay
          --disable-ffprobe
 diff --git a/packages/libplacebo.cmake b/packages/libplacebo.cmake
-index b5797dc..88136c4 100644
+index b5797dc..5b4c092 100644
 --- a/packages/libplacebo.cmake
 +++ b/packages/libplacebo.cmake
-@@ -2,8 +2,6 @@ get_property(src_glad TARGET glad PROPERTY _EP_SOURCE_DIR)
+@@ -1,9 +1,10 @@
+ get_property(src_glad TARGET glad PROPERTY _EP_SOURCE_DIR)
  get_property(src_fast_float TARGET fast_float PROPERTY _EP_SOURCE_DIR)
++# Vulkan headers only: with Vulkan disabled libplacebo still builds its
++# stubs against <vulkan/vulkan.h>; the loader stays out.
  ExternalProject_Add(libplacebo
      DEPENDS
 -        vulkan
 -        shaderc
++        vulkan-header
          spirv-cross
          lcms2
          glad
-@@ -28,7 +26,9 @@ ExternalProject_Add(libplacebo
+@@ -28,7 +29,9 @@ ExternalProject_Add(libplacebo
          -Ddebug=true
          -Db_ndebug=true
          -Doptimization=3
