@@ -1,5 +1,5 @@
 diff --git a/packages/ffmpeg.cmake b/packages/ffmpeg.cmake
-index fc0149d..0e26cce 100644
+index fc0149d..35a1b15 100644
 --- a/packages/ffmpeg.cmake
 +++ b/packages/ffmpeg.cmake
 @@ -1,7 +1,6 @@
@@ -66,7 +66,7 @@ index fc0149d..0e26cce 100644
          --enable-libmp3lame
          --enable-lcms2
          --enable-libopus
-@@ -78,16 +57,11 @@ ExternalProject_Add(ffmpeg
+@@ -78,25 +57,20 @@ ExternalProject_Add(ffmpeg
          --enable-libspeex
          --enable-libvorbis
          --enable-libbs2b
@@ -81,9 +81,10 @@ index fc0149d..0e26cce 100644
 -        ${ffmpeg_davs2_cmd}
 -        ${ffmpeg_uavs3d_cmd}
          --enable-libzimg
-         --enable-openssl
+-        --enable-openssl
++        --enable-schannel
          --enable-libxml2
-@@ -95,8 +69,8 @@ ExternalProject_Add(ffmpeg
+         --enable-libmysofa
          --enable-libssh
          --enable-libsrt
          --enable-libvpl

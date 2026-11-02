@@ -11,7 +11,11 @@ The patch disables mpv's GPL mode and removes GPL codec/filter dependencies
 from the build graph. FFmpeg remains version-3 LGPL; nonfree components are
 never enabled. The renderer keeps libplacebo's D3D11/OpenGL path while omitting
 the Vulkan loader, glslang, and shaderc; libplacebo still compiles its Vulkan
-stubs, so the Vulkan headers are a build-time dependency only. SPIR-V Cross is linked in its standard static mode
+stubs, so the Vulkan headers are a build-time dependency only. FFmpeg's TLS is
+Schannel, which checks certificates against the Windows store: the player sets
+`tls-verify=yes`, and OpenSSL or mbedTLS, with no CA store on Windows, fail
+every HTTPS handshake (measured on the pub package's DLL, 2026-11-02). OpenSSL
+stays in the graph for libssh, libsrt and libarchive. SPIR-V Cross is linked in its standard static mode
 for D3D11 shader translation.
 
 The pinned mpv-winbuild-cmake revision is `bda10a2` (2026-10-30). Its own
