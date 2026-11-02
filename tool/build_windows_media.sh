@@ -3,7 +3,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 upstream_url="https://github.com/shinchiro/mpv-winbuild-cmake.git"
-upstream_commit="04283f7e911149809c46bc236a834cf7134ba133"
+upstream_commit="bda10a2816ce9908d419b3f4b564227330457e76"
 work="${WINDOWS_MEDIA_WORKDIR:-$root/.build/windows-media}"
 source_dir="$work/mpv-winbuild-cmake"
 build_dir="$work/build-x86_64"
