@@ -104,6 +104,18 @@ jobs:
             echo 'The built DLL reports a GPL or nonfree configuration.' >&2
             exit 1
           fi
+          # The player verifies TLS certificates. Only Schannel checks them
+          # against the Windows store; OpenSSL and mbedTLS have no CA store
+          # there and reject every HTTPS stream.
+          awk '/^External libraries:/,/^$/' \
+            .build/windows-media/build-x86_64/packages/ffmpeg-prefix/src/ffmpeg-stamp/ffmpeg-configure-out.log \
+            > "$current/ffmpeg-external-libraries.txt"
+          cat "$current/ffmpeg-external-libraries.txt"
+          if ! grep -qw schannel "$current/ffmpeg-external-libraries.txt" ||
+             grep -qw -e openssl -e mbedtls -e gnutls "$current/ffmpeg-external-libraries.txt"; then
+            echo "FFmpeg's TLS backend is not Schannel." >&2
+            exit 1
+          fi
           du -sh .build/windows-media dist/windows-media
 
       - name: Package the runtime bundle

@@ -52,9 +52,16 @@ def ffmpeg(lines):
             out += [indent + "--disable-libplacebo", indent + "--disable-vulkan"]
             seen.add(s)
             continue
+        if s == "--enable-openssl":
+            # TLS through Schannel, which checks certificates against the
+            # Windows store; OpenSSL has no CA store on Windows, so Klipa's
+            # tls-verify=yes would reject every HTTPS stream.
+            out.append(line.replace("--enable-openssl", "--enable-schannel"))
+            seen.add(s)
+            continue
         out.append(line)
     missing = sorted(FFMPEG_DROP - seen)
-    assert "--enable-libplacebo" in seen and "--enable-gpl" in seen, "ffmpeg profile anchors missing"
+    assert {"--enable-libplacebo", "--enable-gpl", "--enable-openssl"} <= seen, "ffmpeg profile anchors missing"
     return out, f"dropped {len(seen)}; not present upstream: {missing}"
 
 
