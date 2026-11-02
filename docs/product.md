@@ -46,3 +46,8 @@ must be pinned, inventoried, and reviewed before any binary is distributed.
 Klipa mobile may appear only as a secondary onboarding link, compact library
 footer link, About link, and website/README link. No modal, timer, notification,
 or playback overlay may promote the mobile app.
+
+Optional support follows the same rule. One "Support Klipa" footer link (and
+its compact rail button) opens `https://klipa.tv/support/` in the browser.
+Paying unlocks nothing, the app never asks or reminds, and no payment happens
+inside the app.

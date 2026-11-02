@@ -442,42 +442,23 @@ class _SourceRail extends StatelessWidget {
       ),
       Padding(
         padding: const EdgeInsets.fromLTRB(8, 1, 8, 8),
-        child: Tooltip(
-          message: 'Open klipa.tv in your browser',
-          child: InkWell(
-            key: const Key('open-klipa-website-expanded'),
-            borderRadius: BorderRadius.circular(7),
-            onTap: () => _openKlipaWebsite(context),
-            child: const Padding(
-              padding: EdgeInsets.fromLTRB(8, 8, 8, 7),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.phone_android_rounded,
-                    size: 16,
-                    color: KlipaColors.foregroundDim,
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Klipa on phone & TV',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: KlipaColors.foregroundDim,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.open_in_new_rounded,
-                    size: 13,
-                    color: KlipaColors.foregroundDim,
-                  ),
-                ],
-              ),
+        child: Column(
+          children: [
+            _FooterLink(
+              key: const Key('open-klipa-website-expanded'),
+              tooltip: 'Open klipa.tv in your browser',
+              icon: Icons.phone_android_rounded,
+              label: 'Klipa on phone & TV',
+              onTap: () => _openKlipaPage(context, _klipaWebsite),
             ),
-          ),
+            _FooterLink(
+              key: const Key('support-klipa-expanded'),
+              tooltip: 'Open the support page on klipa.tv',
+              icon: Icons.favorite_border_rounded,
+              label: 'Support Klipa',
+              onTap: () => _openKlipaPage(context, _supportPage),
+            ),
+          ],
         ),
       ),
     ],
@@ -521,7 +502,13 @@ class _SourceRail extends StatelessWidget {
         key: const Key('open-klipa-website-compact'),
         tooltip: 'Open klipa.tv for phone & TV',
         icon: Icons.phone_android_rounded,
-        onPressed: () => _openKlipaWebsite(context),
+        onPressed: () => _openKlipaPage(context, _klipaWebsite),
+      ),
+      _RailButton(
+        key: const Key('support-klipa-compact'),
+        tooltip: 'Support Klipa',
+        icon: Icons.favorite_border_rounded,
+        onPressed: () => _openKlipaPage(context, _supportPage),
       ),
       const SizedBox(height: 8),
     ],
@@ -685,6 +672,56 @@ class _SourceListTile extends StatelessWidget {
                 const SizedBox(width: 12),
             ],
           ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// A quiet footer row that opens a klipa.tv page in the browser.
+class _FooterLink extends StatelessWidget {
+  const _FooterLink({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: InkWell(
+      borderRadius: BorderRadius.circular(7),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 7),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: KlipaColors.foregroundDim),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: KlipaColors.foregroundDim,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.open_in_new_rounded,
+              size: 13,
+              color: KlipaColors.foregroundDim,
+            ),
+          ],
         ),
       ),
     ),
@@ -1308,13 +1345,16 @@ class _NoticeState extends State<_Notice> with SingleTickerProviderStateMixin {
   );
 }
 
-Future<void> _openKlipaWebsite(BuildContext context) async {
+final _klipaWebsite = Uri.parse('https://klipa.tv');
+
+// Optional support; it unlocks nothing. The interface is English, so the
+// page is the English one.
+final _supportPage = Uri.parse('https://klipa.tv/support/');
+
+Future<void> _openKlipaPage(BuildContext context, Uri page) async {
   var opened = false;
   try {
-    opened = await launchUrl(
-      Uri.parse('https://klipa.tv'),
-      mode: LaunchMode.externalApplication,
-    );
+    opened = await launchUrl(page, mode: LaunchMode.externalApplication);
   } on Object {
     // The same user-facing fallback covers missing browser integrations.
   }

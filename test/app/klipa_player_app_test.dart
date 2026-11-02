@@ -102,6 +102,8 @@ void main() {
       find.byKey(const Key('open-klipa-website-expanded')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('support-klipa-expanded')), findsOneWidget);
+    expect(find.text('Support Klipa'), findsOneWidget);
 
     await tester.tapAt(const Offset(1000, 400));
     await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
