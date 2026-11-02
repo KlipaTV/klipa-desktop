@@ -34,11 +34,18 @@ meson_python="$(head -n 1 "$(command -v meson)" | sed 's/^#!//')"
 
 # GitHub occasionally terminates concurrent HTTP/2 fetches in WSL. Keep all
 # child Git processes conservative; Ninja provides the outer concurrency.
-export GIT_CONFIG_COUNT=2
+# Several packages apply their patches with `git am`, which needs a committer:
+# a fixed one keeps the builder's own identity out of the build tree and the
+# corresponding-source archive.
+export GIT_CONFIG_COUNT=4
 export GIT_CONFIG_KEY_0=http.version
 export GIT_CONFIG_VALUE_0=HTTP/1.1
 export GIT_CONFIG_KEY_1=http.maxRequests
 export GIT_CONFIG_VALUE_1=2
+export GIT_CONFIG_KEY_2=user.name
+export GIT_CONFIG_VALUE_2="Klipa media build"
+export GIT_CONFIG_KEY_3=user.email
+export GIT_CONFIG_VALUE_3=hello@klipa.tv
 
 case "$work" in
   "$root"/.build/windows-media|/tmp/klipa-windows-media) ;;
