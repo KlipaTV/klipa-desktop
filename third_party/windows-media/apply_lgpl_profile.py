@@ -21,11 +21,14 @@ FFMPEG_DROP = {
 MPV_DROP = {
     "libdvdnav", "libdvdread", "luajit", "rubberband", "openal-soft", "mujs",
     "vulkan", "shaderc", "spirv-cross", "vapoursynth", "libsdl2", "subrandr",
-    "libsixel",
+    "libsixel", "curl",
 }
 MPV_DISABLE = [
     "pdf-build", "lua", "javascript", "sdl2-gamepad", "dvdnav", "rubberband",
     "openal", "spirv-cross", "vulkan", "vapoursynth", "subrandr", "sixel",
+    # mpv's libcurl stream backend (curl, ngtcp2, nghttp2/3, c-ares, libpsl):
+    # streams keep using FFmpeg's own HTTP, as with Linux's libmpv.
+    "libcurl",
 ]
 
 

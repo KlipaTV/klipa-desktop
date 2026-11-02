@@ -56,5 +56,6 @@ every media-runtime rebuild.
 
 This profile intentionally omits DVD navigation, AviSynth/VapourSynth,
 Rubber Band, x264, x265, Xvid, Lua, JavaScript, SDL gamepad, terminal graphics,
+mpv's libcurl stream backend (with curl's HTTP/2, HTTP/3 and DNS stack),
 and other features that are unnecessary for Klipa's M3U/HLS/MPEG-TS playback
 boundary.
