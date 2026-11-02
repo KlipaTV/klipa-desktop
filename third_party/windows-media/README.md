@@ -13,6 +13,13 @@ never enabled. The renderer keeps libplacebo's D3D11/OpenGL path while omitting
 Vulkan, glslang, and shaderc. SPIR-V Cross is linked in its standard static mode
 for D3D11 shader translation.
 
+The patch also replaces one source the pinned revision can no longer fetch.
+Upstream builds its cross compiler from a weekly GCC snapshot (`14-20251205`),
+and GCC deletes old snapshots. The patch builds GCC 14.4.0, the release of the
+same branch, from ftp.gnu.org with the SHA-512 that gcc.gnu.org publishes; the
+tarball's GNU keyring signature was checked when the hash was pinned
+(2026-11-02).
+
 The generated directory contains:
 
 - `libmpv-2.dll` and its SHA-256;

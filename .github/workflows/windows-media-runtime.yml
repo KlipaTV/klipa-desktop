@@ -35,6 +35,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          # The build runs third-party build systems; leave no token behind.
+          persist-credentials: false
 
       - name: Free runner disk space
         run: |
@@ -127,6 +130,6 @@ jobs:
           name: windows-media-logs-${{ github.run_id }}
           path: |
             .build/windows-media/*.log
-            .build/windows-media/build-x86_64/packages/*-stamp/*.log
+            .build/windows-media/build-x86_64/**/*-stamp/*.log
           if-no-files-found: ignore
           retention-days: 7
