@@ -1,0 +1,132 @@
+name: windows-media-runtime
+
+# Builds Klipa's source-built, LGPL-profile Windows media runtime
+# (libmpv-2.dll and its release evidence) with
+# tool/build_windows_media.sh --archive-source on a GitHub-hosted Linux runner,
+# so the build log behind a published runtime is public.
+#
+# It never publishes anything. The runtime bundle and its corresponding-source
+# archive are workflow artifacts; a maintainer checks them against the media
+# runtime gate of docs/release-checklist.md and uploads them to a
+# media-runtime-v* GitHub release, which windows-release.yml downloads from.
+#
+# A push to a windows-media/** branch builds that branch; workflow_dispatch
+# builds the ref it is run from.
+
+on:
+  push:
+    branches:
+      - 'windows-media/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-media-runtime-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    # A cold build of the cross toolchain and the patched mpv graph; the
+    # hosted-runner job limit is 360 minutes.
+    timeout-minutes: 350
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            asciidoc-base autoconf automake autopoint bison build-essential \
+            ccache cmake curl docbook2x flex g++-multilib gcc-multilib gettext \
+            git gperf jq libgcrypt20-dev libgmp-dev libmpc-dev libmpfr-dev \
+            libtool libtool-bin mercurial nasm ninja-build p7zip-full pkgconf \
+            python3-venv ragel re2c subversion texinfo unzip yasm zip zstd
+          # Meson runs from its own environment so libplacebo's generators
+          # find jinja2 through Meson's interpreter (the script checks this).
+          python3 -m venv "$RUNNER_TEMP/meson"
+          "$RUNNER_TEMP/meson/bin/pip" install --disable-pip-version-check \
+            meson==1.10.1 jinja2==3.1.6 mako==1.3.10
+          mkdir -p "$RUNNER_TEMP/bin"
+          ln -s "$RUNNER_TEMP/meson/bin/meson" "$RUNNER_TEMP/bin/meson"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Build the LGPL media runtime
+        run: tool/build_windows_media.sh --archive-source
+
+      - name: Inspect the built DLL
+        run: |
+          current=dist/windows-media/current
+          objdump=.build/windows-media/build-x86_64/install/bin/x86_64-w64-mingw32-objdump
+          (cd "$current" && sha256sum -c libmpv-2.dll.sha256 mpv-winbuild-lgpl.patch.sha256)
+          "$objdump" -p "$current/libmpv-2.dll" | sed -n 's/^\s*DLL Name: //p' | sort -u \
+            > "$current/libmpv-2.dll.imports.txt"
+          echo "PE imports:"; cat "$current/libmpv-2.dll.imports.txt"
+          # FFmpeg embeds its license and configure line; mpv embeds its own
+          # configuration. Neither may show a GPL or nonfree build.
+          strings -n 8 "$current/libmpv-2.dll" |
+            grep -E 'LGPL version|GPL version|--enable-(gpl|nonfree)|--prefix=' |
+            sort -u > "$current/libmpv-2.dll.license-strings.txt"
+          cat "$current/libmpv-2.dll.license-strings.txt"
+          grep -q 'LGPL version 3 or later' "$current/libmpv-2.dll.license-strings.txt" ||
+            echo '::warning::FFmpeg license string not found in the DLL; check the configure log.'
+          if grep -Eq -- '--enable-(gpl|nonfree)' "$current/libmpv-2.dll.license-strings.txt"; then
+            echo 'The built DLL reports a GPL or nonfree configuration.' >&2
+            exit 1
+          fi
+          du -sh .build/windows-media dist/windows-media
+
+      - name: Package the runtime bundle
+        run: |
+          current="$GITHUB_WORKSPACE/dist/windows-media/current"
+          out="$GITHUB_WORKSPACE/dist/windows-media/publish"
+          mkdir -p "$out"
+          (cd "$current" && zip -X -r -9 "$out/windows-media-runtime.zip" . \
+            -x 'klipa-libmpv-corresponding-source.tar.zst*')
+          cp "$current/libmpv-2.dll.sha256" "$out/"
+          mv "$current"/klipa-libmpv-corresponding-source.tar.zst* "$out/"
+          (cd "$out" && sha256sum windows-media-runtime.zip libmpv-2.dll.sha256 \
+            klipa-libmpv-corresponding-source.tar.zst > SHA256SUMS.txt)
+          ls -l "$out"; cat "$out/SHA256SUMS.txt"
+
+      - name: Upload the runtime bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-media-runtime-${{ github.run_id }}
+          path: |
+            dist/windows-media/publish/windows-media-runtime.zip
+            dist/windows-media/publish/libmpv-2.dll.sha256
+            dist/windows-media/publish/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload the corresponding source
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-media-corresponding-source-${{ github.run_id }}
+          path: |
+            dist/windows-media/publish/klipa-libmpv-corresponding-source.tar.zst
+            dist/windows-media/publish/klipa-libmpv-corresponding-source.tar.zst.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-media-logs-${{ github.run_id }}
+          path: |
+            .build/windows-media/*.log
+            .build/windows-media/build-x86_64/packages/*-stamp/*.log
+          if-no-files-found: ignore
+          retention-days: 7
