@@ -129,7 +129,11 @@ jobs:
       - name: Smoke test a test-signed copy
         if: github.event_name != 'workflow_dispatch' || inputs.smoke_install
         shell: pwsh
-        run: tool\smoke_windows_msix.ps1 -RunAppCert -CaptureScreenshots
+        env:
+          # The test playlist of the commit being built, so the screenshots
+          # never depend on anything outside this repository's history.
+          PLAYLIST: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/packaging/windows/store/certification-test.m3u
+        run: tool\smoke_windows_msix.ps1 -RunAppCert -CaptureScreenshots -ScreenshotPlaylist $env:PLAYLIST
 
       - name: Upload Store MSIX
         if: always() && steps.msix.outcome == 'success'

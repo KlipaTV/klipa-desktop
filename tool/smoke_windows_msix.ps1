@@ -78,7 +78,10 @@ function Save-ScreenPng([string]$Path) {
 
 # Drives the running app the way a person would (Add playlist URL, Import,
 # pick a channel, full screen) and captures the screen at 1920 x 1080, the
-# size the Store listing wants. Only public test streams appear.
+# size the Store listing wants. Flutter exposes no UI Automation tree on a
+# runner, so the clicks use positions measured on this layout: the onboarding
+# content is centred in the window, and the channel list starts below the
+# search field. Only public test streams appear.
 function Save-StoreScreenshots($App, [string]$Directory, [string]$Playlist) {
   Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms
   if (-not ('KlipaInput' -as [type])) {
@@ -99,41 +102,37 @@ public static class KlipaInput {
 }
 '@
   }
-  try { Set-DisplayResolution -Width 1920 -Height 1080 -Force -ErrorAction Stop } catch { }
+  # Its console report would otherwise end up in the returned value.
+  try { Set-DisplayResolution -Width 1920 -Height 1080 -Force -ErrorAction Stop | Out-Null } catch { }
 
   $App.Refresh()
   $window = $App.MainWindowHandle
   [void][KlipaInput]::ShowWindow($window, 3)
   [void][KlipaInput]::SetForegroundWindow($window)
   Start-Sleep -Seconds 2
-  $root = [Windows.Automation.AutomationElement]::FromHandle($window)
-
-  $find = {
-    param([string]$Pattern, [int]$Seconds = 20)
-    $deadline = (Get-Date).AddSeconds($Seconds)
-    while ((Get-Date) -lt $deadline) {
-      $all = $root.FindAll([Windows.Automation.TreeScope]::Descendants, [Windows.Automation.Condition]::TrueCondition)
-      foreach ($element in $all) {
-        if ($element.Current.Name -like $Pattern -and -not $element.Current.BoundingRectangle.IsEmpty) { return $element }
-      }
-      Start-Sleep -Milliseconds 500
-    }
-    throw "No UI element named like '$Pattern'."
-  }
-  $click = {
-    param($Element)
-    $r = $Element.Current.BoundingRectangle
-    [KlipaInput]::Click([int]($r.X + $r.Width / 2), [int]($r.Y + $r.Height / 2))
-    Start-Sleep -Milliseconds 800
+  $view = ([Windows.Automation.AutomationElement]::FromHandle($window)).Current.BoundingRectangle
+  $cx = [int]($view.X + $view.Width / 2)
+  $cy = [int]($view.Y + $view.Height / 2)
+  $step = {
+    param([string]$Name)
+    [void](Save-ScreenPng (Join-Path $Directory "step-$Name.png"))
   }
 
-  & $click (& $find 'Add playlist URL')
-  & $click (& $find '*Playlist address*')
+  [KlipaInput]::Click($cx - 202, $cy + 93)
+  Start-Sleep -Seconds 2
+  & $step 'add-url'
   [Windows.Forms.SendKeys]::SendWait($Playlist)
-  & $click (& $find 'Import')
-  & $click (& $find '*Big Buck Bunny*' 45)
-  Start-Sleep -Seconds 12
+  [Windows.Forms.SendKeys]::SendWait('{ENTER}')
+  Start-Sleep -Seconds 10
+  & $step 'imported'
+  # The list is alphabetical: Apple BipBop (16:9), Apple BipBop (4:3), Big Buck
+  # Bunny, Tears of Steel; rows are 64 px from y = 231 at the left edge.
+  [KlipaInput]::Click(400, 359)
+  Start-Sleep -Seconds 15
   $size = Save-ScreenPng (Join-Path $Directory 'store-01-library.png')
+  # Shortcuts are scoped to the player, so focus it before F.
+  [KlipaInput]::Click(1100, 420)
+  Start-Sleep -Seconds 1
   [Windows.Forms.SendKeys]::SendWait('f')
   Start-Sleep -Seconds 5
   [void](Save-ScreenPng (Join-Path $Directory 'store-02-full-screen.png'))

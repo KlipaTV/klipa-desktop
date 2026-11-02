@@ -50,6 +50,7 @@ final _dash = RegExp('[${String.fromCharCodes(const [0x2013, 0x2014])}]');
 final _url = RegExp(r'https?://\S+');
 const _allowedUrls = [
   'https://github.com/KlipaTV/',
+  'https://raw.githubusercontent.com/KlipaTV/',
   'https://klipa.tv/',
   'https://www.gnu.org/licenses/',
 ];

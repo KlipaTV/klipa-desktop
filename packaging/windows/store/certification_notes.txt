@@ -2,8 +2,8 @@ Klipa Player is a player for the user's own M3U, M3U8 and Xtream-compatible sour
 
 To test playback:
 1. Open the app and select "Add playlist URL".
-2. Enter this playlist address and select Import: https://klipa.tv/tools/api/sample-m3u
-   It is a public sample playlist of open test streams (Big Buck Bunny from Mux, Tears of Steel from Unified Streaming and Apple's HLS reference streams).
+2. Enter this playlist address and select Import: https://raw.githubusercontent.com/KlipaTV/klipa-desktop/main/packaging/windows/store/certification-test.m3u
+   It lists four open test streams (Big Buck Bunny from Mux, Tears of Steel from Unified Streaming and Apple's HLS reference streams). The public sample playlist https://klipa.tv/tools/api/sample-m3u works too.
 3. Select a channel to play it. F or F11 toggles full screen, Esc leaves it, and Up/Down or Page Up/Page Down change channel.
 
 "Support Klipa" opens https://klipa.tv/support/ in the browser: optional donations through GitHub Sponsors, a secure third-party payment (Store Policy 10.8.2). Paying unlocks or changes nothing in the app, and the app never asks for it.
