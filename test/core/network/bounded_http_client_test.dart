@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +25,34 @@ void main() {
   });
 
   tearDown(() => server.close(force: true));
+
+  test('secures an https request on the pinned connection', () async {
+    // A plain listener sees what the client sends first: a TLS handshake
+    // record (0x16) naming the URL's host, never a cleartext request.
+    final listener = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(listener.close);
+    final firstBytes = Completer<List<int>>();
+    listener.listen((socket) {
+      socket.listen((data) {
+        if (!firstBytes.isCompleted) firstBytes.complete(data);
+        socket.destroy();
+      });
+    });
+
+    await expectLater(
+      BoundedHttpClient(
+        networkPolicy: _FixedAddressPolicy([InternetAddress.loopbackIPv4]),
+      ).getPlaylist(
+        Uri.parse('https://playlist.test:${listener.port}/list.m3u'),
+        allowPrivateNetwork: true,
+      ),
+      throwsA(isA<PlaylistDownloadException>()),
+    );
+
+    final hello = await firstBytes.future;
+    expect(hello.first, 0x16);
+    expect(String.fromCharCodes(hello), contains('playlist.test'));
+  });
 
   test(
     'downloads a bounded playlist from an explicitly allowed LAN host',

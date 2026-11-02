@@ -131,7 +131,7 @@ class BoundedHttpClient {
       ..idleTimeout = const Duration(seconds: 5)
       ..userAgent = 'KlipaPlayer/0.1'
       ..connectionFactory = (uri, proxyHost, proxyPort) =>
-          Socket.startConnect(attempt!, uri.port);
+          _connectPinned(attempt!, uri);
     try {
       return await _get(
         client,
@@ -146,6 +146,23 @@ class BoundedHttpClient {
       // leaving the socket and buffer alive until idle timeout.
       client.close(force: true);
     }
+  }
+
+  // HttpClient does not add TLS to a socket returned by connectionFactory, so
+  // an https request is secured here, against the URL's host name (SNI and
+  // certificate check) rather than the pinned address.
+  static Future<ConnectionTask<Socket>> _connectPinned(
+    InternetAddress address,
+    Uri uri,
+  ) async {
+    final task = await Socket.startConnect(address, uri.port);
+    if (uri.scheme != 'https') return task;
+    return ConnectionTask.fromSocket(
+      task.socket.then<Socket>(
+        (socket) => SecureSocket.secure(socket, host: uri.host),
+      ),
+      task.cancel,
+    );
   }
 
   Future<Uint8List> _get(
