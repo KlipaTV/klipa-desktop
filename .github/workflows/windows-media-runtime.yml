@@ -63,8 +63,26 @@ jobs:
           ln -s "$RUNNER_TEMP/meson/bin/meson" "$RUNNER_TEMP/bin/meson"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
+      # The build tree is cached per recipe (script and patch), so a run that
+      # stops on one package resumes where it stopped instead of rebuilding the
+      # cross toolchain. A changed recipe never reuses an older tree.
+      - name: Restore the build tree of this recipe
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .build/windows-media
+          key: windows-media-${{ hashFiles('tool/build_windows_media.sh', 'third_party/windows-media/mpv-winbuild-lgpl.patch') }}-${{ github.run_id }}
+          restore-keys: windows-media-${{ hashFiles('tool/build_windows_media.sh', 'third_party/windows-media/mpv-winbuild-lgpl.patch') }}-
+
       - name: Build the LGPL media runtime
+        id: build
         run: tool/build_windows_media.sh --archive-source
+
+      - name: Save the build tree
+        if: always() && steps.build.outcome != 'skipped'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .build/windows-media
+          key: windows-media-${{ hashFiles('tool/build_windows_media.sh', 'third_party/windows-media/mpv-winbuild-lgpl.patch') }}-${{ github.run_id }}
 
       - name: Inspect the built DLL
         run: |
