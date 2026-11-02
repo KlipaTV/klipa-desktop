@@ -87,11 +87,18 @@ jobs:
       - name: Inspect the built DLL
         run: |
           current=dist/windows-media/current
-          objdump=.build/windows-media/build-x86_64/install/bin/x86_64-w64-mingw32-objdump
           (cd "$current" && sha256sum -c libmpv-2.dll.sha256 mpv-winbuild-lgpl.patch.sha256)
-          "$objdump" -p "$current/libmpv-2.dll" | sed -n 's/^\s*DLL Name: //p' | sort -u \
+          # Ubuntu's binutils reads PE files. The DLL may import only Windows
+          # system libraries and the Universal CRT, never a MinGW or codec DLL.
+          objdump -p "$current/libmpv-2.dll" | sed -n 's/^\s*DLL Name: //p' | sort -uf \
             > "$current/libmpv-2.dll.imports.txt"
           echo "PE imports:"; cat "$current/libmpv-2.dll.imports.txt"
+          [[ -s "$current/libmpv-2.dll.imports.txt" ]] || { echo "No PE imports read from the DLL." >&2; exit 1; }
+          if grep -Eiv '^(api-ms-win-[a-z0-9-]+|advapi32|avicap32|avrt|bcrypt|cfgmgr32|comctl32|comdlg32|crypt32|d2d1|d3d11|d3d9|d3dcompiler_47|dbghelp|dwmapi|dwrite|dxgi|gdi32|imm32|iphlpapi|kernel32|mf|mfplat|mfreadwrite|mfuuid|ncrypt|ntdll|ole32|oleaut32|opengl32|powrprof|propsys|secur32|setupapi|shcore|shell32|shlwapi|user32|userenv|uxtheme|version|winmm|ws2_32|wsock32)\.dll$' \
+               "$current/libmpv-2.dll.imports.txt"; then
+            echo "The DLL imports a library outside Windows." >&2
+            exit 1
+          fi
           # FFmpeg embeds its license and configure line; mpv embeds its own
           # configuration. Neither may show a GPL or nonfree build.
           strings -n 8 "$current/libmpv-2.dll" |

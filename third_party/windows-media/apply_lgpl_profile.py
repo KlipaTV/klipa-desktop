@@ -17,6 +17,9 @@ FFMPEG_DROP = {
     "--enable-libx265", "${ffmpeg_davs2_cmd}", "${ffmpeg_uavs3d_cmd}",
     "--enable-libxvid", "--enable-libjxl", "--enable-libshaderc",
     "--enable-openal",
+    # Teletext through libzvbi: its library has GPL-2-only files
+    # (src/packet-830.*, src/pdc.*).
+    "libzvbi", "--enable-libzvbi",
 }
 MPV_DROP = {
     "libdvdnav", "libdvdread", "luajit", "rubberband", "openal-soft", "mujs",
@@ -61,6 +64,7 @@ def ffmpeg(lines):
             continue
         out.append(line)
     missing = sorted(FFMPEG_DROP - seen)
+    assert {"libzvbi", "--enable-libzvbi"} <= seen, "ffmpeg libzvbi anchors missing"
     assert {"--enable-libplacebo", "--enable-gpl", "--enable-openssl"} <= seen, "ffmpeg profile anchors missing"
     return out, f"dropped {len(seen)}; not present upstream: {missing}"
 
@@ -95,6 +99,40 @@ def mpv(lines):
     return out, f"dropped/changed {sorted(seen)}; disabled {disabled}; not present: {sorted(set(MPV_DISABLE) - set(disabled))}"
 
 
+def libarchive(lines):
+    # liblzo2 is GPL-2.0; libarchive only needs it for lzop archives.
+    out, seen = [], set()
+    in_depends = False
+    for line in lines:
+        s = line.strip()
+        if s == "DEPENDS":
+            in_depends = True
+        elif s.startswith("GIT_REPOSITORY"):
+            in_depends = False
+        if in_depends and s == "lzo":
+            seen.add("lzo")
+            continue
+        if s == "-DENABLE_LZO=ON":
+            line = line.replace("=ON", "=OFF")
+            seen.add("ENABLE_LZO")
+        out.append(line)
+    assert seen == {"lzo", "ENABLE_LZO"}, f"libarchive profile anchors missing: {seen}"
+    return out, "LZO off"
+
+
+def lcms2(lines):
+    # Little CMS's fast_float and threaded plugins are GPL-3.0.
+    out, seen = [], set()
+    for line in lines:
+        s = line.strip()
+        if s in ("-Dfastfloat=true", "-Dthreaded=true"):
+            line = line.replace("=true", "=false")
+            seen.add(s)
+        out.append(line)
+    assert len(seen) == 2, f"lcms2 profile anchors missing: {seen}"
+    return out, "GPL plugins off"
+
+
 def cppwinrt(lines):
     old = "https://github.com/microsoft/windows-rs/raw/master/crates/libs/default/Windows.winmd"
     new = "https://github.com/microsoft/windows-rs/raw/8786f59d1f6bc216324b202ec17d3de696d3b843/crates/libs/default/Windows.winmd"
@@ -114,4 +152,6 @@ def cppwinrt(lines):
 
 rewrite("packages/ffmpeg.cmake", ffmpeg)
 rewrite("packages/mpv.cmake", mpv)
+rewrite("packages/libarchive.cmake", libarchive)
+rewrite("packages/lcms2.cmake", lcms2)
 rewrite("toolchain/cppwinrt.cmake", cppwinrt)

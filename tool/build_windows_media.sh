@@ -19,7 +19,7 @@ elif [[ $# -ne 0 ]]; then
   exit 2
 fi
 
-for command in git curl cmake ninja meson nasm yasm 7z jq sha256sum tar zstd; do
+for command in git curl cmake ninja meson nasm yasm 7z jq sha256sum tar zstd python3; do
   command -v "$command" >/dev/null || {
     echo "Required Windows media build tool is missing: $command" >&2
     exit 1
@@ -77,6 +77,9 @@ if grep -Eq -- '--enable-(gpl|nonfree)|--enable-lib(x264|x265|xvid|davs2|uavs3d)
   echo "GPL or nonfree media build option survived the release profile." >&2
   exit 1
 fi
+# The whole graph mpv pulls in, not only FFmpeg and mpv: a GPL package, or a
+# GPL option of a library, anywhere in it would make the DLL GPL.
+python3 "$root/third_party/windows-media/check_lgpl_graph.py" "$source_dir" > "$work/lgpl-graph.txt"
 
 cmake -S "$source_dir" -B "$build_dir" -G Ninja \
   -DTARGET_ARCH=x86_64-w64-mingw32 \
@@ -218,7 +221,8 @@ mkdir -p "$staging/licenses"
 cp "$dll" "$staging/libmpv-2.dll"
 cp "$patch_file" "$staging/mpv-winbuild-lgpl.patch"
 cp "$build_dir/CMakeCache.txt" "$staging/CMakeCache.txt"
-cp "$work/configure.log" "$work/download.log" "$work/gcc.log" "$work/pins.log" "$work/mpv.log" "$staging/"
+cp "$work/configure.log" "$work/download.log" "$work/gcc.log" "$work/pins.log" "$work/mpv.log" \
+  "$work/lgpl-graph.txt" "$staging/"
 printf '%s\n' "$upstream_commit" > "$staging/mpv-winbuild-commit.txt"
 {
   cmake --version | head -n 1
@@ -248,7 +252,7 @@ find "$sources_dir" -mindepth 1 -maxdepth 2 -type d -name .git -print0 |
   done > "$staging/source-revisions.tsv"
 
 find "$sources_dir" -type f \
-  \( -iname 'LICENSE*' -o -iname 'COPYING*' -o -iname 'COPYRIGHT*' \) -print0 |
+  \( -iname 'LICENSE*' -o -iname 'LICENCE*' -o -iname 'COPYING*' -o -iname 'COPYRIGHT*' \) -print0 |
   sort -z |
   while IFS= read -r -d '' license; do
     relative="${license#"$sources_dir"/}"
@@ -257,6 +261,45 @@ find "$sources_dir" -type f \
     safe_name="${relative//\//__}"
     cp "$license" "$staging/licenses/$safe_name"
   done
+
+# Not every component leaves its license in a checked-out file: sparse
+# checkouts (the AMF and ANGLE headers) omit the root, release archives
+# (libiconv) stay packed, and nv-codec-headers states its MIT terms only in
+# its header comments. opus-dnn is the model data Opus's download_model.sh
+# fetches into its dnn/ tree, covered by the COPYING collected for opus.
+while IFS= read -r component; do
+  repository="$sources_dir/$component"
+  if [[ -d "$repository/.git" ]]; then
+    { git -C "$repository" ls-tree HEAD 2>/dev/null || true; } |
+      awk -F '\t' '{ split($1, entry, " ") } entry[2] == "blob" { print $2 }' |
+      grep -iE '^(LICEN[CS]E|COPYING|COPYRIGHT)' |
+      while IFS= read -r name; do
+        target="$staging/licenses/${component}__${name}"
+        [[ -e "$target" ]] || git -C "$repository" show "HEAD:$name" > "$target" || rm -f -- "$target"
+      done || true
+  fi
+  for archive in "$repository"/*.tar.*; do
+    [[ -f "$archive" ]] || continue
+    tar -tf "$archive" | grep -E '^[^/]+/(LICEN[CS]E|COPYING|COPYRIGHT)[^/]*$' |
+      while IFS= read -r member; do
+        target="$staging/licenses/${component}__${member#*/}"
+        tar -xOf "$archive" "$member" > "$target" || rm -f -- "$target"
+      done || true
+  done
+done < "$staging/compiled-targets.txt"
+nvenc_header="$sources_dir/nvcodec-headers/include/ffnvcodec/nvEncodeAPI.h"
+if [[ -f "$nvenc_header" ]]; then
+  sed -n '1,/\*\//p' "$nvenc_header" > "$staging/licenses/nvcodec-headers__nvEncodeAPI.h-license-comment.txt"
+fi
+missing_licenses=()
+while IFS= read -r component; do
+  [[ "$component" == opus-dnn ]] && continue
+  compgen -G "$staging/licenses/${component}__*" > /dev/null || missing_licenses+=("$component")
+done < "$staging/compiled-targets.txt"
+(( ${#missing_licenses[@]} == 0 )) || {
+  echo "No license text collected for: ${missing_licenses[*]}" >&2
+  exit 1
+}
 
 (cd "$staging" && sha256sum libmpv-2.dll > libmpv-2.dll.sha256)
 (cd "$staging" && sha256sum mpv-winbuild-lgpl.patch > mpv-winbuild-lgpl.patch.sha256)
