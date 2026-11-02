@@ -17,6 +17,8 @@ Bilgisayarınızda kalır
 Açık kaynak
 Klipa Player, GNU LGPL 3.0 veya sonraki sürüm lisanslı özgür yazılımdır. Kaynak kodu, medya motorunun derlemesi (mpv ve FFmpeg) ve sorun takibi GitHub'dadır: https://github.com/KlipaTV/klipa-desktop
 
+Destek isteğe bağlıdır: Uygulamadaki "Support Klipa" bağlantısı klipa.tv'yi tarayıcınızda açar; ödemeyi GitHub yönetir. Ödeme yapmak hiçbir şeyin kilidini açmaz.
+
 Arayüz İngilizcedir.
 
 Telefonda veya TV'de mi izliyorsunuz? Klipa, Android ve Android TV için de mevcut.

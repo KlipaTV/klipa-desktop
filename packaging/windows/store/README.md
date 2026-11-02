@@ -91,6 +91,13 @@ Yes, answer Yes here too.
 ## Pricing, markets and publishing
 
 - **Pricing:** Free. **Markets:** the owner's choice (all markets by default).
+- **In-app offers:** none through the Store. The app's "Support Klipa" link
+  opens `https://klipa.tv/support/` (GitHub Sponsors) in the browser and
+  unlocks nothing. Store Policy 10.8.2 (text of 2026-09-15) allows voluntary
+  donations through a secure third-party payment and asks for that use to be
+  noted during submission: the certification notes say it, and if Partner
+  Center asks about third-party payments, declare it there too. The support
+  page must be live before the submission, or the tester meets a dead link.
 - **Packages:** the unsigned `KlipaPlayer-<version>-x64.msix` from a green
   `windows-release` run whose artifact name has no `PLACEHOLDER-IDENTITY`
   suffix. The Store signs it after certification.

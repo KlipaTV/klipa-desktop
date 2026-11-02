@@ -17,6 +17,8 @@ Klipa 只提供播放器，内容由你提供。它没有自己的频道：请�
 开源
 Klipa Player 是采用 GNU LGPL 3.0 或更高版本许可证的自由软件。源代码、媒体引擎（mpv 和 FFmpeg）的构建以及问题跟踪都在 GitHub 上：https://github.com/KlipaTV/klipa-desktop
 
+支持完全自愿：应用中的“Support Klipa”会在浏览器中打开 klipa.tv，付款由 GitHub 处理。付款不会解锁任何功能。
+
 界面为英文。
 
 在手机或电视上观看？Klipa 也支持 Android 和 Android TV。
