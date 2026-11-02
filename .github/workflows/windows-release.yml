@@ -129,7 +129,7 @@ jobs:
       - name: Smoke test a test-signed copy
         if: github.event_name != 'workflow_dispatch' || inputs.smoke_install
         shell: pwsh
-        run: tool\smoke_windows_msix.ps1 -RunAppCert
+        run: tool\smoke_windows_msix.ps1 -RunAppCert -CaptureScreenshots
 
       - name: Upload Store MSIX
         if: always() && steps.msix.outcome == 'success'

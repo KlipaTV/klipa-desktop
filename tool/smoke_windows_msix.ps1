@@ -2,7 +2,11 @@ param(
   [string]$OutputDirectory,
   # Also run the Windows App Certification Kit while the test certificate is
   # trusted. Its report is evidence only; it does not fail the smoke test.
-  [switch]$RunAppCert
+  [switch]$RunAppCert,
+  # After the zero-network check, drive the app through UI Automation with a
+  # public test playlist and save Store listing screenshots. Evidence only.
+  [switch]$CaptureScreenshots,
+  [string]$ScreenshotPlaylist = 'https://klipa.tv/tools/api/sample-m3u'
 )
 
 # Installs a test-signed COPY of the Store MSIX, launches it through its
@@ -61,6 +65,82 @@ public static class KlipaPackageActivation {
 }
 '@
 
+function Save-ScreenPng([string]$Path) {
+  Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+  $bounds = [Windows.Forms.Screen]::PrimaryScreen.Bounds
+  $bitmap = [Drawing.Bitmap]::new($bounds.Width, $bounds.Height)
+  $graphics = [Drawing.Graphics]::FromImage($bitmap)
+  $graphics.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.Size)
+  $bitmap.Save($Path, [Drawing.Imaging.ImageFormat]::Png)
+  $graphics.Dispose(); $bitmap.Dispose()
+  return "$($bounds.Width)x$($bounds.Height)"
+}
+
+# Drives the running app the way a person would (Add playlist URL, Import,
+# pick a channel, full screen) and captures the screen at 1920 x 1080, the
+# size the Store listing wants. Only public test streams appear.
+function Save-StoreScreenshots($App, [string]$Directory, [string]$Playlist) {
+  Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms
+  if (-not ('KlipaInput' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class KlipaInput {
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr window, int command);
+  [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
+  public static void Click(int x, int y) {
+    SetCursorPos(x, y);
+    mouse_event(0x02, 0, 0, 0, UIntPtr.Zero);
+    mouse_event(0x04, 0, 0, 0, UIntPtr.Zero);
+  }
+}
+'@
+  }
+  try { Set-DisplayResolution -Width 1920 -Height 1080 -Force -ErrorAction Stop } catch { }
+
+  $App.Refresh()
+  $window = $App.MainWindowHandle
+  [void][KlipaInput]::ShowWindow($window, 3)
+  [void][KlipaInput]::SetForegroundWindow($window)
+  Start-Sleep -Seconds 2
+  $root = [Windows.Automation.AutomationElement]::FromHandle($window)
+
+  $find = {
+    param([string]$Pattern, [int]$Seconds = 20)
+    $deadline = (Get-Date).AddSeconds($Seconds)
+    while ((Get-Date) -lt $deadline) {
+      $all = $root.FindAll([Windows.Automation.TreeScope]::Descendants, [Windows.Automation.Condition]::TrueCondition)
+      foreach ($element in $all) {
+        if ($element.Current.Name -like $Pattern -and -not $element.Current.BoundingRectangle.IsEmpty) { return $element }
+      }
+      Start-Sleep -Milliseconds 500
+    }
+    throw "No UI element named like '$Pattern'."
+  }
+  $click = {
+    param($Element)
+    $r = $Element.Current.BoundingRectangle
+    [KlipaInput]::Click([int]($r.X + $r.Width / 2), [int]($r.Y + $r.Height / 2))
+    Start-Sleep -Milliseconds 800
+  }
+
+  & $click (& $find 'Add playlist URL')
+  & $click (& $find '*Playlist address*')
+  [Windows.Forms.SendKeys]::SendWait($Playlist)
+  & $click (& $find 'Import')
+  & $click (& $find '*Big Buck Bunny*' 45)
+  Start-Sleep -Seconds 12
+  $size = Save-ScreenPng (Join-Path $Directory 'store-01-library.png')
+  [Windows.Forms.SendKeys]::SendWait('f')
+  Start-Sleep -Seconds 5
+  [void](Save-ScreenPng (Join-Path $Directory 'store-02-full-screen.png'))
+  [Windows.Forms.SendKeys]::SendWait('{ESC}')
+  return "captured at $size"
+}
+
 $work = Join-Path ([IO.Path]::GetTempPath()) "klipa-msix-smoke-$PID"
 New-Item -ItemType Directory -Path $work -Force | Out-Null
 $signed = Join-Path $work 'KlipaPlayer-test-signed.msix'
@@ -118,15 +198,17 @@ try {
   })
 
   try {
-    Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-    $bounds = [Windows.Forms.Screen]::PrimaryScreen.Bounds
-    $bitmap = [Drawing.Bitmap]::new($bounds.Width, $bounds.Height)
-    $graphics = [Drawing.Graphics]::FromImage($bitmap)
-    $graphics.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.Size)
-    $bitmap.Save((Join-Path $OutputDirectory 'msix-first-start.png'), [Drawing.Imaging.ImageFormat]::Png)
-    $graphics.Dispose(); $bitmap.Dispose()
+    [void](Save-ScreenPng (Join-Path $OutputDirectory 'msix-first-start.png'))
   } catch {
     $results.screenshot = "not captured: $($_.Exception.Message)"
+  }
+
+  if ($CaptureScreenshots) {
+    try {
+      $results.screenshots = Save-StoreScreenshots -App $app -Directory $OutputDirectory -Playlist $ScreenshotPlaylist
+    } catch {
+      $results.screenshots = "not captured: $($_.Exception.Message)"
+    }
   }
 
   Stop-Process -Id $app.Id -Force
