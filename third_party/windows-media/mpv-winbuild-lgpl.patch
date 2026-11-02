@@ -236,6 +236,22 @@ index d49b9d3..63f61ba 100644
                                                 ${MINGW_INSTALL_PREFIX}/lib/pkgconfig/spirv-cross.pc
  )
  
+diff --git a/toolchain/cppwinrt.cmake b/toolchain/cppwinrt.cmake
+index ab33767..762bd0b 100644
+--- a/toolchain/cppwinrt.cmake
++++ b/toolchain/cppwinrt.cmake
+@@ -9,8 +9,10 @@ ExternalProject_Add(cppwinrt
+         -DBUILD_SHARED_LIBS=OFF
+         -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
+     BUILD_COMMAND ${EXEC} ninja -C <BINARY_DIR>
++    # windows-rs moved Windows.winmd on 2026-08-04; fetch the revision master
++    # served when this mpv-winbuild-cmake commit was made (sha256 94eb4abd...).
+     INSTALL_COMMAND ${EXEC} ninja -C <BINARY_DIR> install
+-            COMMAND ${EXEC} wget -O <BINARY_DIR>/Windows.winmd  https://github.com/microsoft/windows-rs/raw/master/crates/libs/bindgen/default/Windows.winmd
++            COMMAND ${EXEC} wget -O <BINARY_DIR>/Windows.winmd  https://github.com/microsoft/windows-rs/raw/628f84c51645217c7a06a20774ea1275dc7270ca/crates/libs/bindgen/default/Windows.winmd
+             COMMAND ${EXEC} cppwinrt -input <BINARY_DIR>/Windows.winmd -output ${MINGW_INSTALL_PREFIX}/include/
+     LOG_DOWNLOAD 1 LOG_UPDATE 1 LOG_CONFIGURE 1 LOG_BUILD 1 LOG_INSTALL 1
+ )
 diff --git a/toolchain/gcc/gcc.cmake b/toolchain/gcc/gcc.cmake
 index e1b9be6..b1c96e7 100644
 --- a/toolchain/gcc/gcc.cmake

@@ -19,6 +19,11 @@ and GCC deletes old snapshots. The patch builds GCC 14.4.0, the release of the
 same branch, from ftp.gnu.org with the SHA-512 that gcc.gnu.org publishes; the
 tarball's GNU keyring signature was checked when the hash was pinned
 (2026-11-02).
+Likewise, cppwinrt reads `Windows.winmd` from windows-rs `master`, where the
+file no longer exists; the patch fetches it from windows-rs `628f84c`, the
+revision `master` served when the pinned mpv-winbuild-cmake commit was made
+(SHA-256
+`94eb4abdd6bc8effa8ba9e48f56156bab749b3402e2e5f7c3d18b2b5ab0fc72b`).
 
 The generated directory contains:
 
