@@ -4,6 +4,20 @@ Klipa Player desktop binaries are *intended* to be code-signed before any
 external distribution, through the CI-provenance flow described below: no
 binary built on a personal laptop is ever signed and shipped.
 
+## Status: the Microsoft Store is the Windows route (2026-11-02)
+
+Windows ships as an MSIX package through the Microsoft Store, which signs the
+package after certification: the zero-certificate route in the table below.
+The job `store-msix` of `windows-release.yml` builds that package unsigned;
+nothing is signed on the runner, and a test-signed copy exists only for the
+runner's install smoke test and is deleted with it. Submitting the package
+and publishing the listing happen in the maintainer's Partner Center account.
+Until the listing is live, no Windows build is offered for download.
+
+The SignPath job stays in the workflow for a future reapplication that would
+sign a direct download. It runs only when the repository variable
+`SIGNPATH_ENABLED` is `true`.
+
 ## Status: no certificate is active (2026-09-13)
 
 **No signed release exists and no code-signing certificate has been issued to
@@ -78,7 +92,7 @@ Each role is held by the maintainer team until a second team member is added.
 At that point this section will be updated to name them and the three-role
 separation will become real.
 
-## Build provenance
+## Build provenance (SignPath route, inactive)
 
 SignPath only signs artifacts that its origin-verification step can tie to a
 commit in this repository. Signing flow:

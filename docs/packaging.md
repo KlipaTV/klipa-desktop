@@ -34,6 +34,49 @@ and uninstaller with an explicit RFC 3161 timestamp service:
 The script accepts only a certificate thumbprint, never a PFX password or
 private-key path, and verifies the resulting Authenticode signatures.
 
+## Microsoft Store (MSIX)
+
+The Store package is the Windows distribution route: Microsoft signs it after
+certification (see `docs/code-signing-policy.md`). From PowerShell, with the
+vetted media runtime staged:
+
+```powershell
+.\tool\fetch_windows_media.ps1 -Repository KlipaTV/klipa-desktop
+.\tool\build_windows.ps1 -Configuration release
+.\tool\package_msix.ps1 -SkipBuild
+.\tool\smoke_windows_msix.ps1 -RunAppCert
+```
+
+`package_msix.ps1` writes the unsigned
+`dist/windows-store/KlipaPlayer-<version>-x64.msix`, its `SHA256SUMS.txt`, the
+filled `AppxManifest.xml` and an `identity.json` record. It:
+
+- refuses a bundle whose `libmpv-2.dll` is not the vetted runtime;
+- takes the Store identity from `packaging/windows/msix/store-identity.json`
+  (or its parameters) and refuses placeholder values unless
+  `-AllowPlaceholderIdentity` is passed, which CI does for validation builds;
+- turns `version: x.y.z+n` into the Store's four-part `x.y.z.0`;
+- declares `en-us` only (the interface is English), `runFullTrust` and
+  `internetClient`, and Windows 10 1809 (10.0.17763) as the floor;
+- adds the same app-local Visual C++ runtime and license documents as the
+  portable archive;
+- indexes the visual assets with `makepri` so every scale and target size
+  resolves. `uv run tool/generate_msix_assets.py` redraws those assets from
+  the mark's vector geometry.
+
+`smoke_windows_msix.ps1` is for disposable machines such as CI runners, because
+it changes machine trust while it runs: it trusts a throwaway certificate,
+test-signs a copy (never the Store package), installs it, starts it through its
+package identity, checks that it runs from the package and opens zero TCP
+connections, captures the screen, then removes the package and the
+certificate. `-RunAppCert` also runs the Windows App Certification Kit and keeps
+its report as evidence.
+
+`windows-release.yml` (job `store-msix`) runs these steps on every `v*` tag and
+on dispatch, and keeps the MSIX for 90 days as a workflow artifact. The Store
+listing, privacy URL, age-rating answers and certification notes are in
+`packaging/windows/store/`.
+
 ## Debian and Ubuntu Linux
 
 Install the documented Flutter build prerequisites, then run:
