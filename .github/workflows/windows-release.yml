@@ -103,6 +103,10 @@ jobs:
         shell: pwsh
         run: tool\build_windows.ps1 -Configuration release
 
+      - name: Check the media runtime plays HTTPS with TLS verification
+        shell: pwsh
+        run: tool\probe_windows_libmpv.ps1
+
       - name: Package Store MSIX
         id: msix
         shell: pwsh
@@ -145,6 +149,7 @@ jobs:
             dist/windows-store/SHA256SUMS.txt
             dist/windows-store/AppxManifest.xml
             dist/windows-store/identity.json
+            dist/windows-store/probe/
             dist/windows-store/smoke/
           if-no-files-found: error
           retention-days: 90

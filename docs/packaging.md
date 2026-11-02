@@ -43,6 +43,7 @@ vetted media runtime staged:
 ```powershell
 .\tool\fetch_windows_media.ps1 -Repository KlipaTV/klipa-desktop
 .\tool\build_windows.ps1 -Configuration release
+.\tool\probe_windows_libmpv.ps1
 .\tool\package_msix.ps1 -SkipBuild
 .\tool\smoke_windows_msix.ps1 -RunAppCert
 ```
@@ -63,6 +64,15 @@ filled `AppxManifest.xml` and an `identity.json` record. It:
 - indexes the visual assets with `makepri` so every scale and target size
   resolves. `uv run tool/generate_msix_assets.py` redraws those assets from
   the mark's vector geometry.
+
+`probe_windows_libmpv.ps1` loads the bundle's `libmpv-2.dll` on its own, with
+no video or audio output, and must play one of the public HTTPS streams in
+`packaging/windows/store/certification-test.m3u` with the player's network
+options, `tls-verify=yes` included. It exercises the certificate store of the
+DLL's TLS backend: a runtime whose FFmpeg uses OpenSSL or mbedTLS has no CA
+store on Windows and fails every HTTPS handshake. When nothing plays it
+retries the first stream with verification off, to tell a TLS failure from a
+network one, and fails.
 
 `smoke_windows_msix.ps1` is for disposable machines such as CI runners, because
 it changes machine trust while it runs: it trusts a throwaway certificate,
