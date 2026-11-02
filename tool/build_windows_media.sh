@@ -174,8 +174,33 @@ repair_partial_checkouts() {
   done < <(find "$sources_dir" -mindepth 1 -maxdepth 2 -type d -name .git -printf '%h\0')
 }
 
+# Upstream pins some sources to a commit with GIT_RESET, and only its `update`
+# target applies those pins; that target also fetches every optional package,
+# GPL ones included. Apply the pins of the packages the patched mpv graph
+# builds here, between their download and patch steps. The other pinned
+# packages of the recipe are outside the graph; a recipe whose pinned set
+# differs must be reviewed before this list is trusted.
+pinned_in_graph=(openssl libpsl xz)
+pinned_elsewhere=(avisynth-headers libsixel mbedtls vapoursynth)
+mapfile -t pinned < <(grep -l 'GIT_RESET' "$source_dir"/packages/*.cmake | xargs -n1 basename | sed 's/\.cmake$//' | sort)
+expected="$(printf '%s\n' "${pinned_in_graph[@]}" "${pinned_elsewhere[@]}" | sort)"
+[[ "$(printf '%s\n' "${pinned[@]}")" == "$expected" ]] || {
+  echo "The recipe's GIT_RESET packages changed: ${pinned[*]}" >&2
+  exit 1
+}
+
+apply_source_pins() {
+  local package
+  for package in "${pinned_in_graph[@]}"; do
+    ninja -C "$build_dir" "packages/$package-prefix/src/$package-stamp/$package-download"
+    ninja -C "$build_dir" "$package-force-update"
+    echo "$package pinned at $(git -C "$sources_dir/$package" rev-parse HEAD)"
+  done
+}
+
 run_ninja gcc 2>&1 | tee "$work/gcc.log"
 repair_partial_checkouts
+apply_source_pins 2>&1 | tee "$work/pins.log"
 run_ninja mpv 2>&1 | tee "$work/mpv.log"
 
 dll="$(find "$build_dir" -type f -path '*/mpv-dev-*/*' -name libmpv-2.dll -print -quit)"
@@ -193,7 +218,7 @@ mkdir -p "$staging/licenses"
 cp "$dll" "$staging/libmpv-2.dll"
 cp "$patch_file" "$staging/mpv-winbuild-lgpl.patch"
 cp "$build_dir/CMakeCache.txt" "$staging/CMakeCache.txt"
-cp "$work/configure.log" "$work/download.log" "$work/gcc.log" "$work/mpv.log" "$staging/"
+cp "$work/configure.log" "$work/download.log" "$work/gcc.log" "$work/pins.log" "$work/mpv.log" "$staging/"
 printf '%s\n' "$upstream_commit" > "$staging/mpv-winbuild-commit.txt"
 {
   cmake --version | head -n 1
