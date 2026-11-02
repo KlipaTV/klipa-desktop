@@ -13,17 +13,23 @@ never enabled. The renderer keeps libplacebo's D3D11/OpenGL path while omitting
 Vulkan, glslang, and shaderc. SPIR-V Cross is linked in its standard static mode
 for D3D11 shader translation.
 
-The patch also replaces one source the pinned revision can no longer fetch.
-Upstream builds its cross compiler from a weekly GCC snapshot (`14-20251205`),
-and GCC deletes old snapshots. The patch builds GCC 14.4.0, the release of the
-same branch, from ftp.gnu.org with the SHA-512 that gcc.gnu.org publishes; the
-tarball's GNU keyring signature was checked when the hash was pinned
-(2026-11-02).
-Likewise, cppwinrt reads `Windows.winmd` from windows-rs `master`, where the
-file no longer exists; the patch fetches it from windows-rs `628f84c`, the
-revision `master` served when the pinned mpv-winbuild-cmake commit was made
-(SHA-256
-`94eb4abdd6bc8effa8ba9e48f56156bab749b3402e2e5f7c3d18b2b5ab0fc72b`).
+The pinned mpv-winbuild-cmake revision is `bda10a2` (2026-10-30). Its own
+package patches are kept in step with the upstream sources it fetches, which
+are not pinned, so an old revision stops building as those sources move: the
+June revision this file first named (`04283f7`) failed on fontconfig's patch
+and on a GCC snapshot that no longer exists. The current revision builds GCC
+from the 14.4.0 release with a SHA-512 checked against gcc.gnu.org and the GNU
+keyring (2026-11-02).
+
+`apply_lgpl_profile.py` is how the patch is made: on a clean checkout of the
+pinned revision, apply the libplacebo and spirv-cross hunks of the previous
+patch, run the script, and save `git diff`. It removes the GPL and unused
+dependencies and switches their options off by meaning rather than by line, so
+moving the pin does not depend on unchanged context. It also pins the one
+moving download of the toolchain: cppwinrt reads `Windows.winmd` from
+windows-rs `master`, and the patch fetches windows-rs `8786f59`, the revision
+`master` served when the pinned commit was made (4,653,056 bytes, SHA-256
+`06cbb9a5febd5f5d9d06a31f2643bb95f7935a5a43f7d287c6f356ef1dd45ac8`).
 
 The generated directory contains:
 
