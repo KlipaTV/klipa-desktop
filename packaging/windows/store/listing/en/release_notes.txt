@@ -1,0 +1,1 @@
+First release on the Microsoft Store: live channels from M3U, M3U8 and Xtream sources, now and next from your provider's guide, search, favorites, full screen and channel switching from the keyboard.

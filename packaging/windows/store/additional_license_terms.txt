@@ -1,0 +1,9 @@
+Klipa Player is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+Klipa Player is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more details: https://www.gnu.org/licenses/lgpl-3.0.html
+
+Klipa Player includes third-party components under their own licenses, among them mpv and FFmpeg under the GNU LGPL. Their license texts are installed with the app (LICENSE, NOTICE, THIRD_PARTY_NOTICES.md and the licenses folder). The source code of Klipa Player is at https://github.com/KlipaTV/klipa-desktop, and the corresponding source of its media runtime is published in that repository's releases.
+
+Nothing in these terms limits the rights those licenses give you, including the right to modify the software and to reverse engineer it to debug such modifications.
+
+Klipa Player is a media player. It contains no channels or other content; you are responsible for the playlists and provider accounts you use with it.

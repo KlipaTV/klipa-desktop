@@ -1,0 +1,7 @@
+IPTV Player
+M3U Player
+M3U8
+Xtream
+EPG
+XMLTV
+Live TV

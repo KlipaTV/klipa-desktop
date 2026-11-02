@@ -1,0 +1,22 @@
+O Klipa Player é um leitor IPTV leve para Windows. Abra a sua própria lista M3U ou M3U8, cole o URL de uma lista ou entre com credenciais compatíveis com Xtream, e veja os seus canais em direto com o guia de programação do seu fornecedor.
+
+O Klipa fornece o leitor; o conteúdo é seu. Não tem canais próprios: use apenas listas e contas de fornecedor que tenha direito a usar.
+
+O que inclui
+• Canais em direto de fontes M3U, M3U8 e compatíveis com Xtream, com várias fontes numa só biblioteca
+• Pesquisa, grupos de canais, categorias do fornecedor e favoritos
+• O que está a dar agora e a seguir, a partir do guia XMLTV (EPG) do seu fornecedor, obtido diretamente do fornecedor
+• Ecrã inteiro, atalhos de teclado e mudança de canal a partir do leitor
+• Volte ao último canal com um clique; ao abrir a app, nada começa a reproduzir sozinho
+
+Fica no seu PC
+• As suas fontes, os favoritos e a cache do guia ficam guardados cifrados no seu PC
+• Sem conta, sem anúncios, sem telemetria e sem serviços em segundo plano
+• O Klipa Player não faz nenhum pedido de rede ao arrancar. Só se liga aos endereços de listas, fornecedores, guias e imagens que adicionar, diretamente a partir do seu PC: nada passa por um servidor do Klipa
+
+Código aberto
+O Klipa Player é software livre sob a licença GNU LGPL 3.0 ou posterior. O código, a compilação do seu motor multimédia (mpv e FFmpeg) e o registo de problemas estão no GitHub: https://github.com/KlipaTV/klipa-desktop
+
+A interface está em inglês.
+
+Vê no telemóvel ou na TV? O Klipa também está disponível para Android e Android TV.

@@ -1,0 +1,8 @@
+Riproduci canali in diretta dalla tua sorgente M3U, M3U8 o compatibile Xtream
+Più sorgenti in un'unica libreria, con ricerca, gruppi e preferiti
+In onda ora e a seguire dalla guida XMLTV (EPG) del tuo provider
+Schermo intero, scorciatoie da tastiera e cambio canale mentre guardi
+Riprendi l'ultimo canale con un clic
+Libreria salvata cifrata sul tuo PC
+Nessun account, nessuna pubblicità, nessuna telemetria, nessun servizio in background
+Open source con licenza LGPL 3.0

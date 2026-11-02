@@ -1,0 +1,7 @@
+IPTV erreproduzitzailea
+M3U erreproduzitzailea
+M3U8
+Xtream
+EPG
+XMLTV
+zuzeneko telebista

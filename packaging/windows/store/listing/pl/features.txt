@@ -1,0 +1,8 @@
+Odtwarzaj kanały na żywo z własnego źródła M3U, M3U8 lub zgodnego z Xtream
+Wiele źródeł w jednej bibliotece, z wyszukiwaniem, grupami i ulubionymi
+Co jest teraz i co dalej, z przewodnika XMLTV (EPG) Twojego dostawcy
+Pełny ekran, skróty klawiszowe i przełączanie kanałów podczas oglądania
+Wróć do ostatniego kanału jednym kliknięciem
+Biblioteka zapisana w postaci zaszyfrowanej na Twoim komputerze
+Bez konta, bez reklam, bez telemetrii, bez usług w tle
+Open source na licencji LGPL 3.0

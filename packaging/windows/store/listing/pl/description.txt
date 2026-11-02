@@ -1,0 +1,22 @@
+Klipa Player to lekki odtwarzacz IPTV dla Windows. Otwórz własną playlistę M3U lub M3U8, wklej adres playlisty albo zaloguj się danymi zgodnymi z Xtream i oglądaj kanały na żywo z przewodnikiem programowym Twojego dostawcy.
+
+Klipa dostarcza odtwarzacz, a treści są Twoje. Nie ma własnych kanałów: korzystaj tylko z playlist i kont dostawcy, do których masz prawo.
+
+Co dostajesz
+• Kanały na żywo ze źródeł M3U, M3U8 i zgodnych z Xtream, z wieloma źródłami w jednej bibliotece
+• Wyszukiwanie, grupy kanałów, kategorie dostawcy i ulubione
+• Co jest teraz i co dalej, według przewodnika XMLTV (EPG) Twojego dostawcy, pobieranego bezpośrednio od niego
+• Pełny ekran, skróty klawiszowe i przełączanie kanałów w odtwarzaczu
+• Wróć do ostatniego kanału jednym kliknięciem; po uruchomieniu nic nie odtwarza się samo
+
+Zostaje na Twoim komputerze
+• Twoje źródła, ulubione i pamięć podręczna przewodnika są zaszyfrowane na Twoim komputerze
+• Bez konta, bez reklam, bez telemetrii i bez usług działających w tle
+• Klipa Player nie wysyła żadnych zapytań sieciowych przy uruchomieniu. Łączy się tylko z adresami playlist, dostawców, przewodników i grafik, które dodasz, bezpośrednio z Twojego komputera: nic nie przechodzi przez serwer Klipy
+
+Open source
+Klipa Player to wolne oprogramowanie na licencji GNU LGPL 3.0 lub nowszej. Kod źródłowy, kompilacja silnika multimedialnego (mpv i FFmpeg) oraz zgłoszenia problemów są na GitHubie: https://github.com/KlipaTV/klipa-desktop
+
+Interfejs jest w języku angielskim.
+
+Oglądasz na telefonie lub telewizorze? Klipa jest też dostępna na Androida i Android TV.

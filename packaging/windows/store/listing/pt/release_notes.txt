@@ -1,0 +1,1 @@
+Primeira versão na Microsoft Store: canais em direto de fontes M3U, M3U8 e Xtream, o que está a dar agora e a seguir no guia do seu fornecedor, pesquisa, favoritos, ecrã inteiro e mudança de canal pelo teclado.

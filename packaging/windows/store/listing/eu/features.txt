@@ -1,0 +1,8 @@
+Erreproduzitu zuzeneko kanalak zure M3U, M3U8 edo Xtream-ekin bateragarria den iturritik
+Hainbat iturri liburutegi bakarrean, bilaketarekin, taldeekin eta gogokoekin
+Orain eta jarraian zer dagoen, zure hornitzailearen XMLTV gidatik (EPG)
+Pantaila osoa, laster-teklak eta kanal-aldaketa ikusten ari zaren bitartean
+Itzuli azken kanalera klik batekin
+Liburutegia zifratuta gordetzen da zure PCan
+Konturik, iragarkirik, telemetriarik eta atzeko planoko zerbitzurik gabe
+Kode irekia, LGPL 3.0 lizentziapean

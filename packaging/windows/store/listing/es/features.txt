@@ -1,0 +1,8 @@
+Reproduce canales en directo de tu propia fuente M3U, M3U8 o compatible con Xtream
+Guarda varias fuentes en una biblioteca, con búsqueda, grupos y favoritos
+Mira qué hay ahora y después en la guía XMLTV (EPG) de tu proveedor
+Pantalla completa, atajos de teclado y cambio de canal mientras ves
+Vuelve a tu último canal con un clic
+Biblioteca guardada cifrada en tu PC
+Sin cuenta, sin anuncios, sin telemetría y sin servicios en segundo plano
+Código abierto bajo la licencia LGPL 3.0

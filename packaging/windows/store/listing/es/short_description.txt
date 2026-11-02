@@ -1,0 +1,1 @@
+Reproductor IPTV para tus propias fuentes M3U, M3U8 y Xtream, con la guía de tu proveedor. Sin anuncios, sin cuenta y sin canales propios. Código abierto.

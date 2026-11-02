@@ -40,6 +40,9 @@ jobs:
       - name: Analyze
         run: flutter analyze --fatal-infos --fatal-warnings
 
+      - name: Check Store listing
+        run: dart tool/check_store_listing.dart
+
       - name: Build Windows bundle
         run: flutter build windows --release
 

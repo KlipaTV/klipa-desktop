@@ -1,0 +1,1 @@
+IPTV player for your own M3U, M3U8 and Xtream sources, with your provider's guide. No ads, no account, no channels of its own. Open source.

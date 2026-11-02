@@ -1,0 +1,8 @@
+Kendi M3U, M3U8 veya Xtream uyumlu kaynağınızdan canlı kanallar izleyin
+Birden çok kaynak tek kitaplıkta; arama, gruplar ve favorilerle
+Sağlayıcınızın XMLTV rehberinden (EPG) şu an ve sırada ne olduğu
+İzlerken tam ekran, klavye kısayolları ve kanal değiştirme
+Son kanalınıza tek tıkla dönün
+Kitaplık bilgisayarınızda şifreli olarak saklanır
+Hesap yok, reklam yok, telemetri yok, arka plan servisi yok
+LGPL 3.0 lisanslı açık kaynak

@@ -1,0 +1,1 @@
+Erste Version im Microsoft Store: Live-Sender aus M3U-, M3U8- und Xtream-Quellen, jetzt und danach aus dem Guide deines Anbieters, Suche, Favoriten, Vollbild und Senderwechsel per Tastatur.

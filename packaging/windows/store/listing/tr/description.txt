@@ -1,0 +1,22 @@
+Klipa Player, Windows için hafif bir IPTV oynatıcıdır. Kendi M3U veya M3U8 listenizi açın, bir çalma listesi URL'si yapıştırın ya da Xtream uyumlu giriş bilgilerinizle oturum açın ve canlı kanallarınızı sağlayıcınızın yayın rehberiyle izleyin.
+
+Klipa oynatıcıyı sağlar, içerik sizden. Kendi kanalı yoktur: yalnızca kullanma hakkına sahip olduğunuz listeleri ve sağlayıcı hesaplarını kullanın.
+
+Neler sunar
+• M3U, M3U8 ve Xtream uyumlu kaynaklardan canlı kanallar, birden çok kaynak tek bir kitaplıkta
+• Arama, kanal grupları, sağlayıcı kategorileri ve favoriler
+• Sağlayıcınızın XMLTV rehberinden (EPG) şu an ve sırada ne olduğu, doğrudan sağlayıcınızdan alınır
+• Tam ekran, klavye kısayolları ve oynatıcıdan kanal değiştirme
+• Son kanalınıza tek tıkla dönün; uygulama açıldığında hiçbir şey kendiliğinden oynamaz
+
+Bilgisayarınızda kalır
+• Kaynaklarınız, favorileriniz ve rehber önbelleği bilgisayarınızda şifreli olarak saklanır
+• Hesap yok, reklam yok, telemetri yok, arka plan servisi yok
+• Klipa Player açılışta hiçbir ağ isteği yapmaz. Yalnızca eklediğiniz liste, sağlayıcı, rehber ve görsel adreslerine, doğrudan bilgisayarınızdan bağlanır: hiçbir şey bir Klipa sunucusundan geçmez
+
+Açık kaynak
+Klipa Player, GNU LGPL 3.0 veya sonraki sürüm lisanslı özgür yazılımdır. Kaynak kodu, medya motorunun derlemesi (mpv ve FFmpeg) ve sorun takibi GitHub'dadır: https://github.com/KlipaTV/klipa-desktop
+
+Arayüz İngilizcedir.
+
+Telefonda veya TV'de mi izliyorsunuz? Klipa, Android ve Android TV için de mevcut.

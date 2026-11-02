@@ -1,0 +1,1 @@
+Lecteur IPTV pour vos propres sources M3U, M3U8 et Xtream, avec le guide de votre fournisseur. Sans pub, sans compte et sans chaîne propre. Open source.

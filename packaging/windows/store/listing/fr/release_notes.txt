@@ -1,0 +1,1 @@
+Première version sur le Microsoft Store : chaînes en direct depuis des sources M3U, M3U8 et Xtream, programme en cours et suivant d'après le guide de votre fournisseur, recherche, favoris, plein écran et changement de chaîne au clavier.

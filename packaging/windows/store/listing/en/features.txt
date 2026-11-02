@@ -1,0 +1,8 @@
+Play live channels from your own M3U, M3U8 or Xtream-compatible source
+Keep several sources in one library, with search, groups and favorites
+See now and next from your provider's XMLTV guide (EPG)
+Full screen, keyboard shortcuts and channel up and down while you watch
+Resume your last channel with one click
+Library stored encrypted on your PC
+No account, no ads, no telemetry, no background service
+Open source under the LGPL 3.0

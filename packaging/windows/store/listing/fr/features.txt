@@ -1,0 +1,8 @@
+Regardez des chaînes en direct depuis votre propre source M3U, M3U8 ou compatible Xtream
+Plusieurs sources dans une bibliothèque, avec recherche, groupes et favoris
+Programme en cours et suivant d'après le guide XMLTV (EPG) de votre fournisseur
+Plein écran, raccourcis clavier et changement de chaîne pendant le visionnage
+Reprenez votre dernière chaîne en un clic
+Bibliothèque chiffrée sur votre PC
+Pas de compte, pas de publicité, pas de télémétrie, aucun service en arrière-plan
+Open source sous licence LGPL 3.0

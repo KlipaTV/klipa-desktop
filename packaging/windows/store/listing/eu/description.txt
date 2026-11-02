@@ -1,0 +1,22 @@
+Klipa Player Windowserako IPTV erreproduzitzaile arina da. Ireki zure M3U edo M3U8 zerrenda, itsatsi zerrenda baten URLa edo sartu Xtream-ekin bateragarria den kontu batekin, eta ikusi zure zuzeneko kanalak hornitzailearen programazio-gidarekin.
+
+Klipak erreproduzitzailea jartzen du; edukia, zuk. Ez du kanal propiorik: erabili soilik erabiltzeko eskubidea duzun zerrendak eta hornitzaile-kontuak.
+
+Zer dakar
+• Zuzeneko kanalak M3U, M3U8 eta Xtream-ekin bateragarriak diren iturrietatik, hainbat iturri liburutegi bakarrean
+• Bilaketa, kanal-taldeak, hornitzailearen kategoriak eta gogokoak
+• Orain eta jarraian zer dagoen, zure hornitzailearen XMLTV gidatik (EPG), zuzenean hornitzailetik jasota
+• Pantaila osoa, laster-teklak eta kanal-aldaketa erreproduzitzailetik bertatik
+• Itzuli azken kanalera klik batekin; aplikazioa irekitzean ez da ezer bere kabuz erreproduzitzen
+
+Zure PCan geratzen da
+• Zure iturriak, gogokoak eta gidaren cachea zifratuta gordetzen dira zure PCan
+• Konturik, iragarkirik, telemetriarik eta atzeko planoko zerbitzurik gabe
+• Klipa Player-ek ez du sare-eskaerarik egiten abiaraztean. Zuk gehitzen dituzun zerrenda, hornitzaile, gida eta irudien helbideekin bakarrik konektatzen da, zuzenean zure PCtik: ezer ez da Klipa zerbitzari batetik pasatzen
+
+Kode irekia
+Klipa Player software librea da, GNU LGPL 3.0 edo geroagoko lizentziapean. Kodea, bere multimedia-motorraren konpilazioa (mpv eta FFmpeg) eta arazoen jarraipena GitHuben daude: https://github.com/KlipaTV/klipa-desktop
+
+Interfazea ingelesez dago.
+
+Mugikorrean edo telebistan ikusten duzu? Klipa Android eta Android TVrako ere badago.

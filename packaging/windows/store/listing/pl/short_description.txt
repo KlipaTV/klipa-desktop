@@ -1,0 +1,1 @@
+Odtwarzacz IPTV dla Twoich własnych źródeł M3U, M3U8 i Xtream, z przewodnikiem Twojego dostawcy. Bez reklam, bez konta, bez własnych kanałów. Open source.

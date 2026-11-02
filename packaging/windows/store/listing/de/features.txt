@@ -1,0 +1,8 @@
+Live-Sender aus deiner eigenen M3U-, M3U8- oder Xtream-kompatiblen Quelle abspielen
+Mehrere Quellen in einer Bibliothek, mit Suche, Gruppen und Favoriten
+Jetzt und danach aus dem XMLTV-Guide (EPG) deines Anbieters
+Vollbild, Tastenkürzel und Senderwechsel beim Zuschauen
+Mit einem Klick zurück zum letzten Sender
+Bibliothek verschlüsselt auf deinem PC gespeichert
+Kein Konto, keine Werbung, keine Telemetrie, kein Hintergrunddienst
+Open Source unter der LGPL 3.0

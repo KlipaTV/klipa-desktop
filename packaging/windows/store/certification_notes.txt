@@ -1,0 +1,11 @@
+Klipa Player is a player for the user's own M3U, M3U8 and Xtream-compatible sources. It ships no channels or other content and needs no account or sign-in.
+
+To test playback:
+1. Open the app and select "Add playlist URL".
+2. Enter this playlist address and select Import: https://klipa.tv/tools/api/sample-m3u
+   It is a public sample playlist of open test streams (Big Buck Bunny from Mux, Tears of Steel from Unified Streaming and Apple's HLS reference streams).
+3. Select a channel to play it. F or F11 toggles full screen, Esc leaves it, and Up/Down or Page Up/Page Down change channel.
+
+The app makes no network request when it starts and installs no background service; it only contacts the addresses the user adds. The interface is in English.
+
+Source code: https://github.com/KlipaTV/klipa-desktop
