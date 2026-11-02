@@ -36,6 +36,12 @@ windows-rs `master`, and the patch fetches windows-rs `8786f59`, the revision
 `master` served when the pinned commit was made (4,653,056 bytes, SHA-256
 `06cbb9a5febd5f5d9d06a31f2643bb95f7935a5a43f7d287c6f356ef1dd45ac8`).
 
+`check_lgpl_graph.py` runs on every build after the patch is applied: it walks
+the whole dependency graph of mpv and stops the build if a GPL package, a
+package the profile removes, or a GPL option of a reachable library is in it.
+Its closure listing is kept as `lgpl-graph.txt`. The build also stops if any
+compiled component has no license text in `licenses/`.
+
 The generated directory contains:
 
 - `libmpv-2.dll` and its SHA-256;
@@ -62,5 +68,7 @@ every media-runtime rebuild.
 This profile intentionally omits DVD navigation, AviSynth/VapourSynth,
 Rubber Band, x264, x265, Xvid, Lua, JavaScript, SDL gamepad, terminal graphics,
 mpv's libcurl stream backend (with curl's HTTP/2, HTTP/3 and DNS stack),
+libzvbi (teletext; its library has GPL-2-only files), libarchive's LZO support
+(liblzo2 is GPL-2.0), Little CMS's GPL-3.0 fast_float and threaded plugins,
 and other features that are unnecessary for Klipa's M3U/HLS/MPEG-TS playback
 boundary.
