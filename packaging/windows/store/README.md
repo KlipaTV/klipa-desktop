@@ -53,9 +53,10 @@ name (`displayName` in `../msix/store-identity.json`), **Developed by** is
 
 **Screenshots:** every `store-msix` run saves `store-01-library.png` and
 `store-02-full-screen.png` (1920 x 1080) in the artifact's `smoke/` folder:
-the installed package on the runner, playing Big Buck Bunny from
-`certification-test.m3u`. Partner Center needs at least one 1366 x 768 or
-larger PNG and uses the English ones for every language. Give each the
+the installed package on the runner, with Big Buck Bunny from
+`certification-test.m3u` paused after it has played (`step-playing.png` is
+the same screen while it plays). Partner Center needs at least one 1366 x 768
+or larger PNG and uses the English ones for every language. Give each the
 caption "Big Buck Bunny (c) Blender Foundation, CC BY 3.0, from a public
 test stream". `certification-test.m3u` holds only open test streams and is
 also the playlist the certification notes give the tester.

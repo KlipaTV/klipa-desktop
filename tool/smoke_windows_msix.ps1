@@ -129,10 +129,15 @@ public static class KlipaInput {
   # Bunny, Tears of Steel; rows are 64 px from y = 231 at the left edge.
   [KlipaInput]::Click(400, 359)
   Start-Sleep -Seconds 15
-  $size = Save-ScreenPng (Join-Path $Directory 'store-01-library.png')
-  # Shortcuts are scoped to the player, so focus it before F.
+  & $step 'playing'
+  # Shortcuts are scoped to the player, so focus it before Space and F. The
+  # runner draws video in software, and captures of a playing frame there
+  # showed black bands across the picture, so the listing shots are paused.
   [KlipaInput]::Click(1100, 420)
   Start-Sleep -Seconds 1
+  [Windows.Forms.SendKeys]::SendWait(' ')
+  Start-Sleep -Seconds 2
+  $size = Save-ScreenPng (Join-Path $Directory 'store-01-library.png')
   [Windows.Forms.SendKeys]::SendWait('f')
   Start-Sleep -Seconds 5
   [void](Save-ScreenPng (Join-Path $Directory 'store-02-full-screen.png'))
