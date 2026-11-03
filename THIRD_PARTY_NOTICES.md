@@ -17,6 +17,10 @@ for every transitive Dart/Flutter dependency (`NOTICES.Z` inside
 | FFmpeg (inside the libmpv build) | LGPL-2.1-or-later; optional components are GPL | https://ffmpeg.org |
 | SQLite3MultipleCiphers (encrypted SQLite build, `sqlite3mc`) | MIT | https://github.com/utelle/SQLite3MultipleCiphers |
 | SQLite | Public domain | https://sqlite.org |
+| ANGLE (Windows: `libEGL.dll`, `libGLESv2.dll`) | BSD-3-Clause | https://chromium.googlesource.com/angle/angle |
+| SwiftShader (Windows: `vk_swiftshader.dll`) | Apache-2.0 | https://swiftshader.googlesource.com/SwiftShader |
+| Vulkan loader (Windows: `vulkan-1.dll`) | Apache-2.0 | https://github.com/KhronosGroup/Vulkan-Loader |
+| `d3dcompiler_47.dll` and the Visual C++ runtime (Windows) | Microsoft redistributable terms | Windows SDK, Visual Studio |
 
 Windows release builds replace the DLL downloaded by the
 `media_kit_libs_windows_video` pub package (see
@@ -24,11 +28,17 @@ https://github.com/media-kit/media-kit) with Klipa's source-built,
 LGPL-profile libmpv/FFmpeg runtime produced by `tool/build_windows_media.sh`.
 Its exact licenses, source revisions, build patch, toolchain versions, and
 hashes are bundled under `licenses/windows-media` inside the release bundle,
-and the corresponding-source archive is retained beside the installer and
-portable ZIP; the verification steps are tracked in
+and the corresponding-source archive is kept in the runtime's GitHub release
+(`media-runtime-v<n>`); the verification steps are tracked in
 `docs/release-checklist.md`. Debug/profile builds still run on the package's
 DLL. Linux obtains libmpv, GTK 3, and libsecret from the distribution rather
 than bundling them.
+
+The ANGLE, SwiftShader and Vulkan loader DLLs come prebuilt from the same pub
+package (its `ANGLE.7z`, pinned by MD5 in its CMake file). Their license texts
+are in `NOTICES.Z`, which carries the Flutter engine's notices for the same
+projects. That archive's `zlib.dll` is a debug build that nothing in the
+bundle loads, so release builds leave it out.
 
 ## Direct Dart package dependencies
 

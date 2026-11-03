@@ -63,6 +63,11 @@ try {
     }
 
     Copy-Item -LiteralPath $mediaRuntime -Destination (Join-Path $bundle 'libmpv-2.dll') -Force
+    # The ANGLE archive of media_kit_libs_windows_video ships a debug zlib.dll
+    # that imports VCRUNTIME140D.dll and ucrtbased.dll, which no end-user PC
+    # has. Nothing in the bundle imports or loads it, so release builds drop it.
+    $debugZlib = Join-Path $bundle 'zlib.dll'
+    if (Test-Path -LiteralPath $debugZlib) { Remove-Item -LiteralPath $debugZlib -Force }
     $notices = Join-Path $bundle 'licenses\windows-media'
     if (Test-Path -LiteralPath $notices) { Remove-Item -LiteralPath $notices -Recurse -Force }
     New-Item -ItemType Directory -Path $notices -Force | Out-Null

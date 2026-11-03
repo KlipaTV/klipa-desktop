@@ -125,6 +125,16 @@ foreach ($doc in 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md') {
   if (-not (Test-Path -LiteralPath $docPath)) { throw "Missing license document: $doc" }
   Copy-Item -LiteralPath $docPath -Destination $package -Force
 }
+# A debug C runtime is not on end-user PCs, so no packaged binary may name one.
+$debugCrt = 'vcruntime140d.dll', 'vcruntime140_1d.dll', 'msvcp140d.dll', 'ucrtbased.dll'
+$binaries = Get-ChildItem -LiteralPath $package -Recurse -File |
+  Where-Object { $_.Extension -in '.dll', '.exe' }
+foreach ($binary in $binaries) {
+  $text = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($binary.FullName)).ToLowerInvariant()
+  foreach ($crt in $debugCrt) {
+    if ($text.Contains($crt)) { throw "$($binary.Name) needs the debug C runtime ($crt)." }
+  }
+}
 Copy-Item -LiteralPath (Join-Path $msixSource 'Assets') -Destination $package -Recurse
 
 $manifest = Get-Content -LiteralPath (Join-Path $msixSource 'AppxManifest.xml.in') -Raw
