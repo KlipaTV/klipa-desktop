@@ -6,9 +6,10 @@ approves a release destination and audience.
 
 ## Status update: 2026-11-03, Windows through the Microsoft Store
 
-Windows ships as an MSIX through the Microsoft Store (D-0024). Nothing for
-Windows is published: the package below carries placeholder identity values
-and cannot be submitted.
+Windows ships as an MSIX through the Microsoft Store (D-0024). Version 0.1.4
+is the first submission: its package went to Partner Center on 2026-11-03,
+set to "Publish this submission manually", so nothing for Windows is live
+until the owner publishes it after certification.
 
 - The media runtime is the GitHub release `media-runtime-v1`, a build input
   that is not marked latest. `windows-media-runtime.zip` (SHA-256
@@ -45,9 +46,23 @@ and cannot be submitted.
   strings such as "cmd" in Flutter, ANGLE and libmpv. A third, Debug
   configuration, failed on ANGLE's debug `zlib.dll` in runs 41597786817 and
   41620878537, until `a8ddc11` left that DLL out.
+- The submitted package comes from `windows-release` run 41627354856, a
+  dispatch on `main` at `06c56ce` after `ci` run 41626484039 passed, with
+  the Partner Center identity of `packaging/windows/msix/store-identity.json`
+  (`KlipaPlayer.KlipaPlayer`, `CN=785DBEC0-8C8A-4A32-98B9-B557264BD63D`,
+  publisher display name "Klipa Player", package family name
+  `KlipaPlayer.KlipaPlayer_s6nebh57ks44p`). Artifact
+  `windows-store-msix-0.1.4.0-41627354856`: `KlipaPlayer-0.1.4.0-x64.msix`,
+  57,121,689 bytes, SHA-256
+  `54cafc69c90087eee904a2234ab4f07f3987f28b1fa8d3df49980e8b32ce02dd`. Its
+  test-signed copy installed under that package family name, started with
+  zero TCP connections and passed WACK (overall PASS, the same two optional
+  FAILs). Two runs of the same commit do not give the same MSIX (run
+  41625233963 at `06c56ce` packaged 57,121,695 bytes, `77441bb5…`), so this
+  hash, not the commit, names the uploaded file.
 - Not verified: a Windows 10 or 11 client with a GPU (the runner is Windows
   Server and draws video in software), an upgrade from one MSIX to the next,
-  Store certification, and a package with the real identity values.
+  and Store certification.
 - The MSIX takes its version from `pubspec.yaml`. 0.1.3 is the Linux release
   cut from `cb418ca` (below), before the Store commits, so the first Store
   version is 0.1.4 (`0.1.4.0` in the package) and one version keeps naming
