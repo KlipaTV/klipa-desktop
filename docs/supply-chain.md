@@ -51,5 +51,15 @@ every dependency or toolchain update.
 Linux deliberately links the distribution's libmpv. A Windows release build
 refuses to proceed without the locally built runtime from
 `tool/build_windows_media.sh`, verifies its SHA-256, replaces the package DLL,
-and bundles its license and provenance records. Archive the separately generated
-corresponding-source file beside every distributed Windows release.
+and bundles its license and provenance records.
+
+The vetted runtime is the GitHub release `media-runtime-v1`, a build input and
+not an app release. Its `windows-media-runtime.zip` comes from workflow run
+41506945975 at `dded8e6` (`libmpv-2.dll` SHA-256
+`80c74bae1a0d158ceae7f04002a08929dc06126913c2a4a5d27a84da8303cfc8`).
+`third_party/windows-media/media-runtime-v1.sha256` pins the archive and the
+DLL, and `tool/fetch_windows_media.ps1` refuses a download that does not match.
+The same release holds `klipa-libmpv-corresponding-source.tar.zst`, the
+corresponding source of everything compiled into the DLL; keep it there for as
+long as any distributed Windows build ships that DLL. A new runtime gets a new
+tag and pin file (`media-runtime-v2`); a published one is never replaced.
