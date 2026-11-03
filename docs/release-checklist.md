@@ -31,17 +31,20 @@ and cannot be submitted.
   store on Windows, so with the player's `tls-verify=yes` every HTTPS stream
   failed its handshake. `tool/probe_windows_libmpv.ps1` now gates every
   Windows release on playing an HTTPS test stream with verification on.
-- `windows-release` run 41597786817 at `b3f15a3` (dispatched on
-  `feat/windows-store-msix`, placeholder identity) built and tested the
-  release bundle with `media-runtime-v1`, passed the probe and packaged
-  `KlipaPlayer-0.1.3.0-x64.msix` (57,200,574 bytes, SHA-256
-  `444777fe9595ed30875af35ea380afc17d6726a3671ef0324f4f7342f15d34df`). A
-  test-signed copy installed on `windows-latest`, started with zero TCP
+- `windows-release` run 41622468979 at `a8ddc11` (dispatched on
+  `feat/windows-store-msix`, placeholder identity, no "Support Klipa" link)
+  built and tested the release bundle with `media-runtime-v1`, passed the
+  probe and packaged `KlipaPlayer-0.1.4.0-x64.msix` (57,121,711 bytes,
+  SHA-256 `f41558f8b1ba15d7910725699375ee8096565fc74d1817f3ad4d1d097bf7637e`).
+  A test-signed copy installed on `windows-latest`, started with zero TCP
   connections, played Big Buck Bunny for the listing screenshots, left no
-  package data after removal, and passed the Windows App
-  Certification Kit (overall PASS; its three optional tests, Debug
-  configuration, Archive files usage and Blocked executables, report FAIL
-  with no detail, and the package holds no archive, PDB or debug CRT).
+  package data after removal, and passed the Windows App Certification Kit
+  (overall PASS). Two optional tests report FAIL: Archive files usage, for
+  Flutter's `NOTICES.Z`, and Blocked executables, for references to
+  `CreateProcessW`, `ShellExecuteW` (opening klipa.tv in the browser) and
+  strings such as "cmd" in Flutter, ANGLE and libmpv. A third, Debug
+  configuration, failed on ANGLE's debug `zlib.dll` in runs 41597786817 and
+  41620878537, until `a8ddc11` left that DLL out.
 - Not verified: a Windows 10 or 11 client with a GPU (the runner is Windows
   Server and draws video in software), an upgrade from one MSIX to the next,
   Store certification, and a package with the real identity values.
