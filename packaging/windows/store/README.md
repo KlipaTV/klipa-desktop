@@ -88,7 +88,7 @@ for the user's own sources, like other players in the Store).
 | Violence, fear, sexuality, nudity, language, drugs, gambling in the product | No to each | The app's own interface has none of it and ships no content |
 | Users can interact or exchange content with other users | No | No chat, sharing or accounts |
 | Shares the user's location with other users | No | No location access |
-| Allows purchases of digital goods | No | No purchases on desktop (D-0009, D-0025 is only a proposal) |
+| Allows purchases of digital goods | No | No purchases in the app; "Support Klipa" only opens klipa.tv/support/ in the browser (D-0009, D-0025) |
 | Unrestricted internet access, such as a web browser | No | It plays only the addresses the user enters; it does not browse the web |
 
 Expected result: IARC 3+, PEGI 3, ESRB Everyone, USK 0. Before sending, open
@@ -111,3 +111,30 @@ Yes, answer Yes here too.
   suffix. The Store signs it after certification.
 - **Publishing:** "Publish this submission manually", so the klipa.tv change
   goes live the same day as the listing.
+
+## Steps left to the owner
+
+No agent signs in to Partner Center, GitHub settings or any account, so each
+of these is the owner's:
+
+1. Register a Microsoft Store developer account in Partner Center.
+2. Reserve the name "Klipa Player" (Apps and games > New product > MSIX or
+   PWA app).
+3. Copy Package/Identity/Name, Package/Identity/Publisher and
+   Package/Properties/PublisherDisplayName from Product management > Product
+   identity into `packaging/windows/msix/store-identity.json`, or pass them
+   as the `windows-release` dispatch inputs.
+4. Move the version past the last tag (`pubspec.yaml`, and
+   `packaging/windows/klipa-player.iss` with it), run `windows-release` from
+   `main` and take the MSIX from the artifact whose name has no
+   `PLACEHOLDER-IDENTITY` suffix, with the screenshots in its `smoke/` folder.
+5. Make `https://klipa.tv/privacy/#desktop` and `https://klipa.tv/support/`
+   live (klipa-web branches `feat/desktop-windows-store` and
+   `feat/support-page`; the support page needs the GitHub Sponsors profile).
+6. Fill the submission: the MSIX under Packages, the Properties and the age
+   ratings above, the listing of each of the eleven languages, the
+   screenshots with their caption, pricing and markets, and the
+   certification notes; declare the third-party donations if Partner Center
+   asks; choose "Publish this submission manually".
+7. After certification, publish, then deploy klipa-web's `/desktop/` with the
+   Store ID in place of every `MSSTORE-ID-PENDING`.

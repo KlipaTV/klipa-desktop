@@ -55,7 +55,7 @@ and bundles its license and provenance records.
 
 The vetted runtime is the GitHub release `media-runtime-v1`, a build input and
 not an app release. Its `windows-media-runtime.zip` comes from workflow run
-41506945975 at `dded8e6` (`libmpv-2.dll` SHA-256
+41506945975 at `dded8e6`, the commit the tag points to (`libmpv-2.dll` SHA-256
 `80c74bae1a0d158ceae7f04002a08929dc06126913c2a4a5d27a84da8303cfc8`).
 `third_party/windows-media/media-runtime-v1.sha256` pins the archive and the
 DLL, and `tool/fetch_windows_media.ps1` refuses a download that does not match.

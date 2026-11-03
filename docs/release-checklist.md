@@ -4,6 +4,56 @@ Nothing in this checklist authorizes publishing. Apart from the Linux
 releases recorded below, every artifact remains local until the owner explicitly
 approves a release destination and audience.
 
+## Status update: 2026-11-03, Windows through the Microsoft Store
+
+Windows ships as an MSIX through the Microsoft Store (D-0024). Nothing for
+Windows is published: the package below carries placeholder identity values
+and cannot be submitted.
+
+- The media runtime is the GitHub release `media-runtime-v1`, a build input
+  that is not marked latest. `windows-media-runtime.zip` (SHA-256
+  `091dc868570039ad5606d26af077fc75799366c15cfabc656930b90ddc12cb9f`) holds
+  `libmpv-2.dll` (SHA-256
+  `80c74bae1a0d158ceae7f04002a08929dc06126913c2a4a5d27a84da8303cfc8`), built
+  by run 41506945975 at `dded8e6` and pinned in
+  `third_party/windows-media/media-runtime-v1.sha256`. Its evidence was
+  reviewed: 41 imports, all Windows system libraries or the Universal CRT;
+  FFmpeg "LGPL version 3 or later" with TLS through Schannel; mpv
+  `-Dgpl=false`; no GPL package in the 53-package dependency closure; license
+  text for every compiled component; and a corresponding-source archive
+  (SHA-256 `2e658b6da50831a3d2ace8ed291179e24867ed3107a05e9c7a44ade87c6bd112`)
+  with the source of all 55 compiled components.
+- That review changed the profile: libarchive's LZO support, Little CMS's
+  fast_float and threaded plugins and FFmpeg's libzvbi teletext decoder were
+  GPL and are gone (DVB subtitles stay, teletext subtitles do not), and
+  FFmpeg's TLS moved from OpenSSL to Schannel.
+- With OpenSSL, or the mbedTLS of the pub package's DLL, FFmpeg has no CA
+  store on Windows, so with the player's `tls-verify=yes` every HTTPS stream
+  failed its handshake. `tool/probe_windows_libmpv.ps1` now gates every
+  Windows release on playing an HTTPS test stream with verification on.
+- `windows-release` run 41597786817 at `b3f15a3` (dispatched on
+  `feat/windows-store-msix`, placeholder identity) built and tested the
+  release bundle with `media-runtime-v1`, passed the probe and packaged
+  `KlipaPlayer-0.1.3.0-x64.msix` (57,200,574 bytes, SHA-256
+  `444777fe9595ed30875af35ea380afc17d6726a3671ef0324f4f7342f15d34df`). A
+  test-signed copy installed on `windows-latest`, started with zero TCP
+  connections, played Big Buck Bunny for the listing screenshots, left no
+  package data after removal, and passed the Windows App
+  Certification Kit (overall PASS; its three optional tests, Debug
+  configuration, Archive files usage and Blocked executables, report FAIL
+  with no detail, and the package holds no archive, PDB or debug CRT).
+- Not verified: a Windows 10 or 11 client with a GPU (the runner is Windows
+  Server and draws video in software), an upgrade from one MSIX to the next,
+  Store certification, and a package with the real identity values.
+- The MSIX takes its version from `pubspec.yaml`. 0.1.3 is the Linux release
+  cut from `cb418ca` (below), before the Store commits, so the version moves
+  past 0.1.3 before the first submission and one version keeps naming one
+  source tree.
+- The app's "Support Klipa" link opens `https://klipa.tv/support/` (D-0025):
+  that page must be live before any release built from a tree that has it.
+- The steps left to the owner in Partner Center are in
+  `packaging/windows/store/README.md`.
+
 ## Status update: 2026-11-03, v0.1.3
 
 Cut on 2026-11-03 with the owner's explicit approval, to ship one fix:
@@ -41,6 +91,7 @@ https sources were sent as cleartext HTTP to port 443 in 0.1.1 and 0.1.2
 - The package does carry its revision (`Source-Revision` and
   `/usr/share/doc/klipa-player/SOURCE_REVISION`, since the 2026-09-16 packager);
   the v0.1.2 notes saying it embeds no commit were wrong.
+||||||| parent of 47501aa (docs: record the Store path and what the owner still does)
 
 ## Status update: 2026-10-26, v0.1.2
 
@@ -489,7 +540,9 @@ and artifacts under `dist` are local and ignored by Git.
   by the absence of any AMD device (measured 2026-09-20). The media corpus and
   the per-vendor coverage are missing regardless.
 - Validate install, upgrade and zero-network clean launch on Windows 10/11.
-  There is no Windows host or VM here, and CI builds a bundle without doing it.
+  `windows-release` installs a test-signed MSIX on `windows-latest` (Windows
+  Server), starts it with zero TCP connections and removes it; a Windows 10
+  or 11 client and an upgrade between MSIX versions are still untested.
 - Validate install and upgrade on a real supported Debian/Ubuntu VM or machine.
   The 2026-09-20 status update below measures a private root filesystem built
   from each release's own archive, which is a different check.
@@ -509,13 +562,14 @@ and artifacts under `dist` are local and ignored by Git.
 
 ## Owner-provided release inputs
 
-- Windows release signing runs through SignPath in CI (see
-  `docs/code-signing-policy.md`): the `SIGNPATH_API_TOKEN` and
-  `SIGNPATH_ORGANIZATION_ID` repository secrets must be set, and every
-  signing request needs the maintainer's manual approval in the SignPath
-  web UI. A locally installed certificate thumbprint plus an approved HTTPS
-  RFC 3161 timestamp URL remain an optional path for local, non-release
-  packaging only.
+- Windows ships through the Microsoft Store, which signs the MSIX after
+  certification. The owner's Partner Center account, the reserved name and
+  its identity values (`packaging/windows/msix/store-identity.json`) are the
+  inputs; `packaging/windows/store/README.md` lists the steps. The SignPath
+  job (`docs/code-signing-policy.md`) stays off (`vars.SIGNPATH_ENABLED`) for
+  a possible direct download later. A locally installed certificate
+  thumbprint plus an approved HTTPS RFC 3161 timestamp URL remain an optional
+  path for local, non-release packaging only.
 - Optional Linux signing-key fingerprint and, if using APT, a separately signed
   repository-metadata workflow.
 - `hello@klipa.tv` is the monitored private security and package contact.
@@ -526,10 +580,13 @@ and artifacts under `dist` are local and ignored by Git.
 ## Windows media runtime gate
 
 - Build `libmpv-2.dll` with `tool/build_windows_media.sh --archive-source`.
-- Confirm mpv GPL mode is disabled; FFmpeg is LGPLv3-compatible; GPL, nonfree,
-  Vulkan, and unused scripting/plugin branches are absent from the profile.
+- Confirm mpv GPL mode is disabled; FFmpeg is LGPLv3-compatible with TLS
+  through Schannel; GPL, nonfree, the Vulkan loader, and unused
+  scripting/plugin branches are absent from the profile, and
+  `lgpl-graph.txt` lists no GPL package in mpv's dependency closure.
 - Verify the staged SHA-256 files, PE import inventory, source revisions,
   licenses, toolchain versions, and corresponding-source archive.
 - Build and test the release bundle through `tool/build_windows.ps1`; it must
   reject a missing or hash-mismatched vetted runtime.
-- Preserve the source archive with the signed installer and portable ZIP.
+- Keep the corresponding-source archive in the runtime's release
+  (`media-runtime-v<n>`) for as long as any distributed MSIX ships that DLL.

@@ -98,8 +98,9 @@ Short store description:
   or extensions in v1.
 - Background services, a resident tray process, an embedded browser, or an
   always-running updater.
-- Monetization, ads, premium tiers, donations in the UI, or sponsored links at
-  launch.
+- Monetization, ads, premium tiers, payments in the UI, or sponsored links at
+  launch. The one optional "Support Klipa" link to `klipa.tv/support/` is
+  allowed (D-0025, `docs/product.md`).
 
 ## 3. Audience and primary journeys
 
