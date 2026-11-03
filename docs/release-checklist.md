@@ -4,6 +4,44 @@ Nothing in this checklist authorizes publishing. Apart from the Linux
 releases recorded below, every artifact remains local until the owner explicitly
 approves a release destination and audience.
 
+## Status update: 2026-11-03, v0.1.3
+
+Cut on 2026-11-03 with the owner's explicit approval, to ship one fix:
+https sources were sent as cleartext HTTP to port 443 in 0.1.1 and 0.1.2
+(`d9819bb` on the Windows branch, cherry-picked to `main` as `1ec57b2`).
+
+- Tag `v0.1.3` (annotated, unsigned) resolves to
+  `cb418caf1f485dd7807c536538d00833ee98ac03`, the `main` HEAD it was cut from.
+  CI passed on that commit on `windows-latest` (analyze, Windows release build,
+  tests).
+- The GitHub release "Klipa Player 0.1.3 (Linux amd64)" is published and is the
+  latest. Assets: `klipa-player_0.1.3-1_amd64.deb` (9,925,536 bytes, SHA-256
+  `d9a55d1e2a9de4ee48ead87aa18ff31de1cdc511f5c3e0243d06e73cae0d4f76`),
+  `SHA256SUMS.txt`, `sbom-source.cdx.json` (syft 1.51.1, 139 components) and
+  `THIRD_PARTY_NOTICES.md` (unchanged).
+- klipa.tv serves the same bytes at
+  `/downloads/desktop/klipa-player_0.1.3-1_amd64.deb`. The 0.1.1 and 0.1.2
+  packages stay served for links already published, and the site's
+  `SHA256SUMS.txt` lists all three. The site's `THIRD_PARTY_NOTICES.txt` is
+  unchanged: the 0.1.3 bundle's Flutter `NOTICES` is byte-identical to 0.1.2's.
+- Gates run: format, analyze and `flutter test` (151 passed, 3 skipped as
+  Windows-only), a download of two live https playlists (klipa.tv and
+  raw.githubusercontent.com) through `BoundedHttpClient` from the release
+  commit, `flutter build linux --release`, `tool/package_linux.sh`
+  (`SOURCE_DATE_EPOCH` 1793691169, from the commit), install, start (6 s, zero
+  TCP connections) and removal as root in throwaway Ubuntu 24.04 and Debian 13
+  containers, and grype 0.121.1 over the source SBOM (no findings).
+- Not run: the parser fuzz (no parser changed), `tool/validate_linux_install.sh`,
+  the GPU media matrix and a Wayland session.
+- The tag started `windows-release` (run 41599519799). With `media-runtime-v1`
+  now published it staged the runtime and built the Windows bundle, then stopped
+  at "Submit application signing request to SignPath": the repository has no
+  SignPath secrets. Nothing for Windows was signed or
+  published.
+- The package does carry its revision (`Source-Revision` and
+  `/usr/share/doc/klipa-player/SOURCE_REVISION`, since the 2026-09-16 packager);
+  the v0.1.2 notes saying it embeds no commit were wrong.
+
 ## Status update: 2026-10-26, v0.1.2
 
 Cut on 2026-10-26 with the owner's explicit approval.
