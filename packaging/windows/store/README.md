@@ -124,10 +124,11 @@ of these is the owner's:
    Package/Properties/PublisherDisplayName from Product management > Product
    identity into `packaging/windows/msix/store-identity.json`, or pass them
    as the `windows-release` dispatch inputs.
-4. Move the version past the last tag (`pubspec.yaml`, and
-   `packaging/windows/klipa-player.iss` with it), run `windows-release` from
-   `main` and take the MSIX from the artifact whose name has no
-   `PLACEHOLDER-IDENTITY` suffix, with the screenshots in its `smoke/` folder.
+4. Run `windows-release` from `main` (Actions > windows-release > Run
+   workflow; no tag is needed) and take the MSIX from the artifact whose name
+   has no `PLACEHOLDER-IDENTITY` suffix, with the screenshots in its `smoke/`
+   folder. 0.1.4 is the first Store version; each later submission moves
+   `pubspec.yaml` and `packaging/windows/klipa-player.iss` past the last one.
 5. Make `https://klipa.tv/privacy/#desktop` and `https://klipa.tv/support/`
    live (klipa-web branches `feat/desktop-windows-store` and
    `feat/support-page`; the support page needs the GitHub Sponsors profile).

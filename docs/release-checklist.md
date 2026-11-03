@@ -46,9 +46,10 @@ and cannot be submitted.
   Server and draws video in software), an upgrade from one MSIX to the next,
   Store certification, and a package with the real identity values.
 - The MSIX takes its version from `pubspec.yaml`. 0.1.3 is the Linux release
-  cut from `cb418ca` (below), before the Store commits, so the version moves
-  past 0.1.3 before the first submission and one version keeps naming one
-  source tree.
+  cut from `cb418ca` (below), before the Store commits, so the first Store
+  version is 0.1.4 (`0.1.4.0` in the package) and one version keeps naming
+  one source tree: a Linux 0.1.4, if one is cut, comes from the commit the
+  submitted MSIX was built from.
 - The app's "Support Klipa" link opens `https://klipa.tv/support/` (D-0025):
   that page must be live before any release built from a tree that has it.
 - The steps left to the owner in Partner Center are in
