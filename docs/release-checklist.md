@@ -50,8 +50,10 @@ and cannot be submitted.
   version is 0.1.4 (`0.1.4.0` in the package) and one version keeps naming
   one source tree: a Linux 0.1.4, if one is cut, comes from the commit the
   submitted MSIX was built from.
-- The app's "Support Klipa" link opens `https://klipa.tv/support/` (D-0025):
-  that page must be live before any release built from a tree that has it.
+- The "Support Klipa" link (D-0025) is out of the app until
+  `https://klipa.tv/support/` is live (GitHub Sponsors is under review):
+  reverting the commit that took it out brings it back, and that page must be
+  live before any release built from a tree that has it.
 - The steps left to the owner in Partner Center are in
   `packaging/windows/store/README.md`.
 

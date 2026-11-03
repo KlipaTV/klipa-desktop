@@ -50,4 +50,4 @@ or playback overlay may promote the mobile app.
 Optional support follows the same rule. One "Support Klipa" footer link (and
 its compact rail button) opens `https://klipa.tv/support/` in the browser.
 Paying unlocks nothing, the app never asks or reminds, and no payment happens
-inside the app.
+inside the app. The link stays out of the app until that page is live.

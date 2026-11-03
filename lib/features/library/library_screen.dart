@@ -442,23 +442,12 @@ class _SourceRail extends StatelessWidget {
       ),
       Padding(
         padding: const EdgeInsets.fromLTRB(8, 1, 8, 8),
-        child: Column(
-          children: [
-            _FooterLink(
-              key: const Key('open-klipa-website-expanded'),
-              tooltip: 'Open klipa.tv in your browser',
-              icon: Icons.phone_android_rounded,
-              label: 'Klipa on phone & TV',
-              onTap: () => _openKlipaPage(context, _klipaWebsite),
-            ),
-            _FooterLink(
-              key: const Key('support-klipa-expanded'),
-              tooltip: 'Open the support page on klipa.tv',
-              icon: Icons.favorite_border_rounded,
-              label: 'Support Klipa',
-              onTap: () => _openKlipaPage(context, _supportPage),
-            ),
-          ],
+        child: _FooterLink(
+          key: const Key('open-klipa-website-expanded'),
+          tooltip: 'Open klipa.tv in your browser',
+          icon: Icons.phone_android_rounded,
+          label: 'Klipa on phone & TV',
+          onTap: () => _openKlipaPage(context, _klipaWebsite),
         ),
       ),
     ],
@@ -503,12 +492,6 @@ class _SourceRail extends StatelessWidget {
         tooltip: 'Open klipa.tv for phone & TV',
         icon: Icons.phone_android_rounded,
         onPressed: () => _openKlipaPage(context, _klipaWebsite),
-      ),
-      _RailButton(
-        key: const Key('support-klipa-compact'),
-        tooltip: 'Support Klipa',
-        icon: Icons.favorite_border_rounded,
-        onPressed: () => _openKlipaPage(context, _supportPage),
       ),
       const SizedBox(height: 8),
     ],
@@ -1346,10 +1329,6 @@ class _NoticeState extends State<_Notice> with SingleTickerProviderStateMixin {
 }
 
 final _klipaWebsite = Uri.parse('https://klipa.tv');
-
-// Optional support; it unlocks nothing. The interface is English, so the
-// page is the English one.
-final _supportPage = Uri.parse('https://klipa.tv/support/');
 
 Future<void> _openKlipaPage(BuildContext context, Uri page) async {
   var opened = false;

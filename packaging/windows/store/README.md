@@ -88,7 +88,7 @@ for the user's own sources, like other players in the Store).
 | Violence, fear, sexuality, nudity, language, drugs, gambling in the product | No to each | The app's own interface has none of it and ships no content |
 | Users can interact or exchange content with other users | No | No chat, sharing or accounts |
 | Shares the user's location with other users | No | No location access |
-| Allows purchases of digital goods | No | No purchases in the app; "Support Klipa" only opens klipa.tv/support/ in the browser (D-0009, D-0025) |
+| Allows purchases of digital goods | No | No purchases in the app and no link to a payment (D-0009) |
 | Unrestricted internet access, such as a web browser | No | It plays only the addresses the user enters; it does not browse the web |
 
 Expected result: IARC 3+, PEGI 3, ESRB Everyone, USK 0. Before sending, open
@@ -99,13 +99,9 @@ Yes, answer Yes here too.
 ## Pricing, markets and publishing
 
 - **Pricing:** Free. **Markets:** the owner's choice (all markets by default).
-- **In-app offers:** none through the Store. The app's "Support Klipa" link
-  opens `https://klipa.tv/support/` (GitHub Sponsors) in the browser and
-  unlocks nothing. Store Policy 10.8.2 (text of 2026-09-15) allows voluntary
-  donations through a secure third-party payment and asks for that use to be
-  noted during submission: the certification notes say it, and if Partner
-  Center asks about third-party payments, declare it there too. The support
-  page must be live before the submission, or the tester meets a dead link.
+- **In-app offers:** none. The app has no purchase, donation or support
+  link: the "Support Klipa" link of D-0025 stays out until
+  `https://klipa.tv/support/` is live.
 - **Packages:** the unsigned `KlipaPlayer-<version>-x64.msix` from a green
   `windows-release` run whose artifact name has no `PLACEHOLDER-IDENTITY`
   suffix. The Store signs it after certification.
@@ -129,13 +125,11 @@ of these is the owner's:
    has no `PLACEHOLDER-IDENTITY` suffix, with the screenshots in its `smoke/`
    folder. 0.1.4 is the first Store version; each later submission moves
    `pubspec.yaml` and `packaging/windows/klipa-player.iss` past the last one.
-5. Make `https://klipa.tv/privacy/#desktop` and `https://klipa.tv/support/`
-   live (klipa-web branches `feat/desktop-windows-store` and
-   `feat/support-page`; the support page needs the GitHub Sponsors profile).
+5. Make `https://klipa.tv/privacy/#desktop` live (the privacy commit of
+   klipa-web branch `feat/desktop-windows-store`).
 6. Fill the submission: the MSIX under Packages, the Properties and the age
    ratings above, the listing of each of the eleven languages, the
    screenshots with their caption, pricing and markets, and the
-   certification notes; declare the third-party donations if Partner Center
-   asks; choose "Publish this submission manually".
+   certification notes; choose "Publish this submission manually".
 7. After certification, publish, then deploy klipa-web's `/desktop/` with the
    Store ID in place of every `MSSTORE-ID-PENDING`.

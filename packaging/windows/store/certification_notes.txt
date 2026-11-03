@@ -6,8 +6,6 @@ To test playback:
    It lists four open test streams (Big Buck Bunny from Mux, Tears of Steel from Unified Streaming and Apple's HLS reference streams). The public sample playlist https://klipa.tv/tools/api/sample-m3u works too.
 3. Select a channel to play it. F or F11 toggles full screen, Esc leaves it, and Up/Down or Page Up/Page Down change channel.
 
-"Support Klipa" opens https://klipa.tv/support/ in the browser: optional donations through GitHub Sponsors, a secure third-party payment (Store Policy 10.8.2). Paying unlocks or changes nothing in the app, and the app never asks for it.
-
 The app makes no network request when it starts and installs no background service; it only contacts the addresses the user adds. The interface is in English.
 
 Source code: https://github.com/KlipaTV/klipa-desktop

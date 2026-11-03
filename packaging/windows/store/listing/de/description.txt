@@ -17,8 +17,6 @@ Bleibt auf deinem PC
 Open Source
 Klipa Player ist freie Software unter der GNU LGPL 3.0 oder neuer. Quellcode, der Build seiner Media-Engine (mpv und FFmpeg) und der Issue-Tracker liegen auf GitHub: https://github.com/KlipaTV/klipa-desktop
 
-Unterstützung ist optional: „Support Klipa“ in der App öffnet klipa.tv in deinem Browser, wo GitHub die Zahlung abwickelt. Wer zahlt, bekommt in der App nichts zusätzlich.
-
 Die Oberfläche ist auf Englisch.
 
 Du schaust auf dem Handy oder Fernseher? Klipa gibt es auch für Android und Android TV.

@@ -17,8 +17,6 @@ Klipa Player مشغّل IPTV خفيف لنظام Windows. افتح قائمة ت
 مفتوح المصدر
 Klipa Player برمجية حرة برخصة GNU LGPL 3.0 أو أي إصدار لاحق. الكود المصدري وبناء محرك الوسائط (mpv وFFmpeg) ومتتبّع المشكلات موجودة على GitHub: https://github.com/KlipaTV/klipa-desktop
 
-الدعم اختياري: يفتح «Support Klipa» في التطبيق موقع klipa.tv في متصفحك، حيث يتولى GitHub الدفع. والدفع لا يفتح أي ميزة.
-
 الواجهة باللغة الإنجليزية.
 
 تشاهد على الهاتف أو التلفاز؟ Klipa متاح أيضًا على Android وAndroid TV.
