@@ -48,8 +48,11 @@ Center then offers an English listing; the other ten are added with
 the interface is in English.
 
 Fields that are the same in every language: **Product name** is the reserved
-name (`displayName` in `../msix/store-identity.json`), **Developed by** is
-`Klipa Project`.
+name (`displayName` in `../msix/store-identity.json`). The Store shows the
+account's publisher display name, "Klipa Player", which the manifest's
+`PublisherDisplayName` must equal (`publisherDisplayName` in the same file).
+**Developed by** is a free field: `Klipa Project`, the copyright holder in
+`copyright.txt`, or blank to show the publisher display name.
 
 **Screenshots:** every `store-msix` run saves `store-01-library.png` and
 `store-02-full-screen.png` (1920 x 1080) in the artifact's `smoke/` folder:

@@ -1,7 +1,7 @@
 {
   "_doc": "Microsoft Store identity of the MSIX package. identityName, publisher and publisherDisplayName are copied from Partner Center (Product management > Product identity) once the app name is reserved; displayName must be that reserved name. Values containing PLACEHOLDER are not real: tool/package_msix.ps1 refuses them unless -AllowPlaceholderIdentity is passed, and such a package cannot be submitted.",
-  "identityName": "PLACEHOLDER.KlipaPlayer",
-  "publisher": "CN=PLACEHOLDER-PARTNER-CENTER-PUBLISHER",
-  "publisherDisplayName": "PLACEHOLDER Klipa Project",
+  "identityName": "KlipaPlayer.KlipaPlayer",
+  "publisher": "CN=785DBEC0-8C8A-4A32-98B9-B557264BD63D",
+  "publisherDisplayName": "Klipa Player",
   "displayName": "Klipa Player"
 }
