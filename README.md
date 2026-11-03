@@ -46,9 +46,9 @@ Public source, pre-release candidate (one tagged Linux release exists; see the
   are implemented
 - Runtime networking has no Klipa service dependency: install and startup make
   no Klipa request, and provider data is never routed through Klipa
-- Confirmed reset and missing/corrupt-key recovery are wired; external
-  distribution and signing gates are automated in the GitHub Actions release
-  workflow, with no signing certificate active yet (see
+- Confirmed reset and missing/corrupt-key recovery are wired; the Windows
+  release workflow builds an unsigned MSIX for the Microsoft Store, which signs
+  Store packages after certification (see
   [Code signing policy](docs/code-signing-policy.md))
 - Native Windows debug build, DPAPI, encrypted database and libmpv smoke tests pass
 - Native release build and an authorized private MPEG-TS playback smoke pass
@@ -62,9 +62,9 @@ Public source, pre-release candidate (one tagged Linux release exists; see the
   and versions, license notices, and a high/critical vulnerability gate
 - Deterministic release fuzzing covers M3U, XMLTV, and Xtream inputs; optional
   Windows Authenticode and Linux detached-signature paths keep keys external
-- Public source at https://github.com/KlipaTV/klipa-desktop; the Windows release
-  workflow is built to publish signed releases from tagged commits, and no
-  signed Windows build has been published because no certificate is active
+- Public source at https://github.com/KlipaTV/klipa-desktop; Windows ships
+  through the Microsoft Store (listing text in `packaging/windows/store/`), and
+  no Windows build is offered for direct download
 
 The Windows toolchain uses Flutter 3.44.6 stable, Visual Studio Build Tools
 2022, the Desktop development with C++ workload, and Windows SDK 10.0.26100.
