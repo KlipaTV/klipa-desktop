@@ -50,93 +50,153 @@ class PlaybackControlBar extends StatelessWidget {
   final bool showStatus;
 
   @override
-  Widget build(BuildContext context) => Container(
-    height: 68,
-    padding: const EdgeInsets.symmetric(horizontal: 20),
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Colors.transparent, Colors.black.withValues(alpha: 0.92)],
+  Widget build(BuildContext context) {
+    final isWarning = buffering || reconnecting;
+    final statusColor = isWarning ? KlipaColors.warning : KlipaColors.live;
+    final statusLabel = reconnecting
+        ? 'RECONNECTING'
+        : buffering
+        ? 'BUFFERING'
+        : 'LIVE';
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.78)],
+        ),
       ),
-    ),
-    child: Row(
-      children: [
-        IconButton(
-          tooltip: playing ? 'Pause' : 'Play',
-          onPressed: onPlayPause,
-          icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
-        ),
-        if (showStatus) ...[
-          const SizedBox(width: 8),
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              color: buffering || reconnecting
-                  ? KlipaColors.warning
-                  : KlipaColors.live,
-              shape: BoxShape.circle,
+      child: Container(
+        height: 58,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: KlipaColors.inkRaised.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: KlipaColors.borderStrong),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x66000000),
+              blurRadius: 24,
+              offset: Offset(0, 8),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            reconnecting
-                ? 'RECONNECTING'
-                : buffering
-                ? 'BUFFERING'
-                : 'LIVE',
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
-          ),
-        ],
-        const SizedBox(width: 16),
-        Expanded(
-          child: Text(
-            channelName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
+          ],
         ),
-        IconButton(
-          tooltip: fit == BoxFit.contain ? 'Fill video' : 'Fit video',
-          onPressed: onFitChanged,
-          icon: Icon(
-            fit == BoxFit.contain
-                ? Icons.fit_screen_rounded
-                : Icons.fullscreen_exit_rounded,
-          ),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: playing ? 'Pause' : 'Play',
+              onPressed: onPlayPause,
+              icon: Icon(
+                playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                color: KlipaColors.foreground,
+              ),
+            ),
+            if (showStatus) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: statusColor.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: statusColor.withValues(alpha: 0.55),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      statusLabel,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.7,
+                        color: isWarning
+                            ? KlipaColors.warning
+                            : KlipaColors.foreground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                channelName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: KlipaColors.foreground,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: fit == BoxFit.contain ? 'Fill video' : 'Fit video',
+              onPressed: onFitChanged,
+              icon: Icon(
+                fit == BoxFit.contain
+                    ? Icons.fit_screen_rounded
+                    : Icons.fullscreen_exit_rounded,
+                size: 20,
+                color: KlipaColors.foregroundMuted,
+              ),
+            ),
+            IconButton(
+              tooltip: fullscreen ? 'Exit full screen' : 'Enter full screen',
+              onPressed: onFullscreenChanged,
+              icon: Icon(
+                fullscreen
+                    ? Icons.fullscreen_exit_rounded
+                    : Icons.fullscreen_rounded,
+                size: 21,
+                color: KlipaColors.foregroundMuted,
+              ),
+            ),
+            IconButton(
+              tooltip: muted ? 'Unmute' : 'Mute',
+              onPressed: onMute,
+              icon: Icon(
+                muted || volume == 0
+                    ? Icons.volume_off_rounded
+                    : Icons.volume_up_rounded,
+                size: 20,
+                color: KlipaColors.foregroundMuted,
+              ),
+            ),
+            SizedBox(
+              width: 104,
+              child: Slider(
+                value: volume.clamp(0, 100),
+                max: 100,
+                divisions: 20,
+                label: '${volume.round()}%',
+                onChanged: onVolumeChanged,
+                semanticFormatterCallback: (value) =>
+                    '${value.round()} percent',
+              ),
+            ),
+          ],
         ),
-        IconButton(
-          tooltip: fullscreen ? 'Exit full screen' : 'Enter full screen',
-          onPressed: onFullscreenChanged,
-          icon: Icon(
-            fullscreen
-                ? Icons.fullscreen_exit_rounded
-                : Icons.fullscreen_rounded,
-          ),
-        ),
-        IconButton(
-          tooltip: muted ? 'Unmute' : 'Mute',
-          onPressed: onMute,
-          icon: Icon(
-            muted || volume == 0
-                ? Icons.volume_off_rounded
-                : Icons.volume_up_rounded,
-          ),
-        ),
-        SizedBox(
-          width: 104,
-          child: Slider(
-            value: volume.clamp(0, 100),
-            max: 100,
-            divisions: 20,
-            label: '${volume.round()}%',
-            onChanged: onVolumeChanged,
-            semanticFormatterCallback: (value) => '${value.round()} percent',
-          ),
-        ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }

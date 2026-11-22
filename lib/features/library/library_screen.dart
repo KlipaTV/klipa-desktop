@@ -69,12 +69,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           body: Stack(
             children: [
               if (state.isLoading)
-                const Center(
-                  child: CircularProgressIndicator(
-                    key: Key('library-loading'),
-                    strokeWidth: 2,
-                  ),
-                )
+                const _DesktopLoadingSkeleton(key: Key('library-loading'))
               else if (state.channels.isEmpty)
                 _Onboarding(
                   actions: actions,
@@ -177,59 +172,85 @@ class _Onboarding extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
     child: SingleChildScrollView(
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720),
+        constraints: const BoxConstraints(maxWidth: 460),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const _BrandMark(size: 62),
-            const SizedBox(height: 24),
+            const Center(child: _BrandMark(size: 48)),
+            const SizedBox(height: 18),
             Text(
               'Your channels. Nothing else.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.displaySmall,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             const Text(
               'A lightweight desktop player from Klipa. Add a playlist '
               'you are authorized to use; Klipa does not provide content.',
               textAlign: TextAlign.center,
               style: TextStyle(color: KlipaColors.foregroundDim, height: 1.5),
             ),
-            const SizedBox(height: 36),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              alignment: WrapAlignment.center,
-              children: [
-                SizedBox(
-                  width: 210,
-                  child: FilledButton.icon(
-                    key: const Key('add-playlist-url'),
-                    onPressed: actions.addPlaylistUrl,
-                    icon: const Icon(Icons.link_rounded),
-                    label: const Text('Add playlist URL'),
+            if (recoveryRequired) ...[
+              const SizedBox(height: 16),
+              Center(
+                child: OutlinedButton.icon(
+                  key: const Key('recover-reset-app-data'),
+                  onPressed: onReset,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  label: const Text('Reset app data'),
+                ),
+              ),
+            ],
+            const SizedBox(height: 24),
+            _OnboardingOptionCard(
+              key: const Key('add-xtream-login'),
+              icon: Icons.person_rounded,
+              accent: true,
+              title: 'Account',
+              subtitle: 'Xtream · username & password',
+              onTap: actions.useXtreamLogin,
+            ),
+            const SizedBox(height: 10),
+            _OnboardingOptionCard(
+              key: const Key('add-playlist-url'),
+              icon: Icons.link_rounded,
+              title: 'M3U URL',
+              subtitle: '.m3u or .m3u8 link',
+              onTap: actions.addPlaylistUrl,
+              trailing: Tooltip(
+                message: 'Paste',
+                child: Semantics(
+                  button: true,
+                  label: 'Paste',
+                  child: Material(
+                    color: KlipaColors.tallyFill,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      key: const Key('paste-playlist-url'),
+                      customBorder: const CircleBorder(),
+                      onTap: actions.pastePlaylistUrl,
+                      child: const SizedBox.square(
+                        dimension: 40,
+                        child: Icon(
+                          Icons.content_paste_rounded,
+                          size: 19,
+                          color: KlipaColors.onTally,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                SizedBox(
-                  width: 210,
-                  child: OutlinedButton.icon(
-                    key: const Key('open-local-playlist'),
-                    onPressed: actions.openLocalPlaylist,
-                    icon: const Icon(Icons.folder_open_rounded),
-                    label: const Text('Open local M3U'),
-                  ),
-                ),
-                SizedBox(
-                  width: 210,
-                  child: OutlinedButton.icon(
-                    key: const Key('add-xtream-login'),
-                    onPressed: actions.useXtreamLogin,
-                    icon: const Icon(Icons.key_rounded),
-                    label: const Text('Use Xtream login'),
-                  ),
-                ),
-              ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            _OnboardingOptionCard(
+              key: const Key('open-local-playlist'),
+              icon: Icons.description_rounded,
+              title: 'File',
+              subtitle: 'Open a local .m3u or .m3u8 file',
+              onTap: actions.openLocalPlaylist,
             ),
             const SizedBox(height: 20),
             const Row(
@@ -252,18 +273,181 @@ class _Onboarding extends StatelessWidget {
                 ),
               ],
             ),
-            if (recoveryRequired) ...[
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                key: const Key('recover-reset-app-data'),
-                onPressed: onReset,
-                icon: const Icon(Icons.delete_outline_rounded),
-                label: const Text('Reset app data'),
-              ),
-            ],
           ],
         ),
       ),
+    ),
+  );
+}
+
+class _OnboardingOptionCard extends StatelessWidget {
+  const _OnboardingOptionCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.accent = false,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+  final bool accent;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: KlipaColors.inkRaised,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(KlipaRadius.card),
+      side: const BorderSide(color: KlipaColors.borderStrong),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      hoverColor: KlipaColors.inkHover,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: accent ? KlipaColors.tallySoft : KlipaColors.inkSurface,
+                borderRadius: BorderRadius.circular(KlipaRadius.control),
+              ),
+              child: Icon(
+                icon,
+                size: 22,
+                color: accent ? KlipaColors.tally : KlipaColors.foreground,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: KlipaColors.foreground,
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: KlipaColors.foregroundDim,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            trailing ??
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 22,
+                  color: KlipaColors.foregroundDim,
+                ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _DesktopLoadingSkeleton extends StatelessWidget {
+  const _DesktopLoadingSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) => DesktopSkeletonSheen(
+    child: Row(
+      children: [
+        Container(
+          width: 72,
+          color: KlipaColors.inkRaised,
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: Column(
+            children: [
+              _skeletonBox(width: 36, height: 36, radius: 10),
+              const SizedBox(height: 24),
+              for (var i = 0; i < 4; i++) ...[
+                _skeletonBox(width: 36, height: 36, radius: 10),
+                const SizedBox(height: 12),
+              ],
+            ],
+          ),
+        ),
+        Container(
+          width: 320,
+          decoration: const BoxDecoration(
+            color: KlipaColors.ink,
+            border: Border(
+              left: BorderSide(color: KlipaColors.border),
+              right: BorderSide(color: KlipaColors.border),
+            ),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _skeletonBox(width: double.infinity, height: 40, radius: 12),
+              const SizedBox(height: 16),
+              for (var i = 0; i < 8; i++) ...[
+                Row(
+                  children: [
+                    _skeletonBox(width: 38, height: 38, radius: 10),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _skeletonBox(
+                            width: i.isEven ? 150 : 120,
+                            height: 12,
+                            radius: 6,
+                          ),
+                          const SizedBox(height: 6),
+                          _skeletonBox(
+                            width: i.isEven ? 96 : 112,
+                            height: 9,
+                            radius: 5,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+              ],
+            ],
+          ),
+        ),
+        Expanded(
+          child: Center(child: _skeletonBox(width: 180, height: 14, radius: 6)),
+        ),
+      ],
+    ),
+  );
+
+  static Widget _skeletonBox({
+    required double width,
+    required double height,
+    required double radius,
+  }) => Container(
+    width: width,
+    height: height,
+    decoration: BoxDecoration(
+      color: KlipaColors.inkSurface,
+      borderRadius: BorderRadius.circular(radius),
     ),
   );
 }
@@ -544,6 +728,9 @@ class _LibraryActions {
        addPlaylistUrl = enabled
            ? (() => unawaited(_showUrlDialog(context, controller)))
            : null,
+       pastePlaylistUrl = enabled
+           ? (() => unawaited(_pasteAndShowUrlDialog(context, controller)))
+           : null,
        useXtreamLogin = enabled
            ? (() => unawaited(_showXtreamDialog(context, controller)))
            : null,
@@ -551,6 +738,7 @@ class _LibraryActions {
 
   final VoidCallback? openLocalPlaylist;
   final VoidCallback? addPlaylistUrl;
+  final VoidCallback? pastePlaylistUrl;
   final VoidCallback? useXtreamLogin;
   final VoidCallback? resetAppData;
 }
@@ -1089,10 +1277,16 @@ class _ChannelTile extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
     child: Material(
       color: selected ? KlipaColors.inkHover : Colors.transparent,
-      borderRadius: BorderRadius.circular(7),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(KlipaRadius.control),
+        side: BorderSide(
+          color: selected ? KlipaColors.borderStrong : Colors.transparent,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(KlipaRadius.control),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Row(
@@ -1105,7 +1299,7 @@ class _ChannelTile extends StatelessWidget {
                   color: selected
                       ? KlipaColors.foreground.withValues(alpha: 0.14)
                       : KlipaColors.inkRaised,
-                  borderRadius: BorderRadius.circular(7),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: KlipaColors.border),
                 ),
                 child: Text(
@@ -1191,27 +1385,29 @@ class _OperationOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ColoredBox(
-    color: const Color(0x66000000),
+    color: const Color(0x78000000),
     child: Center(
       child: Material(
         elevation: 12,
         color: KlipaColors.inkRaised,
-        borderRadius: BorderRadius.circular(10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(KlipaRadius.card),
+          side: const BorderSide(color: KlipaColors.borderStrong),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              const DesktopTallyLoader(size: 22),
               const SizedBox(width: 14),
               Text(
                 message,
                 key: const Key('operation-message'),
-                style: const TextStyle(fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  color: KlipaColors.foreground,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -1507,13 +1703,31 @@ Future<void> _showLocalPlaylistWarning(
   if (confirmed == true) await controller.importFile();
 }
 
-Future<void> _showUrlDialog(
+Future<void> _pasteAndShowUrlDialog(
   BuildContext context,
   LibraryController controller,
 ) async {
+  final data = await Clipboard.getData(Clipboard.kTextPlain);
+  final text = data?.text?.trim() ?? '';
+  final uri = Uri.tryParse(text);
+  final initialUrl =
+      uri != null &&
+          (uri.scheme == 'http' || uri.scheme == 'https') &&
+          uri.host.isNotEmpty
+      ? text
+      : null;
+  if (!context.mounted) return;
+  await _showUrlDialog(context, controller, initialUrl: initialUrl);
+}
+
+Future<void> _showUrlDialog(
+  BuildContext context,
+  LibraryController controller, {
+  String? initialUrl,
+}) async {
   final request = await showDialog<_UrlImportRequest>(
     context: context,
-    builder: (context) => const _UrlImportDialog(),
+    builder: (context) => _UrlImportDialog(initialUrl: initialUrl),
   );
   if (request == null) return;
   await controller.importUrl(
@@ -1553,14 +1767,16 @@ class _UrlImportRequest {
 }
 
 class _UrlImportDialog extends StatefulWidget {
-  const _UrlImportDialog();
+  const _UrlImportDialog({this.initialUrl});
+
+  final String? initialUrl;
 
   @override
   State<_UrlImportDialog> createState() => _UrlImportDialogState();
 }
 
 class _UrlImportDialogState extends State<_UrlImportDialog> {
-  final _controller = TextEditingController();
+  late final _controller = TextEditingController(text: widget.initialUrl ?? '');
   final _guideController = TextEditingController();
   var _allowPrivateNetwork = false;
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:klipa_player_windows/app/app_theme.dart';
 import 'package:klipa_player_windows/app/klipa_player_app.dart';
 import 'package:klipa_player_windows/data/library_store.dart';
 import 'package:klipa_player_windows/domain/channel.dart';
@@ -18,9 +19,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Your channels. Nothing else.'), findsOneWidget);
-    expect(find.text('Add playlist URL'), findsOneWidget);
-    expect(find.text('Use Xtream login'), findsOneWidget);
-    expect(find.text('Open local M3U'), findsOneWidget);
+    expect(find.text('Account'), findsOneWidget);
+    expect(find.textContaining('Xtream'), findsOneWidget);
+    expect(find.text('M3U URL'), findsOneWidget);
+    expect(find.text('File'), findsOneWidget);
+    expect(find.byKey(const Key('paste-playlist-url')), findsOneWidget);
+    expect(find.text('Paste'), findsNothing);
     expect(find.textContaining('does not provide content'), findsOneWidget);
     expect(find.textContaining('No telemetry is sent'), findsOneWidget);
   });
@@ -39,7 +43,7 @@ void main() {
       ),
     );
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(DesktopTallyLoader), findsOneWidget);
     expect(find.text('Signing in and importing channels…'), findsOneWidget);
   });
 

@@ -685,8 +685,33 @@ class _PlayerPaneState extends State<PlayerPane> {
                       child: player.buildView(fit: _fit),
                     ),
                   if (_player == null || _opening)
-                    const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: KlipaColors.inkRaised.withValues(alpha: 0.92),
+                          borderRadius: BorderRadius.circular(KlipaRadius.card),
+                          border: Border.all(color: KlipaColors.borderStrong),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const DesktopTallyLoader(size: 18),
+                            const SizedBox(width: 12),
+                            Text(
+                              _reconnecting ? 'Reconnecting…' : 'Tuning…',
+                              style: const TextStyle(
+                                color: KlipaColors.foreground,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   if (_error case final error?)
                     _PlayerError(
@@ -697,24 +722,35 @@ class _PlayerPaneState extends State<PlayerPane> {
                     alignment: Alignment.bottomCenter,
                     child: IgnorePointer(
                       ignoring: !controlsVisible,
-                      child: AnimatedOpacity(
-                        opacity: controlsVisible ? 1 : 0,
-                        duration: const Duration(milliseconds: 180),
-                        child: PlaybackControlBar(
-                          channelName: channel.name,
-                          playing: _playing,
-                          buffering: _buffering,
-                          reconnecting: _reconnecting,
-                          showStatus: _error == null,
-                          muted: _muted,
-                          volume: _muted ? 0 : _volume,
-                          fit: _fit,
-                          fullscreen: _fullscreen,
-                          onPlayPause: _player == null ? null : _togglePlayback,
-                          onMute: _player == null ? null : _toggleMute,
-                          onVolumeChanged: _player == null ? null : _setVolume,
-                          onFitChanged: _toggleFit,
-                          onFullscreenChanged: _toggleFullscreen,
+                      child: AnimatedSlide(
+                        offset: controlsVisible
+                            ? Offset.zero
+                            : const Offset(0, 0.14),
+                        duration: const Duration(milliseconds: 200),
+                        curve: const Cubic(0.2, 0.9, 0.1, 1.0),
+                        child: AnimatedOpacity(
+                          opacity: controlsVisible ? 1 : 0,
+                          duration: const Duration(milliseconds: 180),
+                          child: PlaybackControlBar(
+                            channelName: channel.name,
+                            playing: _playing,
+                            buffering: _buffering,
+                            reconnecting: _reconnecting,
+                            showStatus: _error == null,
+                            muted: _muted,
+                            volume: _muted ? 0 : _volume,
+                            fit: _fit,
+                            fullscreen: _fullscreen,
+                            onPlayPause: _player == null
+                                ? null
+                                : _togglePlayback,
+                            onMute: _player == null ? null : _toggleMute,
+                            onVolumeChanged: _player == null
+                                ? null
+                                : _setVolume,
+                            onFitChanged: _toggleFit,
+                            onFullscreenChanged: _toggleFullscreen,
+                          ),
                         ),
                       ),
                     ),
@@ -737,27 +773,40 @@ class _EmptyPlayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ColoredBox(
-    color: Colors.black,
+    color: KlipaColors.ink,
     child: Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.play_circle_outline_rounded,
-            size: 54,
-            color: KlipaColors.foregroundDim.withValues(alpha: 0.55),
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: KlipaColors.inkRaised,
+              borderRadius: BorderRadius.circular(KlipaRadius.card),
+              border: Border.all(color: KlipaColors.borderStrong),
+            ),
+            child: const Icon(
+              Icons.live_tv_rounded,
+              size: 28,
+              color: KlipaColors.foregroundMuted,
+            ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           const Text(
             'Choose a channel',
-            style: TextStyle(color: KlipaColors.foregroundMuted),
+            style: TextStyle(
+              color: KlipaColors.foreground,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           if (resumeChannel case final channel?) ...[
             const SizedBox(height: 16),
             OutlinedButton.icon(
               key: const Key('resume-last-channel'),
               onPressed: onResume,
-              icon: const Icon(Icons.history_rounded, size: 18),
+              icon: const Icon(Icons.play_arrow_rounded, size: 18),
               label: Text(
                 'Resume ${channel.name}',
                 maxLines: 1,
@@ -779,23 +828,55 @@ class _PlayerError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ColoredBox(
-    color: Colors.black.withValues(alpha: 0.88),
+    color: Colors.black.withValues(alpha: 0.84),
     child: Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 440),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.warning_amber_rounded, size: 36),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 18),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Try again'),
-            ),
-          ],
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Container(
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: KlipaColors.inkRaised,
+            borderRadius: BorderRadius.circular(KlipaRadius.card),
+            border: Border.all(color: KlipaColors.borderStrong),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: KlipaColors.danger.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(KlipaRadius.control),
+                  border: Border.all(
+                    color: KlipaColors.danger.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  size: 24,
+                  color: KlipaColors.danger,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: KlipaColors.foreground,
+                  fontSize: 14.5,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Try again'),
+              ),
+            ],
+          ),
         ),
       ),
     ),
