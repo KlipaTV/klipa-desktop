@@ -97,7 +97,6 @@ https sources were sent as cleartext HTTP to port 443 in 0.1.1 and 0.1.2
 - The package does carry its revision (`Source-Revision` and
   `/usr/share/doc/klipa-player/SOURCE_REVISION`, since the 2026-09-16 packager);
   the v0.1.2 notes saying it embeds no commit were wrong.
-||||||| parent of 47501aa (docs: record the Store path and what the owner still does)
 
 ## Status update: 2026-10-26, v0.1.2
 
