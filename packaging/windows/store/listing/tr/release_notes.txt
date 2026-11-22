@@ -1,1 +1,1 @@
-Microsoft Store'daki ilk sürüm: M3U, M3U8 ve Xtream kaynaklarından canlı kanallar, sağlayıcınızın rehberinden şu an ve sırada ne olduğu, arama, favoriler, tam ekran ve klavyeyle kanal değiştirme.
+Yeni tasarım, Android'deki Klipa ve klipa.tv ile aynı: koyu bir sinema teması, dönen simgeler yerine içeriğin biçiminde yükleme iskeletleri, görüntünün üzerinde yüzen bir kontrol çubuğu ve üç seçenekli daha basit bir ilk açılış: Xtream hesabı, yapıştır düğmeli M3U bağlantısı ya da dosya.

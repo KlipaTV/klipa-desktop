@@ -1,1 +1,1 @@
-Prima versione sul Microsoft Store: canali in diretta da sorgenti M3U, M3U8 e Xtream, in onda ora e a seguire dalla guida del tuo provider, ricerca, preferiti, schermo intero e cambio canale da tastiera.
+Nuovo design, lo stesso di Klipa su Android e klipa.tv: un tema scuro da cinema, segnaposto di caricamento con la forma del contenuto al posto delle rotelle, una barra dei controlli fluttuante sull'immagine e un primo avvio più semplice con tre scelte: account Xtream, link M3U con pulsante incolla o file.

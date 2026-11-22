@@ -8,8 +8,10 @@ approves a release destination and audience.
 
 Windows ships as an MSIX through the Microsoft Store (D-0024). Version 0.1.4
 is the first submission: its package went to Partner Center on 2026-11-03,
-set to "Publish this submission manually", so nothing for Windows is live
-until the owner publishes it after certification.
+set to "Publish this submission manually". It passed certification and has
+been live since 2026-11-04 14:19 UTC as Store ID `9N20B60FQ5XP` (klipa-web
+`infra/server/docs/OPERATIONS.md`, row 26). This record reached `main` only
+on 2026-11-22, with 0.1.5.
 
 - The media runtime is the GitHub release `media-runtime-v1`, a build input
   that is not marked latest. `windows-media-runtime.zip` (SHA-256

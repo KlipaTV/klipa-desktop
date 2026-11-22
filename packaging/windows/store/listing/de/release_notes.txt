@@ -1,1 +1,1 @@
-Erste Version im Microsoft Store: Live-Sender aus M3U-, M3U8- und Xtream-Quellen, jetzt und danach aus dem Guide deines Anbieters, Suche, Favoriten, Vollbild und Senderwechsel per Tastatur.
+Neues Design, dasselbe wie bei Klipa für Android und auf klipa.tv: ein dunkles Kino-Theme, Ladeplatzhalter in der Form des Inhalts statt drehender Kreise, eine schwebende Steuerleiste über dem Bild und ein einfacherer erster Start mit drei Möglichkeiten: Xtream-Konto, M3U-Link mit Einfügen-Taste oder Datei.

@@ -1,1 +1,1 @@
-Pierwsze wydanie w Microsoft Store: kanały na żywo ze źródeł M3U, M3U8 i Xtream, co jest teraz i co dalej według przewodnika dostawcy, wyszukiwanie, ulubione, pełny ekran i przełączanie kanałów z klawiatury.
+Nowy wygląd, taki sam jak w Klipa na Androidzie i na klipa.tv: ciemny motyw kinowy, szkielety ładowania w kształcie treści zamiast kręcących się kółek, pływający pasek sterowania nad obrazem i prostsze pierwsze uruchomienie z trzema opcjami: konto Xtream, link M3U z przyciskiem wklejania albo plik.

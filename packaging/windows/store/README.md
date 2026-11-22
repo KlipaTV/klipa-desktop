@@ -126,8 +126,8 @@ of these is the owner's:
 4. Run `windows-release` from `main` (Actions > windows-release > Run
    workflow; no tag is needed) and take the MSIX from the artifact whose name
    has no `PLACEHOLDER-IDENTITY` suffix, with the screenshots in its `smoke/`
-   folder. 0.1.5 is the first Store version (0.1.4 was built but never
-   submitted); each later submission moves
+   folder. 0.1.4 was the first Store version (live since 2026-11-04, Store
+   ID `9N20B60FQ5XP`); each later submission moves
    `pubspec.yaml` and `packaging/windows/klipa-player.iss` past the last one.
 5. Make `https://klipa.tv/privacy/#desktop` live (the privacy commit of
    klipa-web branch `feat/desktop-windows-store`).
