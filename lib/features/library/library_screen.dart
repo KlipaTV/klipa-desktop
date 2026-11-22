@@ -13,6 +13,7 @@ import '../../domain/playlist_source.dart';
 import '../player/player_pane.dart';
 import 'library_controller.dart';
 import 'library_state.dart';
+import 'source_transfer_dialog.dart';
 
 class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
@@ -251,6 +252,14 @@ class _Onboarding extends StatelessWidget {
               title: 'File',
               subtitle: 'Open a local .m3u or .m3u8 file',
               onTap: actions.openLocalPlaylist,
+            ),
+            const SizedBox(height: 10),
+            _OnboardingOptionCard(
+              key: const Key('receive-from-phone'),
+              icon: Icons.phonelink_rounded,
+              title: 'Receive from phone',
+              subtitle: 'Transfer a source with a one-time code',
+              onTap: actions.receiveFromPhone,
             ),
             const SizedBox(height: 20),
             const Row(
@@ -617,6 +626,11 @@ class _SourceRail extends StatelessWidget {
               onPressed: actions.useXtreamLogin,
             ),
             _SmallRailButton(
+              tooltip: 'Receive from phone',
+              icon: Icons.phonelink_rounded,
+              onPressed: actions.receiveFromPhone,
+            ),
+            _SmallRailButton(
               tooltip: 'Reset app data',
               icon: Icons.delete_outline_rounded,
               onPressed: actions.resetAppData,
@@ -665,6 +679,11 @@ class _SourceRail extends StatelessWidget {
         tooltip: 'Use Xtream login',
         icon: Icons.key_rounded,
         onPressed: actions.useXtreamLogin,
+      ),
+      _RailButton(
+        tooltip: 'Receive from phone',
+        icon: Icons.phonelink_rounded,
+        onPressed: actions.receiveFromPhone,
       ),
       _RailButton(
         tooltip: 'Reset app data',
@@ -734,12 +753,16 @@ class _LibraryActions {
        useXtreamLogin = enabled
            ? (() => unawaited(_showXtreamDialog(context, controller)))
            : null,
+       receiveFromPhone = enabled
+           ? (() => unawaited(_showSourceTransferDialog(context, controller)))
+           : null,
        resetAppData = enabled ? onReset : null;
 
   final VoidCallback? openLocalPlaylist;
   final VoidCallback? addPlaylistUrl;
   final VoidCallback? pastePlaylistUrl;
   final VoidCallback? useXtreamLogin;
+  final VoidCallback? receiveFromPhone;
   final VoidCallback? resetAppData;
 }
 
@@ -913,11 +936,14 @@ class _SmallRailButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Tooltip(
     message: tooltip,
-    child: IconButton(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-      padding: EdgeInsets.zero,
+    child: SizedBox(
+      width: 44,
+      height: 48,
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        padding: EdgeInsets.zero,
+      ),
     ),
   );
 }
@@ -1685,7 +1711,7 @@ Future<void> _showLocalPlaylistWarning(
       title: const Text('Open trusted playlist?'),
       content: const SizedBox(
         width: 500,
-        child: _ProviderTrustNotice(key: Key('local-playlist-trust-warning')),
+        child: ProviderTrustNotice(key: Key('local-playlist-trust-warning')),
       ),
       actions: [
         TextButton(
@@ -1735,6 +1761,32 @@ Future<void> _showUrlDialog(
     allowPrivateNetwork: request.allowPrivateNetwork,
     guideUrl: request.guideUrl,
   );
+}
+
+Future<void> _showSourceTransferDialog(
+  BuildContext context,
+  LibraryController controller,
+) async {
+  final received = await showDialog<SourceTransferImport>(
+    context: context,
+    builder: (context) => const SourceTransferDialog(),
+  );
+  if (received == null || !context.mounted) return;
+  final (:source, :allowPrivateNetwork) = received;
+  final login = source.xtreamLogin;
+  if (login == null) {
+    await controller.importUrl(
+      source.address.toString(),
+      allowPrivateNetwork: allowPrivateNetwork,
+    );
+  } else {
+    await controller.importXtream(
+      server: source.address.toString(),
+      username: login.username,
+      password: login.password,
+      allowPrivateNetwork: allowPrivateNetwork,
+    );
+  }
 }
 
 Future<void> _showXtreamDialog(
@@ -1801,7 +1853,7 @@ class _UrlImportDialogState extends State<_UrlImportDialog> {
               'The address is fetched directly by this app. HTTPS is recommended.',
             ),
             const SizedBox(height: 10),
-            const _ProviderTrustNotice(),
+            const ProviderTrustNotice(),
             const SizedBox(height: 16),
             TextField(
               key: const Key('playlist-url-field'),
@@ -1917,7 +1969,7 @@ class _XtreamImportDialogState extends State<_XtreamImportDialog> {
               'Enter the login issued by a provider you are authorized to use.',
             ),
             const SizedBox(height: 10),
-            const _ProviderTrustNotice(),
+            const ProviderTrustNotice(),
             const SizedBox(height: 10),
             const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2014,25 +2066,4 @@ class _XtreamImportDialogState extends State<_XtreamImportDialog> {
     _passwordController.clear();
     Navigator.pop(context, request);
   }
-}
-
-class _ProviderTrustNotice extends StatelessWidget {
-  const _ProviderTrustNotice({super.key});
-
-  @override
-  Widget build(BuildContext context) => const Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Icon(Icons.security_rounded, size: 18, color: KlipaColors.warning),
-      SizedBox(width: 8),
-      Expanded(
-        child: Text(
-          'Only continue with a source you trust. HLS/DASH streams can send '
-          'the player to additional hosts; Klipa does not proxy or validate '
-          'every nested media request.',
-          style: TextStyle(color: KlipaColors.foregroundDim, fontSize: 12),
-        ),
-      ),
-    ],
-  );
 }

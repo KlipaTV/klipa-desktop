@@ -24,10 +24,17 @@ playback architecture and is disclosed before every source import.
 | Local storage | Desktop imports, favorites, bounded navigation, provider guide IDs, optional M3U guide URLs, and programme snapshots are saved in SQLite3MultipleCiphers; UI state receives source summaries and stable identities without locations or credentials; restored navigation is validated and never autoplays; refresh reads secrets transiently and publishes only after an atomic replacement succeeds; schema v4 preserves stable favorites and the last valid EPG snapshot; confirmed delete cascades all source data; a random 256-bit key is sealed with Windows DPAPI or Linux Secret Service; there is no plaintext fallback; tests scan the database, live WAL and SHM for seeded secrets and cover wrong/missing keys plus reset primitives |
 | Secrets in source | No provider fixture, host, account, token, certificate bypass or signing credential is committed |
 
-The installed app has no Klipa VPS dependency and does not contact Klipa on
-install, launch, library browsing, playback, or EPG refresh. Provider network
-traffic is direct from the app to the user-configured source. No analytics,
-heartbeat, remote configuration, guide proxy, or background updater is present.
+The app contacts klipa.tv only when the user generates a source transfer code.
+It requires a token-bound code, polls over HTTPS with redirects disabled,
+and closes the connection after receipt or cancellation. The relay deletes the
+source on claim or no later than 60 seconds after sending. The review shows the
+source type and host. It requires confirmation before a provider request and
+keeps private network access off by default. M3U sources requiring custom
+request headers are unsupported in the desktop transfer.
+
+Provider network traffic goes directly to the user-configured source. The app
+has no analytics, heartbeat, remote configuration, guide proxy, or background
+updater.
 
 ## Accepted lightweight playback boundary
 

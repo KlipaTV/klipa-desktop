@@ -9,8 +9,7 @@ promotes Klipa mobile without behaving like adware.
 - No channels, accounts, ads, tracking, or background service.
 - Data and guide processing stay on the PC.
 - Desktop-native keyboard, mouse, resize, focus, Narrator, and high-DPI behavior.
-- One process, one window, one encrypted database, one HTTP client, and one
-  player instance.
+- One process, one window, one encrypted database, and one player instance.
 - Current stable dependencies with a maximum of twelve direct runtime packages.
 
 ## Alpha outcome

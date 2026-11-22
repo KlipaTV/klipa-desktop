@@ -69,14 +69,15 @@ only and never refreshes over the network.
 
 ## Runtime network boundary
 
-Install and application startup do not perform network requests. The runtime
-contains no Klipa API client, guide proxy, telemetry sender, remote logger, or
-automatic update checker. Playlist, guide, artwork, and media requests are
+Install and application startup do not perform network requests. The source
+transfer client contacts klipa.tv only after the user generates a one-time
+code. It closes on receipt, cancellation or failure. Provider import starts
+after the user reviews and confirms the received source. Playlist, guide,
+artwork, and media requests are
 allowed only toward user-configured provider locations after the relevant user
 action. Xtream XMLTV is derived from the saved provider origin; M3U XMLTV
 requires an explicit URL and is never guessed or discovered. A promotional
-Klipa link, if added later, must be an explicit action
-that opens the system browser and must not become an in-app service dependency.
+Klipa link must be an explicit action that opens the system browser.
 
 The bounded Dart client validates every app-managed destination and redirect.
 Playback is the deliberate exception: after top-level validation, libmpv may

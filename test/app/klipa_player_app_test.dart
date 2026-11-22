@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:klipa_player_windows/app/app_theme.dart';
 import 'package:klipa_player_windows/app/klipa_player_app.dart';
 import 'package:klipa_player_windows/data/library_store.dart';
+import 'package:klipa_player_windows/data/source_transfer_service.dart';
 import 'package:klipa_player_windows/domain/channel.dart';
 import 'package:klipa_player_windows/domain/library_source.dart';
 import 'package:klipa_player_windows/domain/playlist_source.dart';
@@ -12,6 +15,48 @@ import 'package:klipa_player_windows/features/library/library_controller.dart';
 import 'package:klipa_player_windows/features/library/library_state.dart';
 
 void main() {
+  testWidgets('a received source requires confirmation before import', (
+    tester,
+  ) async {
+    final relay = _TransferRelay();
+    final library = _TransferLibrary();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          libraryControllerProvider.overrideWith(() => library),
+          sourceTransferServiceProvider.overrideWithValue(() => relay),
+        ],
+        child: const KlipaPlayerApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('receive-from-phone')));
+    await tester.tap(find.byKey(const Key('receive-from-phone')));
+    await tester.pumpAndSettle();
+    expect(relay.creates, 0);
+
+    await tester.tap(find.text('Generate code'));
+    await tester.pumpAndSettle();
+    expect(find.text('123-456'), findsOneWidget);
+    expect(relay.creates, 1);
+
+    relay.received.complete(
+      ReceivedSource(Uri.parse('https://example.test/playlist.m3u')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Import received source?'), findsOneWidget);
+    expect(find.text('example.test'), findsOneWidget);
+    expect(relay.closed, isTrue);
+    expect(library.imported, isNull);
+
+    await tester.tap(find.text('Import'));
+    await tester.pumpAndSettle();
+    expect(library.imported, (
+      url: 'https://example.test/playlist.m3u',
+      allowPrivateNetwork: false,
+    ));
+  });
+
   testWidgets('first run explains content ownership and import choices', (
     tester,
   ) async {
@@ -384,6 +429,44 @@ void main() {
 
     expect(_BlockedImportFixtureController.selectCount, 0);
   });
+}
+
+final class _TransferRelay extends SourceTransferService {
+  final received = Completer<ReceivedSource>();
+  int creates = 0;
+  bool closed = false;
+
+  @override
+  Future<SourceTransferSlot> createSlot() async {
+    creates++;
+    return SourceTransferSlot('123-456', 'test', const Duration(minutes: 5));
+  }
+
+  @override
+  Future<ReceivedSource> waitForSource(SourceTransferSlot slot) =>
+      received.future;
+
+  @override
+  void close() {
+    closed = true;
+    super.close();
+  }
+}
+
+final class _TransferLibrary extends LibraryController {
+  ({String url, bool allowPrivateNetwork})? imported;
+
+  @override
+  LibraryState build() => LibraryState();
+
+  @override
+  Future<void> importUrl(
+    String value, {
+    required bool allowPrivateNetwork,
+    String? guideUrl,
+  }) async {
+    imported = (url: value, allowPrivateNetwork: allowPrivateNetwork);
+  }
 }
 
 Widget _testApp() => ProviderScope(

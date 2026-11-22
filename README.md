@@ -26,6 +26,8 @@ Public source, pre-release candidate (one tagged Linux release exists; see the
   switching, bounded readiness, retry, a bounded automatic reopen of a live
   channel that stopped after it played, and generic user-facing native errors
 - Strict HTTP(S), redirect, size, header, protocol and private-network controls
+- Receive one M3U URL or Xtream login from Klipa on your phone with a one-time
+  code. Review the source and confirm before the desktop app connects to it.
 - Import-time disclosure that HLS/DASH sources may choose nested media hosts;
   the lightweight player trusts each user-added source for destinations while
   continuing to treat its metadata and media as untrusted input
@@ -44,8 +46,8 @@ Public source, pre-release candidate (one tagged Linux release exists; see the
   parser, atomic encrypted now/next snapshots, Xtream import/refresh integration,
   an optional encrypted M3U guide address, and compact current-programme labels
   are implemented
-- Runtime networking has no Klipa service dependency: install and startup make
-  no Klipa request, and provider data is never routed through Klipa
+- Install, startup, playback, and programme guides run without a Klipa service
+  connection. The optional one-time transfer uses the klipa.tv relay.
 - Confirmed reset and missing/corrupt-key recovery are wired; the Windows
   release workflow builds an unsigned MSIX for the Microsoft Store, which signs
   Store packages after certification (see
@@ -105,10 +107,10 @@ sealed to the current Windows user with DPAPI. There is no plaintext fallback.
 Linux uses the same encrypted database and stores only its random key in the
 desktop Secret Service keyring.
 
-The application has no Klipa API, telemetry, update-check, guide proxy, or
-startup endpoint. Network access is initiated only for a source the user adds,
-its provider-hosted guide/artwork/media, or a future explicit external-browser
-promotion action. Normal operation does not require a Klipa VPS.
+The application has no telemetry, update checks, guide proxy, or startup
+network requests. Playlist, guide, artwork and media requests go directly to
+the user-added source. The optional device transfer contacts klipa.tv when
+you generate a code and closes when the source arrives or you cancel.
 
 Repository collaboration and agent handoff rules are in
 [`AGENTS.md`](AGENTS.md). Read them before changing source, packaging, security,
