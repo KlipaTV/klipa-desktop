@@ -56,6 +56,7 @@ class SourceTransferService {
   final _client = HttpClient()
     ..connectionTimeout = const Duration(seconds: 10)
     ..idleTimeout = const Duration(seconds: 5);
+  bool _closed = false;
 
   Future<SourceTransferSlot> createSlot() async {
     final (_, body) = await _request(
@@ -86,7 +87,7 @@ class SourceTransferService {
       path: '/pair/claim',
       queryParameters: {'code': slot.code},
     );
-    while (slot._age.elapsed < slot._ttl) {
+    while (!_closed && slot._age.elapsed < slot._ttl) {
       final (status, body) = await _request(
         'GET',
         uri,
@@ -96,10 +97,11 @@ class SourceTransferService {
         timeout: const Duration(seconds: 35),
       );
       if (status == HttpStatus.ok) return _parseSource(body);
-      if (slot._age.elapsed < slot._ttl) {
+      if (!_closed && slot._age.elapsed < slot._ttl) {
         await Future<void>.delayed(const Duration(milliseconds: 400));
       }
     }
+    if (_closed) throw _unavailable;
     throw _expired;
   }
 
@@ -190,5 +192,8 @@ class SourceTransferService {
     }
   }
 
-  void close() => _client.close(force: true);
+  void close() {
+    _closed = true;
+    _client.close(force: true);
+  }
 }

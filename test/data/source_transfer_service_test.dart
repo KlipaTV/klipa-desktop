@@ -112,4 +112,18 @@ void main() {
       ),
     );
   });
+
+  test('stops polling after close during the backoff delay', () async {
+    waitOnePoll = true;
+    final slot = await service.createSlot();
+    final future = service.waitForSource(slot);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    service.close();
+    await expectLater(future, throwsA(isA<SourceTransferException>()));
+    await Future<void>.delayed(const Duration(milliseconds: 450));
+    expect(requests, [
+      (method: 'POST', path: '/pair/new', token: null),
+      (method: 'GET', path: '/pair/claim?code=$_code', token: _token),
+    ]);
+  });
 }

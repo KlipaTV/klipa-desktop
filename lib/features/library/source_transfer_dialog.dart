@@ -105,9 +105,12 @@ class _SourceTransferDialogState extends ConsumerState<SourceTransferDialog> {
               Center(
                 child: SelectableText(
                   code,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.displaySmall?.copyWith(letterSpacing: 5),
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    fontFamilyFallback: const ['Consolas', 'DejaVu Sans Mono'],
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                    letterSpacing: 5,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
