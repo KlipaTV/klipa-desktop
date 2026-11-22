@@ -4,6 +4,45 @@ Nothing in this checklist authorizes publishing. Apart from the Linux
 releases recorded below, every artifact remains local until the owner explicitly
 approves a release destination and audience.
 
+## Status update: 2026-11-22, v0.1.5
+
+Cut on 2026-11-22 with the owner's explicit approval ("Windows y linux publica
+cuando quieras"), to ship the 0.10 interface (`2823b11`) on both platforms.
+
+- Tag `v0.1.5` (annotated, unsigned) resolves to
+  `80d9e9b3be39abbdab94388fde061d9d057b7486`, the `main` HEAD it was cut from.
+  CI passed on that commit on `windows-latest` (run 45031326841).
+- Linux: the GitHub release "Klipa Player 0.1.5 (Linux amd64)" is published and
+  is the latest. Assets: `klipa-player_0.1.5-1_amd64.deb` (9,929,488 bytes,
+  SHA-256 `dedd6737264d917350d6f42be2b5b8047d9424fad51b0fdca800b719110f2316`),
+  `SHA256SUMS.txt`, `sbom-source.cdx.json` (syft 1.51.1, 144 components) and
+  `THIRD_PARTY_NOTICES.md`. klipa.tv serves the same bytes at
+  `/downloads/desktop/klipa-player_0.1.5-1_amd64.deb`; the older packages stay
+  served and the site's `SHA256SUMS.txt` lists all four (klipa-web OPERATIONS
+  row 37). The site's `THIRD_PARTY_NOTICES.txt` is unchanged: the 0.1.5
+  bundle's Flutter `NOTICES` is byte-identical to 0.1.3's.
+- Gates run: format, analyze and `flutter test` (151 passed, 3 skipped as
+  Windows-only), the Store listing check (11 locales), `flutter build linux
+  --release`, `tool/package_linux.sh` (two packagings of one commit gave one
+  SHA-256), install, start (6 s, zero TCP connections) and removal as root in
+  throwaway Ubuntu 24.04 and Debian 13 containers, and grype 0.121.1 over the
+  source SBOM (no findings).
+- Windows: the tag's `windows-release` run 45032738440 packaged
+  `KlipaPlayer-0.1.5.0-x64.msix` with the Partner Center identity (artifact
+  `windows-store-msix-0.1.5.0-45032738440`, 57,128,563 bytes, SHA-256
+  `3a986dbd88a204841e0745b955fd720bdf88df5f743ca6bd777a9078d4ace5c9`). Its
+  test-signed copy installed as
+  `KlipaPlayer.KlipaPlayer_0.1.5.0_x64__s6nebh57ks44p`, started with zero TCP
+  connections, played the HTTPS probe with TLS verification on, left no package
+  data after removal and passed WACK (overall PASS). The Store screenshots in
+  its `smoke/` folder show the 0.10 interface.
+- Not yet done: the Partner Center submission of that MSIX, with the 0.1.5
+  "What's new" text of `packaging/windows/store/listing/*/release_notes.txt`
+  and the new screenshots. The owner set it for 2026-11-23. Until then the
+  Store serves 0.1.4.
+- Not run: the parser fuzz (no parser changed), `tool/validate_linux_install.sh`,
+  the GPU media matrix, a Wayland session, and an upgrade from the 0.1.4 MSIX.
+
 ## Status update: 2026-11-03, Windows through the Microsoft Store
 
 Windows ships as an MSIX through the Microsoft Store (D-0024). Version 0.1.4
