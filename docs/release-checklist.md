@@ -4,6 +4,48 @@ Nothing in this checklist authorizes publishing. Apart from the Linux
 releases recorded below, every artifact remains local until the owner explicitly
 approves a release destination and audience.
 
+## Status update: 2026-11-27, v0.1.6
+
+Cut on 2026-11-27 with the owner's explicit approval ("Luz verde trabaja"),
+shipping phone-to-desktop source transfer (`98089e2`, `d817128`) together with
+the 0.10 interface so Windows Partner Center can jump directly from `0.1.4` to
+`0.1.6` in one submission.
+
+- Tag `v0.1.6` (annotated, unsigned) resolves to
+  `4cd0f8d2de1073e06cc3d61bf77ebc297c424d73`, the `main` HEAD it was cut from.
+  CI passed on that commit on `windows-latest` (run `45961606254`).
+- Linux: the GitHub release "Klipa Player 0.1.6 (Linux amd64)" is published and
+  is the latest. Assets: `klipa-player_0.1.6-1_amd64.deb` (9,946,916 bytes,
+  SHA-256 `87e9d265e8a495f8ff35b11bbdc2c68543ab80ea83017b61f95a46b3c3d2492f`),
+  `SHA256SUMS.txt`, `sbom-source.cdx.json` (syft 1.57.2, 144 components) and
+  `THIRD_PARTY_NOTICES.md`. klipa.tv serves the same bytes at
+  `/downloads/desktop/klipa-player_0.1.6-1_amd64.deb`; older packages (`0.1.1`,
+  `0.1.2`, `0.1.3`, `0.1.5`) stay served and the site's `SHA256SUMS.txt` lists
+  all five (klipa-web OPERATIONS row 40). The site's `THIRD_PARTY_NOTICES.txt`
+  is unchanged: the 0.1.6 bundle's Flutter `NOTICES.Z` decompresses
+  byte-identically to 0.1.5's (`1,445,766` bytes).
+- Gates run: `dart format --output=none --set-exit-if-changed lib test tool`
+  (60 files, 0 changed), `flutter analyze` (0 issues), `flutter test` (157
+  passed, 3 skipped as Windows-only), Store listing check (11 locales pass),
+  `flutter build linux --release`, `tool/package_linux.sh` (`SOURCE_DATE_EPOCH`
+  `1795766013`, two packagings of one commit gave identical SHA-256), install,
+  start (6 s, zero TCP connections) and purge removal as root in throwaway
+  Ubuntu 24.04 and Debian 13 containers, and grype 0.121.1 over the source SBOM
+  (no vulnerabilities found).
+- Windows: the tag's `windows-release` run `45961609515` packaged
+  `KlipaPlayer-0.1.6.0-x64.msix` with the Partner Center identity (artifact
+  `windows-store-msix-0.1.6.0-45961609515`, ID `15181093983`, 57,194,207 bytes,
+  MSIX SHA-256
+  `07da16613b3b8ac2ac27771ba0da505c2e2a51360c886777d032c9ff0c252122`). 156 tests
+  passed (4 skipped), HTTPS TLS probe passed, and its test-signed copy
+  installed, started with zero TCP connections, left no package data after
+  removal, and passed WACK (overall PASS).
+- Not yet done: Partner Center submission of `KlipaPlayer-0.1.6.0-x64.msix`
+  with the 0.1.6 `packaging/windows/store/listing/*/release_notes.txt` text
+  (owner-only web upload). Until submitted, the Store serves 0.1.4.
+- Not run: the parser fuzz (no parser changed), `tool/validate_linux_install.sh`,
+  the GPU media matrix, a Wayland session, and an upgrade from the 0.1.4 MSIX.
+
 ## Status update: 2026-11-22, v0.1.5
 
 Cut on 2026-11-22 with the owner's explicit approval ("Windows y linux publica
