@@ -1,1 +1,1 @@
-Yeni tasarım, Android'deki Klipa ve klipa.tv ile aynı: koyu bir sinema teması, dönen simgeler yerine içeriğin biçiminde yükleme iskeletleri, görüntünün üzerinde yüzen bir kontrol çubuğu ve üç seçenekli daha basit bir ilk açılış: Xtream hesabı, yapıştır düğmeli M3U bağlantısı ya da dosya.
+Telefonundan tek kullanımlık altı haneli kodla kaynak al (klipa.tv üzerinden yalnızca bellekte aktarılır, alındığında veya 60 saniye sonra silinir). Android ve klipa.tv ile ortak 0.10 tasarımı da dahil: koyu sinema teması, yükleme iskeletleri, yüzen kontrol çubuğu ve daha basit ilk açılış.
